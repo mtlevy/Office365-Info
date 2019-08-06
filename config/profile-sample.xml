@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<Settings>
+  <Tenant>
+    <Name>Sample Tenant</Name>
+    <ShortName>Sample</ShortName>
+    <Description>Sample tenant description</Description>
+  </Tenant>
+  <Azure>
+    <TenantID></TenantID>
+    <AppID></AppID>
+    <AppSecret></AppSecret>
+  </Azure>
+  <Output>
+    <!-- All paths, if not absolute, are relative to the location of the running script-->
+    <LogPath>Logs</LogPath>
+    <HTMLPath>c:\inetpub\wwwroot\</HTMLPath>
+    <HTMLFileName>O365Wall.html</HTMLFileName>
+    <UseEventLog>True</UseEventLog>
+    <EventLog>O365 Health</EventLog>
+  </Output>
+  <Email>
+    <SMTPServer>smtp.office365.com</SMTPServer>
+    <Port>587</Port>
+    <UseSSL>True</UseSSL>
+    <From>sender@domain.com</From>
+    <Username>authenticate@domain.com</Username>
+    <PasswordFile>C:\credentials\StoreMySecurePassword.pwd</PasswordFile>
+    <AESKeyFile>C:\credentials\StoreMyEncryptionKey.key</AESKeyFile>
+  </Email>
+  <Monitor>
+    <alertsTo>monitor@domain.com</alertsTo>
+    <EventSource>O365 Email Monitor</EventSource>
+  </Monitor>
+  <WallDashboard>
+    <Name>Office 365 Workload Wall</Name>
+    <Refresh>5</Refresh>
+    <EventSource>O365 Wall</EventSource>
+  </WallDashboard>
+  <Dashboard>
+    <Name>Office 365 Dashboard</Name>
+    <Refresh>15</Refresh>
+    <EventSource>O365 Dashboard</EventSource>
+    <Logo></Logo>
+  </Dashboard>
+  <UsageReports>
+    <Path>C:\UsageReports\</Path>
+    <EventSource>O365 Usage Reports</EventSource>
+  </UsageReports>
+  <Proxy>
+    <UseProxy>false</UseProxy>
+    <ProxyHost>http://proxyfqdn.domain.com</ProxyHost>
+  </Proxy>
+</Settings>
