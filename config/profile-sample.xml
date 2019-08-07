@@ -1,11 +1,13 @@
 <?xml version="1.0"?>
 <Settings>
   <Tenant>
+    <!-- Basic tenant information. Shortname is used in filenames to help identify tenants-->
     <Name>Sample Tenant</Name>
     <ShortName>Sample</ShortName>
     <Description>Sample tenant description</Description>
   </Tenant>
   <Azure>
+    <!-- Azure AD App information for connectivity to tenant-->
     <TenantID></TenantID>
     <AppID></AppID>
     <AppSecret></AppSecret>
@@ -13,40 +15,56 @@
   <Output>
     <!-- All paths, if not absolute, are relative to the location of the running script-->
     <LogPath>Logs</LogPath>
+    <!-- Where any HTML documents should be saved-->
     <HTMLPath>c:\inetpub\wwwroot\</HTMLPath>
-    <HTMLFileName>O365Wall.html</HTMLFileName>
+    <!-- If using the local event log on the machine that runs the scripts, define which custom event log to use-->
     <UseEventLog>True</UseEventLog>
     <EventLog>O365 Health</EventLog>
   </Output>
   <Email>
+    <!-- Email server connectivity settings. Can be office365 or other mail system-->
+    <!-- SendReport function in the common module can be trimmed if there is no need for username/password (ie internal systems)-->
+    <!-- Current settings are required to use exchange online. 'From' should be the authenticated user -->
     <SMTPServer>smtp.office365.com</SMTPServer>
     <Port>587</Port>
     <UseSSL>True</UseSSL>
     <From>sender@domain.com</From>
+    <!-- Leave blank for no authentication (ie internal mail system)-->
     <Username>authenticate@domain.com</Username>
     <PasswordFile>C:\credentials\StoreMySecurePassword.pwd</PasswordFile>
     <AESKeyFile>C:\credentials\StoreMyEncryptionKey.key</AESKeyFile>
   </Email>
   <Monitor>
+    <!-- Where to send monitoring alerts to. Comma separated quoted list "john@home.com","bob@vader.net"-->
     <alertsTo>monitor@domain.com</alertsTo>
+    <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Email Monitor</EventSource>
   </Monitor>
   <WallDashboard>
     <Name>Office 365 Workload Wall</Name>
+    <HTMLFileName>O365Wall.html</HTMLFileName>
+    <!-- Refresh interval in minutes-->
     <Refresh>5</Refresh>
+    <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Wall</EventSource>
   </WallDashboard>
   <Dashboard>
     <Name>Office 365 Dashboard</Name>
+    <HTMLFileName>O365Dashboard.html</HTMLFileName>
+    <!-- Refresh interval in minutes-->
     <Refresh>15</Refresh>
+    <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Dashboard</EventSource>
     <Logo></Logo>
   </Dashboard>
   <UsageReports>
+    <!-- Where to store the Office 365 Usage Reports (CSV)-->
     <Path>C:\UsageReports\</Path>
+    <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Usage Reports</EventSource>
   </UsageReports>
   <Proxy>
+    <!-- Proxy settings if required-->
     <UseProxy>false</UseProxy>
     <ProxyHost>http://proxyfqdn.domain.com</ProxyHost>
   </Proxy>

@@ -103,8 +103,13 @@ if (!$pathLogs) {
     $pathLogs = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 }
 
-#
-$EmailCreds = getCreds $SMTPUser $SMTPPassword $SMTPKey
+# Check for a username. No username, no need for credentials (internal mail host?)
+$emailCreds=$null
+if ($smtpuser -notlike '') {
+	#Email credentials have been specified, so build the credentials.
+	#See readme on how to build credentials files
+	$EmailCreds = getCreds $SMTPUser $SMTPPassword $SMTPKey
+}
 
 #Check and trim the report path
 $pathLogs = $pathLogs.TrimEnd("\")
@@ -133,7 +138,7 @@ Write-Log $evtMessage
 
 if ($config.UseProxy -like 'true') {
     [boolean]$ProxyServer = $true
-    $evtMessage = "Using proxy sevrer $($proxyHost) for connectivity"
+    $evtMessage = "Using proxy server $($proxyHost) for connectivity"
     Write-Log $evtMessage
 }
 else {
@@ -151,12 +156,6 @@ if ($UseEventLog) {
         Write-EventLog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
     }
 }
-
-#Experimental
-if ($proxyServer) {
-    $authProxy = "-Proxy '$($ProxyHost)' -ProxyUseDefaultCredentials"
-}
-else { $authProxy = "" }
 
 #Keep a list of known issues in CSV. This is useful if the event log is cleared, or not used.
 [string]$knownIssues = ".\knownIssues-$($rptprofile).csv"
@@ -188,8 +187,8 @@ $authHeader = @{
 #	Returns the messages about the service over a certain time range.
 $uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
 
-if ($proxy) {
-    [array]$allMessages = (Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get $($authProxy)).Value
+if ($ProxyServer) {
+    [array]$allMessages = (Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value
 }
 else {
     [array]$allMessages = (Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get).Value
@@ -205,11 +204,6 @@ else {
     $evtMessage = "$($allMessages.count) messages returned."
     Write-Log $evtMessage
 }
-
-#Get all messages
-#compare to list of previously known issues.
-#New issues minus old issues = new
-#closed issues = old issues with no end date
 
 $currentIncidents = $allMessages | Where-Object { ($_.messagetype -notlike 'MessageCenter') }
 $newIncidents = $currentIncidents | Where-Object { $_.id -notin $knownIssuesList.id }
@@ -272,10 +266,12 @@ foreach ($item in $reportClosed) {
     $mailMessage += "<b>End Time</b>`t: <b>$(get-date $item.EndTime -f 'dd-MMM-yyyy HH:mm')</b><br/>"
     $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
     $mailMessage += "$($item.ImpactDescription)<br/><br/>"
-    $mailMessage += "<b>Final Update from Microsoft</b>`t:<br/>"
-    $mailMessage += "$($item.Messages[-1].MessageText)<br/><br/>"
+	#Add the last action from microsoft to the email only - not to the event log entry
+    $mailWithLastAction = $mailMessage + "<b>Final Update from Microsoft</b>`t:<br/>"
+	$lastMessage = Get-htmlMessage $item.Messages[-1].MessageText
+    $mailWithLastAction += "$($lastMessage)<br/><br/>"
             
-    SendReport $mailMessage $EmailCreds $config "Normal"
+    SendReport $mailWithLastAction $EmailCreds $config "Normal"
     $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
     $evtMessage = $evtMessage.Replace("<b>", "")
     $evtMessage = $evtMessage.Replace("</b>", "")
@@ -292,7 +288,7 @@ $evtMessage = "Script runtime $($swScript.Elapsed.Minutes)m:$($swScript.Elapsed.
 $evtMessage += "*** Processing finished ***`r`n"
 Write-Log $evtMessage
 
-#Append to dailt log file.
+#Append to daily log file.
 Get-Content $script:logfile | Add-Content $script:Dailylogfile
 Remove-Item $script:logfile
 Remove-Module O365ServiceHealth

@@ -20,6 +20,7 @@
     PSVer:   2.0/3.0/4.0/5.0
     Version: 2.0.1
 #>
+
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)] [String]$configXML = "..\config\profile-test.xml"
@@ -81,8 +82,6 @@ if (!$pathLogs) {
     $pathLogs = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 }
 
-#
-
 #Check and trim the report path
 $pathLogs = $pathLogs.TrimEnd("\")
 #Build and Check output directories
@@ -119,7 +118,7 @@ Write-Log $evtMessage
 
 if ($config.UseProxy -like 'true') {
     [boolean]$ProxyServer = $true
-    $evtMessage = "Using proxy sevrer $($proxyHost) for connectivity"
+    $evtMessage = "Using proxy server $($proxyHost) for connectivity"
     Write-Log $evtMessage
 }
 else {
@@ -138,23 +137,7 @@ if ($UseEventLog) {
     }
 }
 
-if ($config.UseProxy -like 'true') {
-    [boolean]$ProxyServer = $true
-    $evtMessage = "Using proxy sevrer $($proxyHost) for connectivity"
-    Write-Log $evtMessage
-}
-else {
-    [boolean]$ProxyServer = $false
-    $evtMessage = "No proxy to be used."
-    Write-Log $evtMessage
-}
 [string]$proxyHost = $config.ProxyHost
-#Experimental
-if ($proxyServer) {
-    $authProxy = "-Proxy '$($ProxyHost)' -ProxyUseDefaultCredentials"
-}
-else { $authProxy = "" }
-
 
 #Keep a list of known issues in CSV. This is useful if the event log is cleared, or not used.
 [string]$evtLogAll = $null
@@ -277,7 +260,7 @@ foreach ($O365Report in $allO365Reports) {
 
     try {
         if ($proxyServer) {
-            $allResults = Invoke-RestMethod -Uri $reportURI -Headers $authHeader -Method Get $authProxy
+            $allResults = Invoke-RestMethod -Uri $reportURI -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials
         }
         else {
             $allResults = Invoke-RestMethod -Uri $reportURI -Headers $authHeader -Method Get

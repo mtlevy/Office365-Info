@@ -111,7 +111,7 @@ $config = LoadConfig $configXML
 #Declare variables
 [string]$pathLogs = $config.LogPath
 [string]$pathHTML = $config.HTMLPath
-[string]$HTMLFile = $config.HTMLFileName
+[string]$HTMLFile = $config.WallHTML
 
 #Configure local event log
 [string]$evtLogname = $config.EventLog
@@ -182,7 +182,7 @@ Write-Log $evtMessage
 
 if ($config.UseProxy -like 'true') {
     [boolean]$ProxyServer = $true
-    $evtMessage = "Using proxy sevrer $($proxyHost) for connectivity"
+    $evtMessage = "Using proxy server $($proxyHost) for connectivity"
     Write-Log $evtMessage
 }
 else {
@@ -201,12 +201,6 @@ if ($UseEventLog) {
         Write-EventLog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
     }
 }
-
-#Experimental
-if ($proxyServer) {
-    $authProxy = "-Proxy '$($ProxyHost)' -ProxyUseDefaultCredentials"
-}
-else { $authProxy = "" }
 
 #Report info
 #Connect to Azure app and grab the service status
@@ -233,7 +227,7 @@ $authHeader = @{
 $uriCurrentStatus = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/CurrentStatus"
 
 if ($proxyServer) {
-    [array]$allCurrentStatusMessages = (Invoke-RestMethod -Uri $uriCurrentStatus -Headers $authHeader -Method Get $($authProxy)).Value
+    [array]$allCurrentStatusMessages = (Invoke-RestMethod -Uri $uriCurrentStatus -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value
 }
 else {
     [array]$allCurrentStatusMessages = (Invoke-RestMethod -Uri $uriCurrentStatus -Headers $authHeader -Method Get).Value
