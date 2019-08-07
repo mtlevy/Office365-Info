@@ -1,4 +1,4 @@
-
+# Shared functions for Office 365 Info powershell
 function saveCredentials {
     param (
         [Parameter(Mandatory = $true)] [string]$Password,
@@ -63,45 +63,46 @@ function LoadConfig {
     [xml]$configFile = Get-Content "$($configFile)"
 
     $appSettings = [PSCustomObject]@{
-        TenantName        = $configFile.Settings.Tenant.Name
-        TenantShortName   = $configFile.Settings.Tenant.ShortName
-        TenantDescription = $configFile.Settings.Tenant.Description
+        TenantName         = $configFile.Settings.Tenant.Name
+        TenantShortName    = $configFile.Settings.Tenant.ShortName
+        TenantDescription  = $configFile.Settings.Tenant.Description
     
-        LogPath           = $configFile.Settings.Output.LogPath
-        HTMLPath          = $configFile.Settings.Output.HTMLPath
-        HTMLFileName      = $configFile.Settings.Output.HTMLFilename
-        UseEventLog       = $configFile.Settings.Output.UseEventLog
-        EventLog          = $configFile.Settings.Output.EventLog
+        LogPath            = $configFile.Settings.Output.LogPath
+        HTMLPath           = $configFile.Settings.Output.HTMLPath
+        UseEventLog        = $configFile.Settings.Output.UseEventLog
+        EventLog           = $configFile.Settings.Output.EventLog
     
-        TenantID          = $configFile.Settings.Azure.TenantID
-        AppID             = $configFile.Settings.Azure.AppID
-        AppSecret         = $configFile.Settings.Azure.AppSecret
+        TenantID           = $configFile.Settings.Azure.TenantID
+        AppID              = $configFile.Settings.Azure.AppID
+        AppSecret          = $configFile.Settings.Azure.AppSecret
     
-        WallReportName    = $configFile.Settings.WallDashboard.Name
-        WallPageRefresh   = $configFile.Settings.WallDashboard.Refresh
-        WallEventSource   = $configFile.Settings.WallDashboard.EventSource
+        WallReportName     = $configFile.Settings.WallDashboard.Name
+        WallPageRefresh    = $configFile.Settings.WallDashboard.Refresh
+        WallEventSource    = $configFile.Settings.WallDashboard.EventSource
+        WallHTML           = $configFile.Settings.WallDashboard.HTMLFilename
 
-        DashboardName     = $configFile.Settings.Dashboard.Name
-        DashboardLogo     = $configFile.Settings.Dashboard.Logo
-        DashboardRefresh  = $configFile.Settings.Dashboard.Refresh
-        DashboardEvtSource= $configFile.Settings.Dashboard.EventSource
+        DashboardName      = $configFile.Settings.Dashboard.Name
+        DashboardLogo      = $configFile.Settings.Dashboard.Logo
+        DashboardRefresh   = $configFile.Settings.Dashboard.Refresh
+        DashboardEvtSource = $configFile.Settings.Dashboard.EventSource
+        DashboardHTML      = $configFile.Settings.Dashboard.HTMLFilename
 
-        EmailHost         = $configFile.Settings.Email.SMTPServer
-        EmailPort         = $configFile.Settings.Email.Port
-        EmailUseSSL       = $configFile.Settings.Email.UseSSL
-        EmailFrom         = $configFile.Settings.Email.From
-        EmailUser         = $configFile.Settings.Email.Username
-        EmailPassword     = $configFile.Settings.Email.PasswordFile
-        EmailKey          = $configFile.Settings.Email.AESKeyFile
+        EmailHost          = $configFile.Settings.Email.SMTPServer
+        EmailPort          = $configFile.Settings.Email.Port
+        EmailUseSSL        = $configFile.Settings.Email.UseSSL
+        EmailFrom          = $configFile.Settings.Email.From
+        EmailUser          = $configFile.Settings.Email.Username
+        EmailPassword      = $configFile.Settings.Email.PasswordFile
+        EmailKey           = $configFile.Settings.Email.AESKeyFile
 
-        MonitorAlertsTo   = [string[]]$configFile.Settings.Monitor.alertsTo
-        MonitorEvtSource  = $configFile.Settings.Monitor.EventSource
+        MonitorAlertsTo    = [string[]]$configFile.Settings.Monitor.alertsTo
+        MonitorEvtSource   = $configFile.Settings.Monitor.EventSource
 
-        UsageReportsPath  = $configFile.Settings.UsageReports.Path
-        UsageEventSource  = $configFile.Settings.UsageReports.EventSource
+        UsageReportsPath   = $configFile.Settings.UsageReports.Path
+        UsageEventSource   = $configFile.Settings.UsageReports.EventSource
     
-        UseProxy          = $configFile.Settings.Proxy.UseProxy
-        ProxyHost         = $configFile.Settings.Proxy.ProxyHost
+        UseProxy           = $configFile.Settings.Proxy.UseProxy
+        ProxyHost          = $configFile.Settings.Proxy.ProxyHost
     }
     return $appSettings
 }
@@ -169,10 +170,35 @@ function featureBuilder {
     return $rptCard
 }
 
+function Get-htmlMessage ($msgText) {
+	$htmlMessage=$null
+	$htmlMessage= $msgText -replace ("`n", '<br>') -replace ([char]8217, "'") -replace ([char]8220, '"') -replace ([char]8221, '"') -replace ('\[', '<b><i>') -replace ('\]', '</i></b>')
+	$htmlMessage = $htmlMessage -replace "Title:", "<b>Title</b>:"
+    $htmlMessage = $htmlMessage -replace "User Impact:", "<b>User Impact</b>:"
+    $htmlMessage = $htmlMessage -replace "More Info:", "<b>More Info</b>:"
+    $htmlMessage = $htmlMessage -replace "Next Update By:", "<b>Next Update By</b>:"
+    $htmlMessage = $htmlMessage -replace "Current Status:", "<b>Current Status</b>:"
+    $htmlMessage = $htmlMessage -replace "Incident Start time:", "<b>Incident Start Time</b>:"
+    $htmlMessage = $htmlMessage -replace "Start time:", "<b>Start Time</b>:"
+    $htmlMessage = $htmlMessage -replace "Incident End time:", "<b>Incident End Time</b>:"
+    $htmlMessage = $htmlMessage -replace "End time:", "<b>End Time</b>:"
+    $htmlMessage = $htmlMessage -replace "Scope:", "<b>Scope</b>:"
+    $htmlMessage = $htmlMessage -replace "Scope of impact:", "<b>Scope of Impact</b>:"
+    $htmlMessage = $htmlMessage -replace "Estimated time to resolve:", "<b>Estimated time to resolve</b>:"
+    $htmlMessage = $htmlMessage -replace "Final Status:", "<b>Final Status</b>:"
+    $htmlMessage = $htmlMessage -replace "Preliminary Root Cause: ", "<b>Preliminary Root Cause</b>:"
+    $htmlMessage = $htmlMessage -replace "Root Cause:", "<b>Root Cause</b>:"
+    $htmlMessage = $htmlMessage -replace "Next Steps:", "<b>Next Steps</b>:"
+    $htmlMessage = $htmlMessage -replace "Next Update:", "<b>Next Update</b>:"
+    $htmlMessage = $htmlMessage -replace "`n", "<br/>"
+
+	return $htmlMessage
+}
+
 function SendReport {
     param (
         [Parameter(Mandatory = $true)] [string]$strMessage,
-        [Parameter(Mandatory = $true)] [security.Securestring]$credEmail,
+        [Parameter(Mandatory = $true)] [System.Management.Automation.PSCredential]$credEmail,
         [Parameter(Mandatory = $true)] $config,
         [Parameter(Mandatory = $false)] [string]$strPriority = "Normal"
     ) 
@@ -199,10 +225,21 @@ function SendReport {
     $strHTMLBody = $strHeader + $strBody + $strSig + $strFooter
     [array]$strTo = $config.MonitorAlertsTo.Split(",")
     $strTo = $strTo.replace('"', '')
-    if ($config.EmailUseSSL -eq 'True') {
-        Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -UseSSL -Credential $credEmail
-    }
-    else {
-        Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -Credential $credEmail
-    }
+	if ($credEmail -notlike '') {
+		#Credentials supplied
+		if ($config.EmailUseSSL -eq 'True') {
+			Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -UseSSL -Credential $credEmail
+		}
+		else {
+		 Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -Credential $credEmail
+		}
+	} else {
+		#No credentials
+		if ($config.EmailUseSSL -eq 'True') {
+			Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -UseSSL
+		}
+		else {
+		 Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort
+		}
+	}
 }

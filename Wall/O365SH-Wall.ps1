@@ -111,7 +111,7 @@ $config = LoadConfig $configXML
 #Declare variables
 [string]$pathLogs = $config.LogPath
 [string]$pathHTML = $config.HTMLPath
-[string]$HTMLFile = $config.HTMLFileName
+[string]$HTMLFile = $config.WallHTML
 
 #Configure local event log
 [string]$evtLogname = $config.EventLog

@@ -103,8 +103,13 @@ if (!$pathLogs) {
     $pathLogs = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 }
 
-#
-$EmailCreds = getCreds $SMTPUser $SMTPPassword $SMTPKey
+# Check for a username. No username, no need for credentials (internal mail host?)
+$emailCreds=$null
+if ($smtpuser -notlike '') {
+	#Email credentials have been specified, so build the credentials.
+	#See readme on how to build credentials files
+	$EmailCreds = getCreds $SMTPUser $SMTPPassword $SMTPKey
+}
 
 #Check and trim the report path
 $pathLogs = $pathLogs.TrimEnd("\")
@@ -272,10 +277,12 @@ foreach ($item in $reportClosed) {
     $mailMessage += "<b>End Time</b>`t: <b>$(get-date $item.EndTime -f 'dd-MMM-yyyy HH:mm')</b><br/>"
     $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
     $mailMessage += "$($item.ImpactDescription)<br/><br/>"
-    $mailMessage += "<b>Final Update from Microsoft</b>`t:<br/>"
-    $mailMessage += "$($item.Messages[-1].MessageText)<br/><br/>"
+	#Add the last action from microsoft to the email only - not to the event log entry
+    $mailWithLastAction = $mailMessage + "<b>Final Update from Microsoft</b>`t:<br/>"
+	$lastMessage = Get-htmlMessage $item.Messages[-1].MessageText
+    $mailWithLastAction += "$($lastMessage)<br/><br/>"
             
-    SendReport $mailMessage $EmailCreds $config "Normal"
+    SendReport $mailWithLastAction $EmailCreds $config "Normal"
     $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
     $evtMessage = $evtMessage.Replace("<b>", "")
     $evtMessage = $evtMessage.Replace("</b>", "")
@@ -292,7 +299,7 @@ $evtMessage = "Script runtime $($swScript.Elapsed.Minutes)m:$($swScript.Elapsed.
 $evtMessage += "*** Processing finished ***`r`n"
 Write-Log $evtMessage
 
-#Append to dailt log file.
+#Append to daily log file.
 Get-Content $script:logfile | Add-Content $script:Dailylogfile
 Remove-Item $script:logfile
 Remove-Module O365ServiceHealth
