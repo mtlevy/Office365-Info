@@ -112,6 +112,7 @@ $config = LoadConfig $configXML
 [string]$pathLogs = $config.LogPath
 [string]$pathHTML = $config.HTMLPath
 [string]$HTMLFile = $config.WallHTML
+[array]$prefDashCards = $config.WallDashCards
 
 #Configure local event log
 [string]$evtLogname = $config.EventLog
@@ -245,7 +246,7 @@ else {
 
 #Wall Builder
 #Preferred line one cards
-$prefDashCards = "Office Online", "Exchange Online", "Skype for Business", "SharePoint Online", "Identity Service", "Social Engagement"
+= "Office Online", "Exchange Online", "Skype for Business", "SharePoint Online", "Identity Service", "Social Engagement"
 [array]$listLineOne = @()
 [array]$listTheRest = @()
 foreach ($card in $prefDashCards) { $listLineOne += $allCurrentStatusMessages | Where-Object { $_.workloaddisplayname -like $card } }

@@ -239,10 +239,10 @@ $allO365Reports = @(
 $Period = 'D7'
 $evtMessage = $null
 $evtLogAll = $null
-$i=0
+$i = 0
 foreach ($O365Report in $allO365Reports) {
     $i++
-    Write-Progress -Activity "Downloading data for $($O365Report)" -Status "Storing Office 365 Usage Report $i of $($allO365Reports.count)" -PercentComplete (($i/$allO365Reports.count)*100)
+    Write-Progress -Activity "Downloading data for $($O365Report)" -Status "Storing Office 365 Usage Report $i of $($allO365Reports.count)" -PercentComplete (($i / $allO365Reports.count) * 100)
     $allResults = $null
     $reportURI = $null
     # Activation reports dont take a time period, appending one causes an error. So dont.

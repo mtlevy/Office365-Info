@@ -50,8 +50,8 @@ function ConnectAzureAD() {
     [System.Reflection.Assembly]::LoadFrom($adal) | Out-Null
     [System.Reflection.Assembly]::LoadFrom($adalforms) | Out-Null
 
-	#Force TLS 1.2 and ignore SSL Warnings
-	IgnoreSSLWarnings
+    #Force TLS 1.2 and ignore SSL Warnings
+    IgnoreSSLWarnings
 }
 
 function LoadConfig {
@@ -80,9 +80,10 @@ function LoadConfig {
         AppSecret          = $configFile.Settings.Azure.AppSecret
     
         WallReportName     = $configFile.Settings.WallDashboard.Name
+        WallHTML           = $configFile.Settings.WallDashboard.HTMLFilename
+        WallDashCards      = $configFile.Settings.WallDashboard.DashCards
         WallPageRefresh    = $configFile.Settings.WallDashboard.Refresh
         WallEventSource    = $configFile.Settings.WallDashboard.EventSource
-        WallHTML           = $configFile.Settings.WallDashboard.HTMLFilename
 
         DashboardName      = $configFile.Settings.Dashboard.Name
         DashboardLogo      = $configFile.Settings.Dashboard.Logo
@@ -151,6 +152,25 @@ function Get-StatusDisplay {
     return $StatusDisplay
 }
 
+function Get-Severity {
+    param (
+        [parameter(mandatory = $true)] [string]$severity,
+        [parameter(mandatory = $true)] [string]$type
+    )
+    switch ($type) {
+        "email" {
+            #email can have the following priorities : High, Normal, Low
+            switch ($severity) {
+                "Sev0" { $returnValue = "High" }
+                "Sev1" { $returnValue = "High" }
+                "Sev2" { $returnValue = "Normal" }
+                #Set default error icon if the status is not listed
+                default { $returnValue = "Normal" }
+            }
+        }
+    }
+    return $returnValue
+}
 
 function featureBuilder {
     Param (
@@ -174,9 +194,9 @@ function featureBuilder {
 }
 
 function Get-htmlMessage ($msgText) {
-	$htmlMessage=$null
-	$htmlMessage= $msgText -replace ("`n", '<br>') -replace ([char]8217, "'") -replace ([char]8220, '"') -replace ([char]8221, '"') -replace ('\[', '<b><i>') -replace ('\]', '</i></b>')
-	$htmlMessage = $htmlMessage -replace "Title:", "<b>Title</b>:"
+    $htmlMessage = $null
+    $htmlMessage = $msgText -replace ("`n", '<br>') -replace ([char]8217, "'") -replace ([char]8220, '"') -replace ([char]8221, '"') -replace ('\[', '<b><i>') -replace ('\]', '</i></b>')
+    $htmlMessage = $htmlMessage -replace "Title:", "<b>Title</b>:"
     $htmlMessage = $htmlMessage -replace "User Impact:", "<b>User Impact</b>:"
     $htmlMessage = $htmlMessage -replace "More Info:", "<b>More Info</b>:"
     $htmlMessage = $htmlMessage -replace "Next Update By:", "<b>Next Update By</b>:"
@@ -195,14 +215,13 @@ function Get-htmlMessage ($msgText) {
     $htmlMessage = $htmlMessage -replace "Next Update:", "<b>Next Update</b>:"
     $htmlMessage = $htmlMessage -replace "`n", "<br/>"
 
-	return $htmlMessage
+    return $htmlMessage
 }
 
 function IgnoreSSLWarnings {
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-if (-not ([System.Management.Automation.PSTypeName]'ServerCertificateValidationCallback').Type)
-{
-$certCallback = @"
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    if (-not ([System.Management.Automation.PSTypeName]'ServerCertificateValidationCallback').Type) {
+        $certCallback = @"
     using System;
     using System.Net;
     using System.Net.Security;
@@ -228,9 +247,9 @@ $certCallback = @"
         }
     }
 "@
-    Add-Type $certCallback
- }
-[ServerCertificateValidationCallback]::Ignore()	
+        Add-Type $certCallback
+    }
+    [ServerCertificateValidationCallback]::Ignore()	
 }
 
 
@@ -250,7 +269,7 @@ function SendReport {
 
     #Build and send email (with attachment)
 
-    $strSubject = "Office 365 Checker: Alert [$(get-date -f 'dd-MMM-yyy HH:mm:ss')]"
+    $strSubject = "Office 365 [$($config.tenantshortname)]: Alert [$(get-date -f 'dd-MMM-yyy HH:mm:ss')]"
     $strHeader = "<!DOCTYPE html PUBLIC ""-//W3C/DTD XHTML 1.0 Transitional//EN"" ""http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd""><html xmlns=""http://www.w3.org/1999/xhtml"">"
     $strHeader += "<head>`n<style type=""text/css"">`nbody {font-family: ""Segoe UI"", Tahoma, Geneva, Verdana, sans-serif;font-size: x-small;}`n"
     $strHeader += "table.border {border-collapse:collapse;border:1px solid silver;} table td.border {border:1px solid silver;} table th{color:white;background-color: #003399;}</style></head>`n"
@@ -264,21 +283,22 @@ function SendReport {
     $strHTMLBody = $strHeader + $strBody + $strSig + $strFooter
     [array]$strTo = $config.MonitorAlertsTo.Split(",")
     $strTo = $strTo.replace('"', '')
-	if ($credEmail -notlike '') {
-		#Credentials supplied
-		if ($config.EmailUseSSL -eq 'True') {
-			Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -UseSSL -Credential $credEmail
-		}
-		else {
-		 Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -Credential $credEmail
-		}
-	} else {
-		#No credentials
-		if ($config.EmailUseSSL -eq 'True') {
-			Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -UseSSL
-		}
-		else {
-		 Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort
-		}
-	}
+    if ($credEmail -notlike '') {
+        #Credentials supplied
+        if ($config.EmailUseSSL -eq 'True') {
+            Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -UseSSL -Credential $credEmail
+        }
+        else {
+            Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -Credential $credEmail
+        }
+    }
+    else {
+        #No credentials
+        if ($config.EmailUseSSL -eq 'True') {
+            Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -UseSSL
+        }
+        else {
+            Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort
+        }
+    }
 }

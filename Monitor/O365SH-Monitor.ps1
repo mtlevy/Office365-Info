@@ -81,12 +81,13 @@ $config = LoadConfig $configXML
 if ($config.UseEventlog -like 'true') {
     [boolean]$UseEventLog = $true
     #check source and log exists
-    $CheckLog=[System.Diagnostics.EventLog]::Exists("$($evtLogname)")
-    $CheckSource=[System.Diagnostics.EventLog]::SourceExists("$($evtSource)")
+    $CheckLog = [System.Diagnostics.EventLog]::Exists("$($evtLogname)")
+    $CheckSource = [System.Diagnostics.EventLog]::SourceExists("$($evtSource)")
     if ((! $CheckLog) -or (! $CheckSource)) {
         New-EventLog -LogName $evtLogname -Source $evtSource
     }
- } else { [boolean]$UseEventLog = $false }
+}
+else { [boolean]$UseEventLog = $false }
 
 [string]$tenantID = $config.TenantID
 [string]$appID = $config.AppID
@@ -104,11 +105,11 @@ if (!$pathLogs) {
 }
 
 # Check for a username. No username, no need for credentials (internal mail host?)
-$emailCreds=$null
+$emailCreds = $null
 if ($smtpuser -notlike '') {
-	#Email credentials have been specified, so build the credentials.
-	#See readme on how to build credentials files
-	$EmailCreds = getCreds $SMTPUser $SMTPPassword $SMTPKey
+    #Email credentials have been specified, so build the credentials.
+    #See readme on how to build credentials files
+    $EmailCreds = getCreds $SMTPUser $SMTPPassword $SMTPKey
 }
 
 #Check and trim the report path
@@ -221,7 +222,7 @@ if ($newIncidents.count -ge 1) {
         $evtFind = Get-EventLog -LogName $evtLogname -Source $evtSource -Message "*: $($item.ID)*" -ErrorAction SilentlyContinue
         #Check known issues list
         if ($null -eq $evtFind) {
-
+            $emailPriority = ""
             Write-Log "Building and attempting to send email"
             $mailMessage = "<b>ID</b>`t`t: $($item.ID)<br/>"
             $mailMessage += "<b>Feature</b>`t`t: $($item.WorkloadDisplayName)<br/>"
@@ -231,8 +232,8 @@ if ($newIncidents.count -ge 1) {
             $mailMessage += "<b>Last Updated</b>`t: $(get-date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')<br/>"
             $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
             $mailMessage += "$($item.ImpactDescription)<br/><br/>"
-            
-            SendReport $mailMessage $EmailCreds $config "High"
+            $emailPriority = get-severity "email" $item.severity
+            SendReport $mailMessage $EmailCreds $config $emailPriority
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
             $evtMessage = $evtMessage.Replace("<b>", "")
             $evtMessage = $evtMessage.Replace("</b>", "")
@@ -266,9 +267,9 @@ foreach ($item in $reportClosed) {
     $mailMessage += "<b>End Time</b>`t: <b>$(get-date $item.EndTime -f 'dd-MMM-yyyy HH:mm')</b><br/>"
     $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
     $mailMessage += "$($item.ImpactDescription)<br/><br/>"
-	#Add the last action from microsoft to the email only - not to the event log entry
+    #Add the last action from microsoft to the email only - not to the event log entry
     $mailWithLastAction = $mailMessage + "<b>Final Update from Microsoft</b>`t:<br/>"
-	$lastMessage = Get-htmlMessage $item.Messages[-1].MessageText
+    $lastMessage = Get-htmlMessage $item.Messages[-1].MessageText
     $mailWithLastAction += "$($lastMessage)<br/><br/>"
             
     SendReport $mailWithLastAction $EmailCreds $config "Normal"
