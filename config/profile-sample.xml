@@ -43,6 +43,8 @@
   <WallDashboard>
     <Name>Office 365 Workload Wall</Name>
     <HTMLFileName>O365Wall.html</HTMLFileName>
+    <!-- Always show these cards first on the Wall. This helps with the layout-->
+    <DashCards>"Dynamics 365", "Exchange Online", "Microsoft Kaizala", "Microsoft Teams", "Office 365 Portal", "OneDrive for Business", "SharePoint Online", "Skype for Business"</DashCards>
     <!-- Refresh interval in minutes-->
     <Refresh>5</Refresh>
     <!-- Events source to use when logging to the event log-->
@@ -51,11 +53,14 @@
   <Dashboard>
     <Name>Office 365 Dashboard</Name>
     <HTMLFileName>O365Dashboard.html</HTMLFileName>
+    <!-- Show these dashboard cards in current status -->
+    <DashCards>"Office Online", "Exchange Online", "Skype for Business", "SharePoint Online", "Identity Service", "Social Engagement"</DashCards>
     <!-- Refresh interval in minutes-->
     <Refresh>15</Refresh>
     <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Dashboard</EventSource>
     <Logo></Logo>
+    <AddLink></AddLink>
   </Dashboard>
   <UsageReports>
     <!-- Where to store the Office 365 Usage Reports (CSV)-->
@@ -67,5 +72,6 @@
     <!-- Proxy settings if required-->
     <UseProxy>false</UseProxy>
     <ProxyHost>http://proxyfqdn.domain.com</ProxyHost>
+    <IgnoreSSL>true</IgnoreSSL>
   </Proxy>
 </Settings>

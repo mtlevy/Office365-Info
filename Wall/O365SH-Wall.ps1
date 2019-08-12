@@ -42,53 +42,6 @@ Write-Verbose "Changing Directory to $PSScriptRoot"
 Set-Location $PSScriptRoot
 Import-Module "..\common\O365ServiceHealth.psm1"
 
-function BuildHTML {
-    Param (
-        [Parameter(Mandatory = $true)] [string]$Title,
-        [Parameter(Mandatory = $true)] [string]$contentOne,
-        [Parameter(Mandatory = $true)] [string]$HTMLOutput
-    )
-    [array]$htmlHeader = @()
-    [array]$htmlBody = @()
-    [array]$htmlFooter = @()
-    [string]$minCSS = ""
-    $minCSS = "*{margin:.1px;font-family:""Segoe UI"",Tahoma,Geneva,Verdana,sans-serif;font-size:8pt}.workload-card-ok{background-color:#060;grid-row:span auto}.workload-card-warn{background-color:orange;grid-row:span auto}.workload-card-err{background-color:red;grid-row:span auto}[class^=workload-card]{display:inline-table;table-layout:fixed;color:#fff;font-weight:700;box-shadow:0 4px 8px 0 rgba(0,0,0,.2),0 6px 20px 0 rgba(0,0,0,.19);padding:3px;margin:3px;border:4px solid #fff;width:200px}.wkld-name{color:#fff;text-align:center;font-family:""Lucida Sans"",""Lucida Sans Regular"",""Lucida Grande"",""Lucida Sans Unicode"",Geneva,Verdana,sans-serif;font-size:x-large;border-bottom-style:solid;border-bottom-width:2px;padding:2px}.feature-item-warn{background-color:orange}.feature-item-ok{background-color:#060}.feature-item-err{background-color:red}[class^=feature-item] .tooltiptext{visibility:hidden;width:120px;background-color:#000;color:#fff;text-align:center;border-radius:6px;padding:5px 0;position:absolute;z-index:1;top:-5px;left:40%}[class^=feature-item] .tooltiptext::after{content:"" "";position:absolute;top:50%;right:100%;margin-top:-5px;border-width:5px;border-style:solid;border-color:transparent #000 transparent transparent}[class^=feature-item]:hover .tooltiptext{visibility:visible}[class^=feature-item]{position:relative;padding:5px;color:#fff;border-spacing:2px;border-width:1px;border-bottom-style:solid;font-weight:400;font-size:small}.container{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));grid-auto-flow:dense}"
-    $htmlHeader = @"
-		<!DOCTYPE html>
-		<html>
-		<head>
-		<style>
-		$($minCSS)
-        </style>
-        <title>$($rptTitle)</title>
-        </head>
-"@
-    $htmlBody = @"
-        <body>
-        <h1>$($rptTitle)</h1>
-        <p>Page refreshed: <span id="datetime"></span><span>&nbsp;&nbsp;Data refresh:$(get-date -f 'MMM dd yyyy HH:mm:ss')</span></p>
-        $($contentOne)
-"@
-    $htmlFooter = @"
-        <script>
-        var dt = new Date();
-        document.getElementById("datetime").innerHTML = (("0"+dt.getDate()).slice(-2)) +"-"+ (("0"+(dt.getMonth()+1)).slice(-2)) +"-"+ (dt.getFullYear()) +" "+ (("0"+dt.getHours()).slice(-2)) +":"+ (("0"+dt.getMinutes()).slice(-2));
-        </script>
-        </body>
-        </html>
-"@
-
-    #Add in code to refresh page
-    # 300000 is 5 mins (5 *60 * 1000)
-    #Assumes the code is scheduled and runs at least every 5 mins
-    $addJava = "<script language=""JavaScript"" type=""text/javascript"">"
-    $addJava += "setTimeout(""location.href='$($HTMLOutput)'"",$($pageRefresh*60*1000));"
-    $addjava += "</script>"
-
-    $htmlReport = $htmlHeader + $addJava + $htmlBody + $htmlFooter
-    $htmlReport | Out-File "$($pathHTML)\$($HTMLOutput)"
-}
-
 function Write-Log {
     param (
         [Parameter(Mandatory = $true)] [string]$info
@@ -108,12 +61,6 @@ if ([system.IO.path]::IsPathRooted($configXML) -eq $false) {
 }
 $config = LoadConfig $configXML
 
-#Declare variables
-[string]$pathLogs = $config.LogPath
-[string]$pathHTML = $config.HTMLPath
-[string]$HTMLFile = $config.WallHTML
-[array]$prefDashCards = $config.WallDashCards
-
 #Configure local event log
 [string]$evtLogname = $config.EventLog
 [string]$evtSource = $config.WallEventSource
@@ -127,6 +74,15 @@ if ($config.UseEventlog -like 'true') {
     }
 }
 else { [boolean]$UseEventLog = $false }
+
+
+#Declare variables
+[string]$pathLogs = $config.LogPath
+[string]$pathHTML = $config.HTMLPath
+[string]$HTMLFile = $config.WallHTML
+[string[]]$prefDashCards = $config.WallDashCards.split(",")
+$prefDashCards=$prefDashCards.Replace('"','')
+$prefDashCards=$prefDashCards.Trim()
 
 #Page refresh in minutes
 [int]$pageRefresh = $config.WallPageRefresh
@@ -179,8 +135,16 @@ Write-Log $evtMessage
 $evtMessage = "HTML Output: $($pathHTML)"
 Write-Log $evtMessage
 
+#Create event logs if set
+if ($UseEventLog) {
+    $evtCheck = Get-EventLog -List -ErrorAction SilentlyContinue | Where-Object { $_.LogDisplayName -eq $evtLogname }
+    if (!($evtCheck)) {
+        New-EventLog -LogName $evtLogname -Source $evtSource
+        Write-EventLog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
+    }
+}
 
-
+#Proxy Configuration
 if ($config.UseProxy -like 'true') {
     [boolean]$ProxyServer = $true
     $evtMessage = "Using proxy server $($proxyHost) for connectivity"
@@ -193,17 +157,6 @@ else {
 }
 [string]$proxyHost = $config.ProxyHost
 
-
-#Create event logs if set
-if ($UseEventLog) {
-    $evtCheck = Get-EventLog -List -ErrorAction SilentlyContinue | Where-Object { $_.LogDisplayName -eq $evtLogname }
-    if (!($evtCheck)) {
-        New-EventLog -LogName $evtLogname -Source $evtSource
-        Write-EventLog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
-    }
-}
-
-#Report info
 #Connect to Azure app and grab the service status
 ConnectAzureAD
 $urlOrca = "https://manage.office.com"
@@ -218,12 +171,60 @@ if ($null -eq $authenticationResult) {
     Write-Log $evtMessage
 }
 
-# Get Messages
 $authHeader = @{
     'Content-Type'  = 'application/json'
     'Authorization' = "Bearer " + $bearerToken
 }
 
+function BuildHTML {
+    Param (
+        [Parameter(Mandatory = $true)] [string]$Title,
+        [Parameter(Mandatory = $true)] [string]$contentOne,
+        [Parameter(Mandatory = $true)] [string]$HTMLOutput
+    )
+    [array]$htmlHeader = @()
+    [array]$htmlBody = @()
+    [array]$htmlFooter = @()
+    [string]$minCSS = ""
+    $minCSS = "*{margin:.1px;font-family:""Segoe UI"",Tahoma,Geneva,Verdana,sans-serif;font-size:8pt}.workload-card-ok{background-color:#060;grid-row:span auto}.workload-card-warn{background-color:orange;grid-row:span auto}.workload-card-err{background-color:red;grid-row:span auto}[class^=workload-card]{display:inline-table;table-layout:fixed;color:#fff;font-weight:700;box-shadow:0 4px 8px 0 rgba(0,0,0,.2),0 6px 20px 0 rgba(0,0,0,.19);padding:3px;margin:3px;border:4px solid #fff;width:200px}.wkld-name{color:#fff;text-align:center;font-family:""Lucida Sans"",""Lucida Sans Regular"",""Lucida Grande"",""Lucida Sans Unicode"",Geneva,Verdana,sans-serif;font-size:x-large;border-bottom-style:solid;border-bottom-width:2px;padding:2px}.feature-item-warn{background-color:orange}.feature-item-ok{background-color:#060}.feature-item-err{background-color:red}[class^=feature-item] .tooltiptext{visibility:hidden;width:120px;background-color:#000;color:#fff;text-align:center;border-radius:6px;padding:5px 0;position:absolute;z-index:1;top:-5px;left:40%}[class^=feature-item] .tooltiptext::after{content:"" "";position:absolute;top:50%;right:100%;margin-top:-5px;border-width:5px;border-style:solid;border-color:transparent #000 transparent transparent}[class^=feature-item]:hover .tooltiptext{visibility:visible}[class^=feature-item]{position:relative;padding:5px;color:#fff;border-spacing:2px;border-width:1px;border-bottom-style:solid;font-weight:400;font-size:small}.container{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));grid-auto-flow:dense}"
+    $htmlHeader = @"
+		<!DOCTYPE html>
+		<html>
+		<head>
+		<style>
+		$($minCSS)
+        </style>
+        <title>$($rptTitle)</title>
+        </head>
+"@
+    $htmlBody = @"
+        <body>
+        <h1>$($rptTitle)</h1>
+        <p>Page refreshed: <span id="datetime"></span><span>&nbsp;&nbsp;Data refresh:$(get-date -f 'MMM dd yyyy HH:mm:ss')</span></p>
+        $($contentOne)
+"@
+    $htmlFooter = @"
+        <script>
+        var dt = new Date();
+        document.getElementById("datetime").innerHTML = (("0"+dt.getDate()).slice(-2)) +"-"+ (("0"+(dt.getMonth()+1)).slice(-2)) +"-"+ (dt.getFullYear()) +" "+ (("0"+dt.getHours()).slice(-2)) +":"+ (("0"+dt.getMinutes()).slice(-2));
+        </script>
+        </body>
+        </html>
+"@
+
+    #Add in code to refresh page
+    # 300000 is 5 mins (5 *60 * 1000)
+    #Assumes the code is scheduled and runs at least every 5 mins
+    $addJava = "<script language=""JavaScript"" type=""text/javascript"">"
+    $addJava += "setTimeout(""location.href='$($HTMLOutput)'"",$($pageRefresh*60*1000));"
+    $addjava += "</script>"
+
+    $htmlReport = $htmlHeader + $addJava + $htmlBody + $htmlFooter
+    $htmlReport | Out-File "$($pathHTML)\$($HTMLOutput)"
+}
+
+#Report info
+# Get Messages
 #	Returns the current status of the service.
 $uriCurrentStatus = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/CurrentStatus"
 
@@ -246,7 +247,6 @@ else {
 
 #Wall Builder
 #Preferred line one cards
-= "Office Online", "Exchange Online", "Skype for Business", "SharePoint Online", "Identity Service", "Social Engagement"
 [array]$listLineOne = @()
 [array]$listTheRest = @()
 foreach ($card in $prefDashCards) { $listLineOne += $allCurrentStatusMessages | Where-Object { $_.workloaddisplayname -like $card } }

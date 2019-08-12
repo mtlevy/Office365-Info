@@ -41,7 +41,6 @@
     Outstanding:
 
 #>
-
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)] [String]$configXML = "..\config\profile-test.xml"
@@ -61,10 +60,9 @@ function Write-Log {
         $script:FileHeader >> $script:logfile
         $script:loginitialized = $True
     }
-    $info = $(get-date).ToString() + ": " + $info
+    $info = $(Get-Date).ToString() + ": " + $info
     $info >> $script:logfile
 }
-
 
 if ([system.IO.path]::IsPathRooted($configXML) -eq $false) {
     #its not an absolute path. Find the absolute path
@@ -72,44 +70,45 @@ if ([system.IO.path]::IsPathRooted($configXML) -eq $false) {
 }
 $config = LoadConfig $configXML
 
-[string]$pathLogs = $config.LogPath
-[array]$allMessages = @()
-
-#Configure local event log
-[string]$evtLogname = $config.EventLog
-[string]$evtSource = $config.MonitorEvtSource
-if ($config.UseEventlog -like 'true') {
-    [boolean]$UseEventLog = $true
-    #check source and log exists
-    $CheckLog = [System.Diagnostics.EventLog]::Exists("$($evtLogname)")
-    $CheckSource = [System.Diagnostics.EventLog]::SourceExists("$($evtSource)")
-    if ((! $CheckLog) -or (! $CheckSource)) {
-        New-EventLog -LogName $evtLogname -Source $evtSource
-    }
-}
-else { [boolean]$UseEventLog = $false }
-
 [string]$tenantID = $config.TenantID
 [string]$appID = $config.AppID
 [string]$clientSecret = $config.AppSecret
-
 [string]$rptProfile = $config.TenantShortName
 [string]$proxyHost = $config.ProxyHost
 [string]$SMTPUser = $config.EmailUser
 [string]$SMTPPassword = $config.EmailPassword
 [string]$SMTPKey = $config.EmailKey
+[string]$pathLogs = $config.LogPath
+[string]$evtLogname = $config.EventLog
+[string]$evtSource = $config.MonitorEvtSource
+[boolean]$checklog = $false
+[boolean]$checksource = $false
 
-#If no path has been specified, use the current script location
-if (!$pathLogs) {
-    $pathLogs = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
+#Configure local event log
+if ($config.UseEventlog -like 'true') {
+    [boolean]$UseEventLog = $true
+    #check source and log exists
+    $checkLog = [System.Diagnostics.EventLog]::Exists("$($evtLogname)")
+    $checkSource = [System.Diagnostics.EventLog]::SourceExists("$($evtSource)")
+    if ((! $checkLog) -or (! $checkSource)) {
+        New-EventLog -LogName $evtLogname -Source $evtSource
+    }
 }
+else { [boolean]$UseEventLog = $false }
 
+# Get Email credentials
 # Check for a username. No username, no need for credentials (internal mail host?)
-$emailCreds = $null
+[PSCredential]$emailCreds = $null
 if ($smtpuser -notlike '') {
     #Email credentials have been specified, so build the credentials.
     #See readme on how to build credentials files
     $EmailCreds = getCreds $SMTPUser $SMTPPassword $SMTPKey
+}
+
+# Build logging variables
+#If no path has been specified, use the current script location
+if (!$pathLogs) {
+    $pathLogs = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 }
 
 #Check and trim the report path
@@ -127,8 +126,8 @@ if ([system.IO.path]::IsPathRooted($pathLogs) -eq $false) {
 
 # setup the logfile
 # If logfile exists, the set flag to keep logfile
-$script:DailyLogFile = "$($pathLogs)\O365Monitor-$($rptprofile)-$(get-date -format yyMMdd).log"
-$script:LogFile = "$($pathLogs)\tmpO365Monitor-$($rptprofile)-$(get-date -format yyMMddHHmmss).log"
+$script:DailyLogFile = "$($pathLogs)\O365Monitor-$($rptprofile)-$(Get-Date -format yyMMdd).log"
+$script:LogFile = "$($pathLogs)\tmpO365Monitor-$($rptprofile)-$(Get-Date -format yyMMddHHmmss).log"
 $script:LogInitialized = $false
 $script:FileHeader = "*** Application Information ***"
 
@@ -137,6 +136,17 @@ Write-Log $evtMessage
 $evtMessage = "Log Path: $($pathLogs)"
 Write-Log $evtMessage
 
+#Create event logs if set
+[System.Diagnostics.EventLog]$evtCheck=""
+if ($UseEventLog) {
+    $evtCheck = Get-EventLog -List -ErrorAction SilentlyContinue | Where-Object { $_.LogDisplayName -eq $evtLogname }
+    if (!($evtCheck)) {
+        New-EventLog -LogName $evtLogname -Source $evtSource
+        Write-EventLog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
+    }
+}
+
+#Proxy Configuration
 if ($config.UseProxy -like 'true') {
     [boolean]$ProxyServer = $true
     $evtMessage = "Using proxy server $($proxyHost) for connectivity"
@@ -148,23 +158,6 @@ else {
     Write-Log $evtMessage
 }
 
-
-#Create event logs if set
-if ($UseEventLog) {
-    $evtCheck = Get-EventLog -List -ErrorAction SilentlyContinue | Where-Object { $_.LogDisplayName -eq $evtLogname }
-    if (!($evtCheck)) {
-        New-EventLog -LogName $evtLogname -Source $evtSource
-        Write-EventLog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
-    }
-}
-
-#Keep a list of known issues in CSV. This is useful if the event log is cleared, or not used.
-[string]$knownIssues = ".\knownIssues-$($rptprofile).csv"
-[array]$knownIssuesList = @()
-
-if (Test-Path "$($knownIssues)") { $knownIssuesList = Import-Csv $($knownIssues) }
-
-#Report info
 #Connect to Azure app and grab the service status
 ConnectAzureAD
 $urlOrca = "https://manage.office.com"
@@ -179,20 +172,32 @@ if ($null -eq $authenticationResult) {
     Write-Log $evtMessage
 }
 
-# Get Messages
 $authHeader = @{
     'Content-Type'  = 'application/json'
     'Authorization' = "Bearer " + $bearerToken
 }
 
+
+#Script specific
+[array]$allMessages = @()
+[array]$newIncidents = @()
+#Keep a list of known issues in CSV. This is useful if the event log is cleared, or not used.
+[string]$knownIssues = ".\knownIssues-$($rptprofile).csv"
+[array]$knownIssuesList = @()
+
+if (Test-Path "$($knownIssues)") { $knownIssuesList = Import-Csv $($knownIssues) }
+
+
+
+
 #	Returns the messages about the service over a certain time range.
-$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
+[string]$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
 
 if ($ProxyServer) {
-    [array]$allMessages = (Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value
+    [array]$allMessages = @((Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value)
 }
 else {
-    [array]$allMessages = (Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get).Value
+    [array]$allMessages = @((Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get).Value)
 }
 
 if (($null -eq $allMessages) -or ($allMessages.Count -eq 0)) {
@@ -206,30 +211,28 @@ else {
     Write-Log $evtMessage
 }
 
-$currentIncidents = $allMessages | Where-Object { ($_.messagetype -notlike 'MessageCenter') }
-$newIncidents = $currentIncidents | Where-Object { $_.id -notin $knownIssuesList.id }
-if ($knownIssuesList.count -eq 0) {
-    #No known issues list, only report on currently open and build history
-    $newIncidents = $newIncidents | Where-Object { $_.endtime -eq $null }
-}
+$currentIncidents = @($allMessages | Where-Object { ($_.messagetype -notlike 'MessageCenter') })
+$newIncidents = @($currentIncidents | Where-Object { ($_.id -notin $knownIssuesList.id) -and ($null -eq $_.endtime) })
 
 #Get all messages with no end date (open)
 #Get events and check event log
 #If not logged, create an entry and send an email
+
 if ($newIncidents.count -ge 1) {
     foreach ($item in $newIncidents) {
         #Check event log. If no entry (ID) then write entry
-        $evtFind = Get-EventLog -LogName $evtLogname -Source $evtSource -Message "*: $($item.ID)*" -ErrorAction SilentlyContinue
+        $evtFind = Get-EventLog -LogName $evtLogname -Source $evtSource -Message "*: $($item.ID)*: $($rptProfile)*" -ErrorAction SilentlyContinue
         #Check known issues list
         if ($null -eq $evtFind) {
             $emailPriority = ""
             Write-Log "Building and attempting to send email"
             $mailMessage = "<b>ID</b>`t`t: $($item.ID)<br/>"
+            $mailMessage += "<b>Tenant</b>`t`t: $($rptProfile)<br/>"
             $mailMessage += "<b>Feature</b>`t`t: $($item.WorkloadDisplayName)<br/>"
             $mailMessage += "<b>Status</b>`t`t: $($item.Status)<br/>"
             $mailMessage += "<b>Severity</b>`t`t: $($item.Severity)<br/>"
-            $mailMessage += "<b>Start Date</b>`t: $(get-date $item.StartTime -f 'dd-MMM-yyyy HH:mm')<br/>"
-            $mailMessage += "<b>Last Updated</b>`t: $(get-date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')<br/>"
+            $mailMessage += "<b>Start Date</b>`t: $(Get-Date $item.StartTime -f 'dd-MMM-yyyy HH:mm')<br/>"
+            $mailMessage += "<b>Last Updated</b>`t: $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')<br/>"
             $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
             $mailMessage += "$($item.ImpactDescription)<br/><br/>"
             $emailPriority = get-severity "email" $item.severity
@@ -251,38 +254,47 @@ if ($newIncidents.count -ge 1) {
 [array]$recentlyClosed = @()
 [array]$recentIncidents = @()
 
-$recentIncidents = $knownIssuesList | where-object { ($_.endtime -eq '') }
+#Previously known items (saved list) where there was not an end time
+$recentIncidents = $knownIssuesList | Where-Object { ($_.endtime -eq '') }
+#Items on current scan (online) where there was and end time
 $recentlyClosed = $currentIncidents | Where-Object { ($_.endtime -ne $null) }
+#Closed items are previously open items that now have an end time
 $reportClosed = $recentlyClosed | Where-Object { $_.id -in $recentIncidents.ID }
+#Some items may have been newly added AND closed
+$reportClosed += $currentIncidents | Where-Object { $_.id -notin $knownissueslist.ID -and $null -ne $_.endtime }
+
 
 foreach ($item in $reportClosed) {
     Write-Log "Building and attempting to send closure email"
     $mailMessage = "<b>Incident Closed</b>`t`t: <b>Closed</b><br/>"
+    $mailMessage += "<b>Tenant</b>`t`t: $($rptProfile)<br/>"
     $mailMessage += "<b>ID</b>`t`t: $($item.ID)<br/>"
     $mailMessage += "<b>Feature</b>`t`t: $($item.WorkloadDisplayName)<br/>"
     $mailMessage += "<b>Status</b>`t`t: $($item.Status)<br/>"
     $mailMessage += "<b>Severity</b>`t`t: $($item.Severity)<br/>"
-    $mailMessage += "<b>Start Time</b>`t: $(get-date $item.StartTime -f 'dd-MMM-yyyy HH:mm')<br/>"
-    $mailMessage += "<b>Last Updated</b>`t: $(get-date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')<br/>"
-    $mailMessage += "<b>End Time</b>`t: <b>$(get-date $item.EndTime -f 'dd-MMM-yyyy HH:mm')</b><br/>"
+    $mailMessage += "<b>Start Time</b>`t: $(Get-Date $item.StartTime -f 'dd-MMM-yyyy HH:mm')<br/>"
+    $mailMessage += "<b>Last Updated</b>`t: $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')<br/>"
+    $mailMessage += "<b>End Time</b>`t: <b>$(Get-Date $item.EndTime -f 'dd-MMM-yyyy HH:mm')</b><br/>"
     $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
     $mailMessage += "$($item.ImpactDescription)<br/><br/>"
     #Add the last action from microsoft to the email only - not to the event log entry
     $mailWithLastAction = $mailMessage + "<b>Final Update from Microsoft</b>`t:<br/>"
-    $lastMessage = Get-htmlMessage $item.Messages[-1].MessageText
+    $lastMessage = Get-htmlMessage ($item.messages.messagetext | Sort-Object $item.messages.messagetext.lastupdated -Descending | Select-Object -First 1)
+    $lastMessage = "<div style='background-color:#CCCCCC'>" + $lastMessage.replace("<br><br>", "<br/>") + "</div>"
     $mailWithLastAction += "$($lastMessage)<br/><br/>"
             
     SendReport $mailWithLastAction $EmailCreds $config "Normal"
     $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
     $evtMessage = $evtMessage.Replace("<b>", "")
     $evtMessage = $evtMessage.Replace("</b>", "")
-    if ($item.severity -in 'SEV0', 'SEV1' ) { $evtErr = 'Error' } else { $evtErr = 'Warning' }
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 20 -EntryType $evtErr
+    Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 20 -EntryType Information
     Write-Log $evtMessage
 }
 
 #Update the know lists if issues. they might not have increased, but end times may have been added.
-$currentIncidents | Export-Csv $($knownIssues) -Encoding UTF8 -NoTypeInformation
+if ($allMessages.count -gt 0) {
+	$currentIncidents | Export-Csv $($knownIssues) -Encoding UTF8 -NoTypeInformation
+}
 
 $swScript.Stop()
 $evtMessage = "Script runtime $($swScript.Elapsed.Minutes)m:$($swScript.Elapsed.Seconds)s:$($swScript.Elapsed.Milliseconds)ms on $env:COMPUTERNAME`r`n"

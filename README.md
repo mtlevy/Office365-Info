@@ -23,7 +23,8 @@ Monitor simply checks for new/closed incidents on office 365 service health and 
 Usage reports download the Office 365 usage reports in CSV format
 
 # Wall
-This script produces a single page dashboard of all the office 365 workloads available in your tenant and their features. Those with issues are highlighted
+This script produces a single page dashboard of all the office 365 workloads available in your tenant and their features.
+Those with issues are highlighted
 
 
 I'm hoping to have more functionality soon
