@@ -235,7 +235,7 @@ if ($newIncidents.count -ge 1) {
             $mailMessage += "<b>Last Updated</b>`t: $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')<br/>"
             $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
             $mailMessage += "$($item.ImpactDescription)<br/><br/>"
-            $emailPriority = get-severity "email" $item.severity
+            $emailPriority = Get-Severity "email" $item.severity
             SendReport $mailMessage $EmailCreds $config $emailPriority
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
             $evtMessage = $evtMessage.Replace("<b>", "")
@@ -245,11 +245,8 @@ if ($newIncidents.count -ge 1) {
             Write-Log $evtMessage
         }
     }
-    #Update list of known issues CSV file
 }
 
-#newly closed items
-#previously open, compared to existing closed
 [array]$reportClosed = @()
 [array]$recentlyClosed = @()
 [array]$recentIncidents = @()
@@ -277,10 +274,10 @@ foreach ($item in $reportClosed) {
     $mailMessage += "<b>End Time</b>`t: <b>$(Get-Date $item.EndTime -f 'dd-MMM-yyyy HH:mm')</b><br/>"
     $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
     $mailMessage += "$($item.ImpactDescription)<br/><br/>"
-    #Add the last action from microsoft to the email only - not to the event log entry
+    #Add the last action from microsoft to the email only - not to the event log entry (text can be too long)
     $mailWithLastAction = $mailMessage + "<b>Final Update from Microsoft</b>`t:<br/>"
     $lastMessage = Get-htmlMessage ($item.messages.messagetext | Sort-Object $item.messages.messagetext.lastupdated -Descending | Select-Object -First 1)
-    $lastMessage = "<div style='background-color:#CCCCCC'>" + $lastMessage.replace("<br><br>", "<br/>") + "</div>"
+    $lastMessage = "<div style='background-color:azure'>" + $lastMessage.replace("<br><br>", "<br/>") + "</div>"
     $mailWithLastAction += "$($lastMessage)<br/><br/>"
             
     SendReport $mailWithLastAction $EmailCreds $config "Normal"

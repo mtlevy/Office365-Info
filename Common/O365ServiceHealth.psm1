@@ -177,8 +177,8 @@ function Get-StatusDisplay {
 
 function Get-Severity {
     param (
-        [parameter(mandatory = $true)] [string]$severity,
-        [parameter(mandatory = $true)] [string]$type
+        [parameter(mandatory = $true)] [string]$type,
+        [parameter(mandatory = $true)] [string]$severity
     )
     [System.Net.Mail.MailPriority]$returnValue="Normal"
     switch ($type) {
