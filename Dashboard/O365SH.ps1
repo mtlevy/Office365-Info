@@ -111,15 +111,24 @@ $prefDashCards = $prefDashCards.Trim()
 [string]$pathLogs = $config.LogPath
 [string]$pathHTML = $config.HTMLPath
 [string]$HTMLFile = $config.DashboardHTML
+[string]$pathIPURLs = $config.IPURLPath
+
 
 
 #If no path has been specified, use the current script location
 if (!$pathLogs) {
     $pathLogs = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 }
+if (!$pathIPURLs) {
+    $pathIPURLs = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
+}
+
+
 #Check and trim the report path
 $pathLogs = $pathLogs.TrimEnd("\")
 $pathHTML = $pathHTML.TrimEnd("\")
+$pathIPURLs = $pathIPURLs.TrimEnd("\")
+
 #Build and Check output directories
 #Base for logs
 if (!(Test-Path $($pathLogs))) {
@@ -133,6 +142,10 @@ if (!(Test-Path $($pathHTML))) {
 $pathHTMLDocs = "$($pathHTML)\Docs"
 if (!(Test-Path $($pathHTMLDocs))) {
     New-Item -ItemType Directory -Path "$($pathHTMLDocs)"
+}
+#IP and URL file storage
+if (!(Test-Path $($pathIPURLs))) {
+    New-Item -ItemType Directory -Path $pathIPURLs
 }
 
 if ([system.IO.path]::IsPathRooted($pathLogs) -eq $false) {
@@ -178,8 +191,8 @@ else {
 
 #Connect to Azure app and grab the service status
 ConnectAzureAD
-$urlOrca = "https://manage.office.com"
-$authority = "https://login.microsoftonline.com/$TenantID"
+[uri]$urlOrca = "https://manage.office.com"
+[uri]$authority = "https://login.microsoftonline.com/$TenantID"
 $authContext = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext" -ArgumentList $authority
 $clientCredential = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.ClientCredential" -ArgumentList $appId, $clientSecret
 $authenticationResult = ($authContext.AcquireTokenAsync($urlOrca, $clientCredential)).Result;
@@ -263,10 +276,8 @@ function BuildHTML {
     $htmlBody = @"
 
 <body>
-<h1>$($rptTitle)</h1>
-<p>Click on the buttons inside the tabbed menu:</p>
-
-<div class="tab">
+    <p>Page refreshed: <span id="datetime"></span><span>&nbsp;&nbsp;Data refresh: $(Get-Date -f 'dd-MMM-yyyy HH:mm:ss')</span></p>
+	<div class="tab">
     <button class="tablinks" onclick="openTab(event,'Overview')" id="defaultOpen">Overview</button>
     <button class="tablinks" onclick="openTab(event,'Features')">Features</button>
     <button class="tablinks" onclick="openTab(event,'Incidents')">Incidents</button>
@@ -312,6 +323,10 @@ function BuildHTML {
 
 "@
     $htmlFooter = @"
+<script>
+var dt = new Date();
+document.getElementById("datetime").innerHTML = (("0"+dt.getDate()).slice(-2)) +"-"+ (("0"+(dt.getMonth()+1)).slice(-2)) +"-"+ (dt.getFullYear()) +" "+ (("0"+dt.getHours()).slice(-2)) +":"+ (("0"+dt.getMinutes()).slice(-2)) +":"+ (("0"+dt.getSeconds()).slice(-2));
+</script>
 
 <script>
 function openTab(evt, tabName) {
@@ -501,17 +516,19 @@ $SkuNames = @{
 
 
 #	Returns the list of subscribed services
-$uriServices = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Services"
+[uri]$uriServices = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Services"
 #	Returns the current status of the service.
-$uriCurrentStatus = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/CurrentStatus"
+[uri]$uriCurrentStatus = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/CurrentStatus"
 #	Returns the historical status of the service, by day, over a certain time range.
-$uriHistoricalStatus = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/HistoricalStatus"
+[uri]$uriHistoricalStatus = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/HistoricalStatus"
 #	Returns the messages about the service over a certain time range.
-$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
+[uri]$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
+#   Return the messages on the RSS feed for the O365 roadmap
+[uri]$uriO365Roadmap = "https://www.microsoft.com/en-gb/microsoft-365/RoadmapFeatureRSS"
 
 #Connect to Microsoft graph and grab the licence information
 # Construct URI
-$uri = "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token"
+[uri]$uriToken = "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token"
 # Construct Body
 $body = @{
     client_id     = $appID
@@ -520,57 +537,129 @@ $body = @{
     grant_type    = "client_credentials"
 }
 # Get OAuth 2.0 Token
-$tokenRequest = Invoke-WebRequest -Method Post -Uri $uri -ContentType "application/x-www-form-urlencoded" -Body $body -UseBasicParsing
+$tokenRequest = Invoke-WebRequest -Method Post -Uri $uriToken -ContentType "application/x-www-form-urlencoded" -Body $body -UseBasicParsing
 # Access Token
 $token = ($tokenRequest.Content | ConvertFrom-Json).access_token
 #	Returns the tenant licence information
 
-$uriLicences = "https://graph.microsoft.com/v1.0/subscribedskus"
-if ($proxy) {
-    [array]$allSubscribedMessages = (Invoke-RestMethod -Uri $uriServices -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value
-    [array]$allCurrentStatusMessages = (Invoke-RestMethod -Uri $uriCurrentStatus -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value
-    [array]$allHistoricalStatusMessages = (Invoke-RestMethod -Uri $uriHistoricalStatus -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value
-    [array]$allMessages = (Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value
-    [array]$allLicences = (Invoke-RestMethod -Uri $uriLicences -Headers @{Authorization = "Bearer $Token" } -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).value
+[uri]$uriLicences = "https://graph.microsoft.com/v1.0/subscribedskus"
+
+
+#Fetch the information from Office 365 Service Health API
+#Get Services: Get the list of subscribed services
+try {
+    if ($proxyServer) {
+        [array]$allSubscribedMessages = @((Invoke-RestMethod -Uri $uriServices -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value)
+    }
+    else {
+        [array]$allSubscribedMessages = @((Invoke-RestMethod -Uri $uriServices -Headers $authHeader -Method Get).Value)
+    }
+    if ($null -eq $allSubscribedMessages -or $allSubscribedMessages.Count -eq 0) {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Subscribed services returned - verify proxy and network connectivity</p><br/>"
+    }
+    else {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allSubscribedMessages.count) subscribed services returned.</p><br/>"
+    }
 }
-else {
-    [array]$allSubscribedMessages = (Invoke-RestMethod -Uri $uriServices -Headers $authHeader -Method Get).Value
-    [array]$allCurrentStatusMessages = (Invoke-RestMethod -Uri $uriCurrentStatus -Headers $authHeader -Method Get).Value
-    [array]$allHistoricalStatusMessages = (Invoke-RestMethod -Uri $uriHistoricalStatus -Headers $authHeader -Method Get).Value
-    [array]$allMessages = (Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get).Value
-    [array]$allLicences = (Invoke-RestMethod -Uri $uriLicences -Headers @{Authorization = "Bearer $Token" } -Method Get).value
+catch {
+    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Subscribed services returned - verify proxy and network connectivity</p><br/>"
 }
 
-if ($null -eq $allSubscribedMessages) {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Subscribed services returned- verify proxy and network connectivity</p><br/>"
+#Get Current Status: Get a real-time view of current and ongoing service incidents and maintenance events
+try {
+    if ($proxyServer) {
+        [array]$allCurrentStatusMessages = @((Invoke-RestMethod -Uri $uriCurrentStatus -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value)
+    }
+    else {
+        [array]$allCurrentStatusMessages = @((Invoke-RestMethod -Uri $uriCurrentStatus -Headers $authHeader -Method Get).Value)
+    }
+    if ($null -eq $allCurrentStatusMessages -or $allCurrentStatusMessages.Count -eq 0) {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Cannot retrieve the current status of services - verify proxy and network connectivity</p><br/>"
+    }
+    else {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allCurrentStatusMessages.count) services and status returned.</p><br/>"
+    }
 }
-else {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allSubscribedMessages.count) subscribed services returned.</p><br/>"
-}
-if ($null -eq $allCurrentStatusMessages) {
+catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Cannot retrieve the current status of services - verify proxy and network connectivity</p><br/>"
 }
-else {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allCurrentStatusMessages.count) services and status returned.</p><br/>"
+
+#Get Historical Status: Get a historical view of service health, including service incidents and maintenance events.
+try {
+    if ($proxyServer) {
+        [array]$allHistoricalStatusMessages = @((Invoke-RestMethod -Uri $uriHistoricalStatus -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value)
+    }
+    else {
+        [array]$allHistoricalStatusMessages = @((Invoke-RestMethod -Uri $uriHistoricalStatus -Headers $authHeader -Method Get).Value)
+    }
+    if ($null -eq $allHistoricalStatusMessages -or $allHistoricalStatusMessages.Count -eq 0) {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No historical service health messages retrieved - verify proxy and network connectivity</p><br/>"
+    }
+    else {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allHistoricalStatusMessages.count) historical service health messages returned.</p><br/>"
+    }
 }
-if ($null -eq $allHistoricalStatusMessages) {
+catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No historical service health messages retrieved - verify proxy and network connectivity</p><br/>"
 }
-else {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allHistoricalStatusMessages.count) historical service health messages returned.</p><br/>"
+
+#Get Messages: Find Incident, Planned Maintenance, and Message Center communications.
+try {
+    if ($proxyServer) {
+        [array]$allMessages = @((Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value)
+    }
+    else {
+        [array]$allMessages = @((Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get).Value)
+    }
+    if ($null -eq $allMessages -or $allMessages.Count -eq 0) {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No message center messages retrieved - verify proxy and network connectivity</p><br/>"
+    }
+    else {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allMessages.count) message center messages retrieved.</p><br/>"
+    }
 }
-if ($null -eq $allMessages) {
+catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No message center messages retrieved - verify proxy and network connectivity</p><br/>"
 }
-else {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allMessages.count) message center messages retrieved.</p><br/>"
+
+try {
+    if ($proxyServer) {
+        [array]$allLicences = @((Invoke-RestMethod -Uri $uriLicences -Headers @{Authorization = "Bearer $Token" } -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).value)
+    }
+    else {
+        [array]$allLicences = @((Invoke-RestMethod -Uri $uriLicences -Headers @{Authorization = "Bearer $Token" } -Method Get).value)
+    }
+    if ($null -eq $allLicences -or $allLicences.Count -eq 0) {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No licence information retrieved - verify proxy and network connectivity</p><br/>"
+    }
+    else {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allLicences.count) licences retrieved.</p><br/>"
+    }
 }
-if ($null -eq $allLicences) {
+catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No licence information retrieved - verify proxy and network connectivity</p><br/>"
 }
-else {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allLicences.count) licences retrieved.</p><br/>"
+
+try {
+    if ($proxyServer) {
+        $Roadmap = @((Invoke-WebRequest -Uri $uriO365Roadmap -Proxy $proxyHost -ProxyUseDefaultCredentials).content)
+    }
+    else {
+        $Roadmap = @((Invoke-WebRequest -Uri $uriO365Roadmap).content)
+    }
+    if ($null -eq $Roadmap -or $Roadmap.Count -eq 0) {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Office 365 RSS Feed information - verify proxy and network connectivity</p><br/>"
+    }
+    else {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($Roadmap.count) feed items retrieved.</p><br/>"
+    }
 }
+catch {
+    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Office 365 RSS Feed information - verify proxy and network connectivity</p><br/>"
+}
+
+
+
 
 $rptO365Info += "<br/>You can add some general information in here if needed."
 $rptO365Info += "ie updates or links to external (ie cloud only) activity to verify Azure AD App is working (ie Flow to Teams Channel) <a href='$($altLink)' target=_blank> here </a></li></ul><br>"
@@ -995,42 +1084,181 @@ $divFive = $rptSectionFiveOne
 #Tab 6
 $rptSectionSixOne = "<div class='section'><div class='header'>Diagnostics</div>`n"
 $rptSectionSixOne += "<div class='content'>`n"
+$rptSectionSixOne += ""
 $rptSectionSixOne += "</div></div>`n"
 
 $divSix = $rptSectionSixOne
 
 $rptSectionSixTwo = "<div class='section'><div class='header'>Office 365 Message Data</div>`n"
 $rptSectionSixTwo += "<div class='content'>`n"
+$rptSectionSixTwo += "$($rptO365Info)"
 $rptSectionSixTwo += "</div></div>`n"
 
 $divSix += $rptSectionSixTwo
 
 $rptSectionSixThree = "<div class='section'><div class='header'>Information</div>`n"
 $rptSectionSixThree += "<div class='content'>`n"
+$rptSectionSixThree += ""
 $rptSectionSixThree += "</div></div>`n"
 
 $divSix += $rptSectionSixThree
 
 #Tab 7 - Network Changes
+#Retrieve latest Office 365 service instances
+#From docs.microsoft.com : https://docs.microsoft.com/en-us/Office365/Enterprise/office-365-ip-web-service
+[uri]$ws = "https://endpoints.office.com"
+$versionpath = $pathIPURLs + "\O365_endpoints_latestversion.txt"
+$pathIP4 = $pathIPURLs + "\O365_endpoints_ip4.txt"
+$pathIP6 = $pathIPURLs + "\O365_endpoints_ip6.txt"
+$pathIPurl = $pathIPURLs + "\O365_endpoints_urls.txt"
+$fileData="O365_endpoints_data.txt"
+$pathData = $pathIPURLs + "\" + $fileData
+$currentData=$null
+$currentData=Get-Content $pathData
+
+# fetch client ID and version if version file exists; otherwise create new file and client ID
+if (Test-Path $versionpath) {
+    $content = Get-Content $versionpath
+    $clientRequestId = $content[0]
+    $lastVersion = $content[1]
+}
+else {
+    $clientRequestId = [GUID]::NewGuid().Guid
+    $lastVersion = "0000000000"
+    @($clientRequestId, $lastVersion) | Out-File $versionpath
+}
+
+# call version method to check the latest version, and pull new data if version number is different
+[uri]$ipurlVersion = "$($ws)/version/Worldwide?clientRequestId=$($clientRequestId)"
+$version = Invoke-RestMethod -Uri ($ipurlVersion)
+if (($version.latest -gt $lastVersion) -or ($null -eq $currentData)) {
+    $ipurlOutput += "New version of Office 365 worldwide commercial service instance endpoints detected<br />`r`n"
+    # write the new version number to the version file
+    @($clientRequestId, $version.latest) | Out-File $versionpath
+    # invoke endpoints method to get the new data
+    [uri]$ipurlEndpoint = "$($ws)/endpoints/Worldwide?clientRequestId=$($clientRequestId)"
+    $endpointSets = Invoke-RestMethod -Uri ($ipurlEndpoint)
+    # filter results for Allow and Optimize endpoints, and transform these into custom objects with port and category
+    # URL results
+    $flatUrls = $endpointSets | ForEach-Object {
+        $endpointSet = $_
+        $urls = $(if ($endpointSet.urls.Count -gt 0) { $endpointSet.urls } else { @() })
+        $urlCustomObjects = @()
+        if ($endpointSet.category -in ("Allow", "Optimize")) {
+            $urlCustomObjects = $urls | ForEach-Object {
+                [PSCustomObject]@{
+                    category = $endpointSet.category;
+                    url      = $_;
+                    tcpPorts = $endpointSet.tcpPorts;
+                    udpPorts = $endpointSet.udpPorts;
+                }
+            }
+        }
+        $urlCustomObjects
+    }
+    $flatUrls | Export-Csv $pathIPurl -Encoding UTF8 -NoTypeInformation
+
+    # IPv4 results
+    $flatIp4s = $endpointSets | ForEach-Object {
+        $endpointSet = $_
+        $ips = $(if ($endpointSet.ips.Count -gt 0) { $endpointSet.ips } else { @() })
+        # IPv4 strings contain dots
+        $ip4s = $ips | Where-Object { $_ -like '*.*' }
+        $ip4CustomObjects = @()
+        if ($endpointSet.category -in ("Allow", "Optimize")) {
+            $ip4CustomObjects = $ip4s | ForEach-Object {
+                [PSCustomObject]@{
+                    category = $endpointSet.category;
+                    ip       = $_;
+                    tcpPorts = $endpointSet.tcpPorts;
+                    udpPorts = $endpointSet.udpPorts;
+                }
+            }
+        }
+        $ip4CustomObjects
+    }
+    $flatIp4s | Export-Csv $pathIP4 -Encoding UTF8 -NoTypeInformation
+    # IPv6 results
+    $flatIp6s = $endpointSets | ForEach-Object {
+        $endpointSet = $_
+        $ips = $(if ($endpointSet.ips.Count -gt 0) { $endpointSet.ips } else { @() })
+        # IPv6 strings contain colons
+        $ip6s = $ips | Where-Object { $_ -like '*:*' }
+        $ip6CustomObjects = @()
+        if ($endpointSet.category -in ("Optimize")) {
+            $ip6CustomObjects = $ip6s | ForEach-Object {
+                [PSCustomObject]@{
+                    category = $endpointSet.category;
+                    ip       = $_;
+                    tcpPorts = $endpointSet.tcpPorts;
+                    udpPorts = $endpointSet.udpPorts;
+                }
+            }
+        }
+        $ip6CustomObjects
+    }
+    $flatIp6s | Export-Csv $pathIP6 -Encoding UTF8 -NoTypeInformation
+}
+else {
+    $ipurlSummary += "Office 365 worldwide commercial service instance endpoints are up-to-date. <br />`r`n"
+    $ipurlSummary += "Importing previous results. <br />`r`n"
+	$ipurlSummary += "Data available from <a href='https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges' target=_blank>https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges</a><br/>`r`n"
+    $flatUrls = Import-Csv $pathIPurl
+    $flatIp4s = Import-Csv $pathIP4
+    $flatIp6s = Import-Csv $pathIP6
+
+}
+# write output to screen
+# Clients arent going to want to view this, are they?
+#$ipurlOutput += "<b>Client Request ID: " + $clientRequestId + "</b><br />`r`n"
+#$ipurlOutput += "<b>Last Version: " + $lastVersion + "</b><br />`r`n"
+#$ipurlOutput += "<b>New Version: " + $version.latest + "</b><br />`r`n"
+    
+$ipurlOutput += "<b>IPv4 Firewall IP Address Ranges</b><br />`r`n"
+$ipurlOutput += "$(($flatIp4s.ip | Sort-Object -Unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "<b>IPv6 Firewall IP Address Ranges</b><br />`r`n"
+$ipurlOutput += "$(($flatIp6s.ip | Sort-Object -Unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "<b>URLs for Proxy Server</b><br />`r`n"
+$ipurlOutput += "$(($flatUrls.url | Sort-Object -Unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "Current IPs and URLs available for <a href='$($fileData)' target=_blank>download here</a>"
+
+# write output to data file
+Write-Output "Office 365 IP and UL Web Service data" | Out-File $pathData
+Write-Output "Worldwide instance" | Out-File $pathData -Append
+Write-Output "" | Out-File $pathData -Append
+Write-Output ("Version: " + $version.latest) | Out-File $pathData -Append
+Write-Output "" | Out-File $pathData -Append
+Write-Output "IPv4 Firewall IP Address Ranges" | Out-File $pathData -Append
+($flatIp4s.ip | Sort-Object -Unique) -join ", " | Out-File $pathData -Append
+Write-Output "" | Out-File $pathData -Append
+Write-Output "IPv6 Firewall IP Address Ranges" | Out-File $pathData -Append
+($flatIp6s.ip | Sort-Object -Unique) -join ", " | Out-File $pathData -Append
+Write-Output "" | Out-File $pathData -Append
+Write-Output "URLs for Proxy Server" | Out-File $pathData -Append
+($flatUrls.url | Sort-Object -Unique) -join ", " | Out-File $pathData -Append
+Copy-Item $pathdata -Destination $pathHTML
+
 $rptSectionSevenOne = "<div class='section'><div class='header'>Versions Information</div>`n"
 $rptSectionSevenOne += "<div class='content'>`n"
-[string]$ipurlVersion = "IP and URL Version information"
+[string]$ipurlVersion = "<b>IP and URL Version information</b><br />"
 $rptSectionSevenOne += $ipurlVersion
+$rptSectionSevenOne += $ipurlSummary
 $rptSectionSevenOne += "</div></div>`n"
 
 $divSeven = $rptSectionSevenOne
 
 $rptSectionSevenTwo = "<div class='section'><div class='header'>Office 365 Message Data</div>`n"
 $rptSectionSevenTwo += "<div class='content'>`n"
-[string]$ipurlCurrent = "Current IP and URL information"
+[string]$ipurlCurrent = "<b>Current IP and URL information</b><br />"
 $rptSectionSevenTwo += $ipurlCurrent
+$rptSectionSevenTwo += $ipurlOutput
 $rptSectionSevenTwo += "</div></div>`n"
 
 $divSeven += $rptSectionSevenTwo
 
 $rptSectionSevenThree = "<div class='section'><div class='header'>IP and URL History</div>`n"
 $rptSectionSevenThree += "<div class='content'>`n"
-[string]$ipurlHistory = "IP and URL history of changes"
+[string]$ipurlHistory = "<b>IP and URL history of changes</b><br />"
 $rptSectionSevenThree += "</div></div>`n"
 
 $divSeven += $rptSectionSevenThree
@@ -1038,16 +1266,14 @@ $divSeven += $rptSectionSevenThree
 #Tab 8 - Office 365 RSS Feed
 $rptSectionEightOne = "<div class='section'><div class='header'>Microsoft 365 Roadmap</div>`n"
 $rptSectionEightOne += "<div class='content'>`n"
-$rptSectionEightOne += "Last 20 items. Full roadmap can be viewed here: <a href>https://www.microsoft.com/en-us/microsoft-365/roadmap</a>"
-[string]$uriO365Roadmap = "https://www.microsoft.com/en-gb/microsoft-365/RoadmapFeatureRSS"
-$Roadmap = ((Invoke-WebRequest -Uri $uriO365Roadmap).content)
+$rptSectionEightOne += "Last 20 items. Full roadmap can be viewed here: <a href='https://www.microsoft.com/en-us/microsoft-365/roadmap' target=_blank>https://www.microsoft.com/en-us/microsoft-365/roadmap</a><br/>`r`n"
 $Roadmap = $Roadmap.replace("ï»¿", "")
 [xml]$content = $Roadmap
 $feed = $content.rss.channel
-$feedMessages=@{}
+$feedMessages = @{ }
 $feedMessages = foreach ($msg in $feed.Item) {
-    $description=$msg.description
-    $description=$description -replace ("`n", '<br>') -replace ([char]194, "") -replace ([char]8217, "'") -replace ([char]8220, '"') -replace ([char]8221, '"') -replace ('\[', '<b><i>') -replace ('\]', '</i></b>')
+    $description = $msg.description
+    $description = $description -replace ("`n", '<br>') -replace ([char]194, "") -replace ([char]8217, "'") -replace ([char]8220, '"') -replace ([char]8221, '"') -replace ('\[', '<b><i>') -replace ('\]', '</i></b>')
 
     [PSCustomObject]@{
         'LastUpdated' = [datetime]$msg.updated
@@ -1059,7 +1285,7 @@ $feedMessages = foreach ($msg in $feed.Item) {
     }
 }
 
-$feedMessages=$feedmessages | Sort-Object published -Descending | Select-Object -First 20
+$feedMessages = $feedmessages | Sort-Object published -Descending | Select-Object -First 20
 
 if ($feedMessages.count -ge 1) {
     $rptFeedTable += "<div class='tableInc'>`n"
