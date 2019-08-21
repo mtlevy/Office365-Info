@@ -40,6 +40,27 @@ body {
     margin: 8px 5px 8px 5px;
 }
 
+p.error {
+    display:inline;
+    color: red;
+}
+
+p.warning {
+    display:inline;
+    color: orange;
+}
+
+p.info {
+    display: inline;
+    color: blue;
+}
+
+p.section {
+    display:inline;
+    color:black;
+    font-weight: bold;
+}
+
 div.section {
     border: 1px solid #bbbbbb;
     padding-bottom: 2px;
@@ -384,6 +405,7 @@ div.dash-inner {
 .tableWrkld-cell-r {
     display: table-cell;
     text-align: right;
+    font-weight: bold;
     /* border: solid; */
     margin: auto;
     vertical-align: middle;

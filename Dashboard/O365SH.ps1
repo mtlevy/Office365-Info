@@ -270,6 +270,9 @@ function BuildHTML {
 <style>
 </style>
 <title>$($rptTitle)</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 </head>
 "@
 
@@ -661,7 +664,7 @@ catch {
 
 
 
-$rptO365Info += "<br/>You can add some general information in here if needed."
+$rptO365Info += "<br/>You can add some general information in here if needed.<br />"
 $rptO365Info += "ie updates or links to external (ie cloud only) activity to verify Azure AD App is working (ie Flow to Teams Channel) <a href='$($altLink)' target=_blank> here </a></li></ul><br>"
 
 #Start Building the Pages
@@ -1107,11 +1110,11 @@ $divSix += $rptSectionSixThree
 #Retrieve latest Office 365 service instances
 #From docs.microsoft.com : https://docs.microsoft.com/en-us/Office365/Enterprise/office-365-ip-web-service
 [uri]$ws = "https://endpoints.office.com"
-$versionpath = $pathIPURLs + "\O365_endpoints_latestversion.txt"
-$pathIP4 = $pathIPURLs + "\O365_endpoints_ip4.txt"
-$pathIP6 = $pathIPURLs + "\O365_endpoints_ip6.txt"
-$pathIPurl = $pathIPURLs + "\O365_endpoints_urls.txt"
-$fileData="O365_endpoints_data.txt"
+$versionpath = $pathIPURLs + "\O365_endpoints_latestversion-$($rptProfile).txt"
+$pathIP4 = $pathIPURLs + "\O365_endpoints_ip4-$($rptProfile).txt"
+$pathIP6 = $pathIPURLs + "\O365_endpoints_ip6-$($rptProfile).txt"
+$pathIPurl = $pathIPURLs + "\O365_endpoints_urls-$($rptProfile).txt"
+$fileData="O365_endpoints_data-$($rptProfile).txt"
 $pathData = $pathIPURLs + "\" + $fileData
 $currentData=$null
 $currentData=Get-Content $pathData
@@ -1210,17 +1213,43 @@ else {
 }
 # write output to screen
 # Clients arent going to want to view this, are they?
-#$ipurlOutput += "<b>Client Request ID: " + $clientRequestId + "</b><br />`r`n"
-#$ipurlOutput += "<b>Last Version: " + $lastVersion + "</b><br />`r`n"
-#$ipurlOutput += "<b>New Version: " + $version.latest + "</b><br />`r`n"
+$ipurlSummary += "<b>Client Request ID: " + $clientRequestId + "</b><br />`r`n"
+$ipurlSummary += "<b>Last Version: " + $lastVersion + "</b><br />`r`n"
+$ipurlSummary += "<b>New Version: " + $version.latest + "</b><br />`r`n"
     
+#IPv4
 $ipurlOutput += "<b>IPv4 Firewall IP Address Ranges</b><br />`r`n"
-$ipurlOutput += "$(($flatIp4s.ip | Sort-Object -Unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "<b>Optimize (Direct connection):</b><br />`r`n"
+
+$flatAddressIPv4=@($flatIp4s | Where-Object {$_.category -like 'optimize'})
+$ipurlOutput += "$(($flatAddressIPv4.ip | sort-object -unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "<b>Allow:</b><br />`r`n"
+$flatAddressIPv4=@($flatIp4s | Where-Object {$_.category -notlike 'Optimize'})
+$ipurlOutput += "$(($flatAddressIPv4.ip | sort-object -unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "All IPv4 networks, TCP/UDP Ports and classifications available to <a href='$(split-path $pathIP4 -leaf)' target=_blank>download here</a><br /><br />`r`n"
+
+#IPv6
 $ipurlOutput += "<b>IPv6 Firewall IP Address Ranges</b><br />`r`n"
-$ipurlOutput += "$(($flatIp6s.ip | Sort-Object -Unique) -join ', ' | Out-String) <br /><br />`r`n"
-$ipurlOutput += "<b>URLs for Proxy Server</b><br />`r`n"
-$ipurlOutput += "$(($flatUrls.url | Sort-Object -Unique) -join ', ' | Out-String) <br /><br />`r`n"
-$ipurlOutput += "Current IPs and URLs available for <a href='$($fileData)' target=_blank>download here</a>"
+$ipurlOutput += "<b>Optimize (Direct connection):</b><br />`r`n"
+
+$flatAddressIPv6=@($flatIp6s | Where-Object {$_.category -like 'optimize'})
+$ipurlOutput += "$(($flatAddressIPv6.ip | sort-object -unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "<b>Allow:</b><br />`r`n"
+$flatAddressIPv6=@($flatIp6s | Where-Object {$_.category -notlike 'Optimize'})
+$ipurlOutput += "$(($flatAddressIPv6.ip | sort-object -unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "All IPv6 networks, TCP/UDP Ports and classifications available to <a href='$(split-path $pathIP6 -leaf)' target=_blank>download here</a><br /><br />`r`n"
+
+#URLs
+$ipurlOutput += "<b>URLs</b><br />`r`n"
+$ipurlOutput += "<b>Optimize (Direct connection):</b><br />`r`n"
+
+$flatAddressURLs=@($flatUrls | Where-Object {$_.category -like 'optimize'})
+$ipurlOutput += "$(($flatAddressURLs.url | sort-object -unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "<b>Allow:</b><br />`r`n"
+$flatAddressURLs=@($flatUrls | Where-Object {$_.category -notlike 'Optimize'})
+$ipurlOutput += "$(($flatAddressURLs.url | sort-object -unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "All URLs, TCP/UDP Ports and classifications available to <a href='$(split-path $pathIPurl -leaf)' target=_blank>download here</a><br /><br />`r`n"
+$ipurlOutput += "Summary information available to <a href='$(split-path $pathdata -leaf)' target=_blank>download here</a><br /><br />`r`n"
 
 # write output to data file
 Write-Output "Office 365 IP and UL Web Service data" | Out-File $pathData
@@ -1237,6 +1266,10 @@ Write-Output "" | Out-File $pathData -Append
 Write-Output "URLs for Proxy Server" | Out-File $pathData -Append
 ($flatUrls.url | Sort-Object -Unique) -join ", " | Out-File $pathData -Append
 Copy-Item $pathdata -Destination $pathHTML
+Copy-Item $pathIPurl -Destination $pathHTML
+Copy-Item $pathIP4 -Destination $pathHTML
+Copy-Item $pathIP6 -Destination $pathHTML
+
 
 $rptSectionSevenOne = "<div class='section'><div class='header'>Versions Information</div>`n"
 $rptSectionSevenOne += "<div class='content'>`n"
@@ -1247,7 +1280,7 @@ $rptSectionSevenOne += "</div></div>`n"
 
 $divSeven = $rptSectionSevenOne
 
-$rptSectionSevenTwo = "<div class='section'><div class='header'>Office 365 Message Data</div>`n"
+$rptSectionSevenTwo = "<div class='section'><div class='header'>Current IP and URL Information</div>`n"
 $rptSectionSevenTwo += "<div class='content'>`n"
 [string]$ipurlCurrent = "<b>Current IP and URL information</b><br />"
 $rptSectionSevenTwo += $ipurlCurrent
