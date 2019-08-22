@@ -113,6 +113,8 @@ $prefDashCards = $prefDashCards.Trim()
 [string]$HTMLFile = $config.DashboardHTML
 [string]$pathIPURLs = $config.IPURLPath
 
+[int]$maxFeedItems = $config.MaxFeedItems
+
 
 
 #If no path has been specified, use the current script location
@@ -1114,10 +1116,10 @@ $versionpath = $pathIPURLs + "\O365_endpoints_latestversion-$($rptProfile).txt"
 $pathIP4 = $pathIPURLs + "\O365_endpoints_ip4-$($rptProfile).txt"
 $pathIP6 = $pathIPURLs + "\O365_endpoints_ip6-$($rptProfile).txt"
 $pathIPurl = $pathIPURLs + "\O365_endpoints_urls-$($rptProfile).txt"
-$fileData="O365_endpoints_data-$($rptProfile).txt"
+$fileData = "O365_endpoints_data-$($rptProfile).txt"
 $pathData = $pathIPURLs + "\" + $fileData
-$currentData=$null
-$currentData=Get-Content $pathData
+$currentData = $null
+$currentData = Get-Content $pathData
 
 # fetch client ID and version if version file exists; otherwise create new file and client ID
 if (Test-Path $versionpath) {
@@ -1205,7 +1207,7 @@ if (($version.latest -gt $lastVersion) -or ($null -eq $currentData)) {
 else {
     $ipurlSummary += "Office 365 worldwide commercial service instance endpoints are up-to-date. <br />`r`n"
     $ipurlSummary += "Importing previous results. <br />`r`n"
-	$ipurlSummary += "Data available from <a href='https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges' target=_blank>https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges</a><br/>`r`n"
+    $ipurlSummary += "Data available from <a href='https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges' target=_blank>https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges</a><br/>`r`n"
     $flatUrls = Import-Csv $pathIPurl
     $flatIp4s = Import-Csv $pathIP4
     $flatIp6s = Import-Csv $pathIP6
@@ -1221,35 +1223,35 @@ $ipurlSummary += "<b>New Version: " + $version.latest + "</b><br />`r`n"
 $ipurlOutput += "<b>IPv4 Firewall IP Address Ranges</b><br />`r`n"
 $ipurlOutput += "<b>Optimize (Direct connection):</b><br />`r`n"
 
-$flatAddressIPv4=@($flatIp4s | Where-Object {$_.category -like 'optimize'})
-$ipurlOutput += "$(($flatAddressIPv4.ip | sort-object -unique) -join ', ' | Out-String) <br /><br />`r`n"
+$flatAddressIPv4 = @($flatIp4s | Where-Object { $_.category -like 'optimize' })
+$ipurlOutput += "$(($flatAddressIPv4.ip | Sort-Object -unique) -join ', ' | Out-String) <br /><br />`r`n"
 $ipurlOutput += "<b>Allow:</b><br />`r`n"
-$flatAddressIPv4=@($flatIp4s | Where-Object {$_.category -notlike 'Optimize'})
-$ipurlOutput += "$(($flatAddressIPv4.ip | sort-object -unique) -join ', ' | Out-String) <br /><br />`r`n"
-$ipurlOutput += "All IPv4 networks, TCP/UDP Ports and classifications available to <a href='$(split-path $pathIP4 -leaf)' target=_blank>download here</a><br /><br />`r`n"
+$flatAddressIPv4 = @($flatIp4s | Where-Object { $_.category -notlike 'Optimize' })
+$ipurlOutput += "$(($flatAddressIPv4.ip | Sort-Object -unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "All IPv4 networks, TCP/UDP Ports and classifications available to <a href='$(Split-Path $pathIP4 -leaf)' target=_blank>download here</a><br /><br />`r`n"
 
 #IPv6
 $ipurlOutput += "<b>IPv6 Firewall IP Address Ranges</b><br />`r`n"
 $ipurlOutput += "<b>Optimize (Direct connection):</b><br />`r`n"
 
-$flatAddressIPv6=@($flatIp6s | Where-Object {$_.category -like 'optimize'})
-$ipurlOutput += "$(($flatAddressIPv6.ip | sort-object -unique) -join ', ' | Out-String) <br /><br />`r`n"
+$flatAddressIPv6 = @($flatIp6s | Where-Object { $_.category -like 'optimize' })
+$ipurlOutput += "$(($flatAddressIPv6.ip | Sort-Object -unique) -join ', ' | Out-String) <br /><br />`r`n"
 $ipurlOutput += "<b>Allow:</b><br />`r`n"
-$flatAddressIPv6=@($flatIp6s | Where-Object {$_.category -notlike 'Optimize'})
-$ipurlOutput += "$(($flatAddressIPv6.ip | sort-object -unique) -join ', ' | Out-String) <br /><br />`r`n"
-$ipurlOutput += "All IPv6 networks, TCP/UDP Ports and classifications available to <a href='$(split-path $pathIP6 -leaf)' target=_blank>download here</a><br /><br />`r`n"
+$flatAddressIPv6 = @($flatIp6s | Where-Object { $_.category -notlike 'Optimize' })
+$ipurlOutput += "$(($flatAddressIPv6.ip | Sort-Object -unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "All IPv6 networks, TCP/UDP Ports and classifications available to <a href='$(Split-Path $pathIP6 -leaf)' target=_blank>download here</a><br /><br />`r`n"
 
 #URLs
 $ipurlOutput += "<b>URLs</b><br />`r`n"
 $ipurlOutput += "<b>Optimize (Direct connection):</b><br />`r`n"
 
-$flatAddressURLs=@($flatUrls | Where-Object {$_.category -like 'optimize'})
-$ipurlOutput += "$(($flatAddressURLs.url | sort-object -unique) -join ', ' | Out-String) <br /><br />`r`n"
+$flatAddressURLs = @($flatUrls | Where-Object { $_.category -like 'optimize' })
+$ipurlOutput += "$(($flatAddressURLs.url | Sort-Object -unique) -join ', ' | Out-String) <br /><br />`r`n"
 $ipurlOutput += "<b>Allow:</b><br />`r`n"
-$flatAddressURLs=@($flatUrls | Where-Object {$_.category -notlike 'Optimize'})
-$ipurlOutput += "$(($flatAddressURLs.url | sort-object -unique) -join ', ' | Out-String) <br /><br />`r`n"
-$ipurlOutput += "All URLs, TCP/UDP Ports and classifications available to <a href='$(split-path $pathIPurl -leaf)' target=_blank>download here</a><br /><br />`r`n"
-$ipurlOutput += "Summary information available to <a href='$(split-path $pathdata -leaf)' target=_blank>download here</a><br /><br />`r`n"
+$flatAddressURLs = @($flatUrls | Where-Object { $_.category -notlike 'Optimize' })
+$ipurlOutput += "$(($flatAddressURLs.url | Sort-Object -unique) -join ', ' | Out-String) <br /><br />`r`n"
+$ipurlOutput += "All URLs, TCP/UDP Ports and classifications available to <a href='$(Split-Path $pathIPurl -leaf)' target=_blank>download here</a><br /><br />`r`n"
+$ipurlOutput += "Summary information available to <a href='$(Split-Path $pathdata -leaf)' target=_blank>download here</a><br /><br />`r`n"
 
 # write output to data file
 Write-Output "Office 365 IP and UL Web Service data" | Out-File $pathData
@@ -1299,47 +1301,58 @@ $divSeven += $rptSectionSevenThree
 #Tab 8 - Office 365 RSS Feed
 $rptSectionEightOne = "<div class='section'><div class='header'>Microsoft 365 Roadmap</div>`n"
 $rptSectionEightOne += "<div class='content'>`n"
-$rptSectionEightOne += "Last 20 items. Full roadmap can be viewed here: <a href='https://www.microsoft.com/en-us/microsoft-365/roadmap' target=_blank>https://www.microsoft.com/en-us/microsoft-365/roadmap</a><br/>`r`n"
+$rptSectionEightOne += "Last $($maxFeedItems) items. Full roadmap can be viewed here: <a href='https://www.microsoft.com/en-us/microsoft-365/roadmap' target=_blank>https://www.microsoft.com/en-us/microsoft-365/roadmap</a><br/>`r`n"
 $Roadmap = $Roadmap.replace("ï»¿", "")
 [xml]$content = $Roadmap
 $feed = $content.rss.channel
 $feedMessages = @{ }
 $feedMessages = foreach ($msg in $feed.Item) {
     $description = $msg.description
-    $description = $description -replace ("`n", '<br>') -replace ([char]194, "") -replace ([char]8217, "'") -replace ([char]8220, '"') -replace ([char]8221, '"') -replace ('\[', '<b><i>') -replace ('\]', '</i></b>')
+    $description = $description -replace ("`n", '<br>')
+    $description = $description -replace ([char]226, "'")
+    $description = $description -replace ([char]128, "")
+    $description = $description -replace ([char]153, "")
+    $description = $description -replace ([char]162, "")
+    $description = $description -replace ([char]194, "")
+    $description = $description -replace ([char]195, "")
+    $description = $description -replace ([char]8217, "'")
+    $description = $description -replace ([char]8220, '"')
+    $description = $description -replace ([char]8221, '"')
+    $description = $description -replace ('\[', '<b><i>')
+    $description = $description -replace ('\]', '</i></b>')
 
     [PSCustomObject]@{
         'LastUpdated' = [datetime]$msg.updated
         'Published'   = [datetime]$msg.pubDate
-        'Description' = $msg.description
+        'Description' = $description
         'Title'       = $msg.Title
         'Category'    = $msg.Category
         'Link'        = $msg.link
     }
 }
 
-$feedMessages = $feedmessages | Sort-Object published -Descending | Select-Object -First 20
+$feedMessages = $feedmessages | Sort-Object published -Descending | Select-Object -First $maxFeedItems
 
 if ($feedMessages.count -ge 1) {
-    $rptFeedTable += "<div class='tableInc'>`n"
-    $rptFeedTable += "<div class='tableInc-title'>Microsoft 365 RoadMap</div>`n"
-    $rptFeedTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-c'>Category</div>`n`t<div class='tableInc-header-c'>Title</div>`n`t<div class='tableInc-header-c'>Description</div>`n`t<div class='tableInc-header-c'>Published</div>`n`t<div class='tableInc-header-c'>Last Updated</div>`n</div>`n"
+    $rptFeedTable += "<div class='tableFeed'>`n"
+    $rptFeedTable += "<div class='tableFeed-title'>Microsoft 365 RoadMap</div>`n"
+    $rptFeedTable += "<div class='tableFeed-header'>`n`t<div class='tableFeed-header-c'>Category</div>`n`t<div class='tableFeed-header-c'>Title</div>`n`t<div class='tableFeed-header-c'>Description</div>`n`t<div class='tableFeed-header-c'>Published</div>`n`t<div class='tableFeed-header-c'>Last Updated</div>`n</div>`n"
     foreach ($item in $feedMessages) {
         if ($item.LastUpdated) { $LastUpdated = $(Get-Date $item.LastUpdated -f 'dd-MMM-yyyy HH:mm') } else { $StartTime = "" }
         if ($item.Published) { $Published = $(Get-Date $item.Published -f 'dd-MMM-yyyy HH:mm') } else { $EndTime = "" }
         $link = $item.Link
         #Build link to detailed message
         #$link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
-        #if ($link) {
-        #    $ID = "<a href=$($link) target=_blank>$($item.ID) - $($item.ImpactDescription)</a>"
-        #}
-        #else { $ID = "$($item.ID) - $($item.ImpactDescription)" }
-        $rptFeedTable += "<div class='tableInc-row'>`n`t"
-        $rptFeedTable += "<div class='tableInc-cell-l'>$($item.Category -join '<br>')</div>`n`t"
-        $rptFeedTable += "<div class='tableInc-cell-l'>$($item.Title)</div>`n`t"
-        $rptFeedTable += "<div class='tableInc-cell-l'>$($item.description)</div>`n`t"
-        $rptFeedTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($Published)</div>`n`t"
-        $rptFeedTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($LastUpdated)</div>`n`t"
+        if ($item.link) {
+            $ID = "<a href=$($item.link) target=_blank>$($item.Title)</a>"
+        }
+        else { $ID = "$($item.Title)" }
+        $rptFeedTable += "<div class='tableFeed-row'>`n`t"
+        $rptFeedTable += "<div class='tableFeed-cell-cat'>$($item.Category -join ' | ')</div>`n`t"
+        $rptFeedTable += "<div class='tableFeed-cell-title'>$($ID)</div>`n`t"
+        $rptFeedTable += "<div class='tableFeed-cell-desc'>$($item.description)</div>`n`t"
+        $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($Published)</div>`n`t"
+        $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($LastUpdated)</div>`n`t"
         $rptFeedTable += "</div>`n"
     }
 }

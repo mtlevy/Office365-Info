@@ -78,7 +78,7 @@ function LoadConfig {
         TenantID             = $configFile.Settings.Azure.TenantID
         AppID                = $configFile.Settings.Azure.AppID
         AppSecret            = $configFile.Settings.Azure.AppSecret
-    
+  
         WallReportName       = $configFile.Settings.WallDashboard.Name
         WallHTML             = $configFile.Settings.WallDashboard.HTMLFilename
         WallDashCards        = $configFile.Settings.WallDashboard.DashCards
@@ -106,9 +106,13 @@ function LoadConfig {
 
         UsageReportsPath     = $configFile.Settings.UsageReports.Path
         UsageEventSource     = $configFile.Settings.UsageReports.EventSource
+
+		MaxFeedItems         = $configFile.Settings.IPURLs.MaxFeedItems
     
         UseProxy             = $configFile.Settings.Proxy.UseProxy
         ProxyHost            = $configFile.Settings.Proxy.ProxyHost
+
+		IPURLPath            = $configFile.Settings.IPURLs.Path
     }
     return $appSettings
 }
@@ -282,7 +286,8 @@ function SendReport {
         [Parameter(Mandatory = $true)] [string]$strMessage,
         [Parameter(Mandatory = $false)][AllowNull()] [System.Management.Automation.PSCredential]$credEmail,
         [Parameter(Mandatory = $true)] $config,
-        [Parameter(Mandatory = $false)] [string]$strPriority = "Normal"
+        [Parameter(Mandatory = $false)] [string]$strPriority = "Normal",
+        [Parameter(Mandatory = $false)] $subject
     ) 
 
     [string]$strSubject = $null
@@ -293,11 +298,13 @@ function SendReport {
 
     #Build and send email (with attachment)
 
-    $strSubject = "Office 365 [$($config.tenantshortname)]: Alert [$(get-date -f 'dd-MMM-yyy HH:mm:ss')]"
+    $strSubject = "Office 365 [$($config.tenantshortname)]"
+	if ($subject) { $strSubject += ": $($subject)"}
+	else {$strSubject += ": Alert [$(get-date -f 'dd-MMM-yyy HH:mm:ss')]"}
     $strHeader = "<!DOCTYPE html PUBLIC ""-//W3C/DTD XHTML 1.0 Transitional//EN"" ""http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd""><html xmlns=""http://www.w3.org/1999/xhtml"">"
     $strHeader += "<head>`n<style type=""text/css"">`nbody {font-family: ""Segoe UI"", Tahoma, Geneva, Verdana, sans-serif;font-size: x-small;}`n"
     $strHeader += "table.border {border-collapse:collapse;border:1px solid silver;} table td.border {border:1px solid silver;} table th{color:white;background-color: #003399;}</style></head>`n"
-    $strBody = "<body>`n"
+    $strBody = "<body><b>Alert [$(get-date -f 'dd-MMM-yyy HH:mm:ss')]</b><br/>`r`n"
     $strBody += $strMessage
     $strSig = "<br/><br/>Kind regards<br/>Powershell scheduled task<br/><br/><b><i>(Automated report/email, do not respond)</i></b><br/>`n"
     $strSig += "<font: xx-small>Generated on: $env:computername by: $($env:userdomain)\$($env:username)</font></br>`n"

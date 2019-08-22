@@ -159,8 +159,8 @@ else {
 
 #Connect to Azure app and grab the service status
 ConnectAzureAD
-$urlOrca = "https://manage.office.com"
-$authority = "https://login.microsoftonline.com/$TenantID"
+[uri]$urlOrca = "https://manage.office.com"
+[uri]$authority = "https://login.microsoftonline.com/$($TenantID)"
 $authContext = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext" -ArgumentList $authority
 $clientCredential = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.ClientCredential" -ArgumentList $appId, $clientSecret
 $authenticationResult = ($authContext.AcquireTokenAsync($urlOrca, $clientCredential)).Result;
@@ -194,12 +194,15 @@ function BuildHTML {
 		<style>
 		$($minCSS)
         </style>
-        <title>$($rptTitle)</title>
+        <title>$($Title) - Workload Wall</title>
+		<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+		<meta http-equiv="Pragma" content="no-cache" />
+		<meta http-equiv="Expires" content="0" />
         </head>
 "@
     $htmlBody = @"
         <body>
-        <h1>$($rptTitle)</h1>
+        <h1>$($Title) - Workload Wall</h1>
         <p>Page refreshed: <span id="datetime"></span><span>&nbsp;&nbsp;Data refresh:$(get-date -f 'MMM dd yyyy HH:mm:ss')</span></p>
         $($contentOne)
 "@
@@ -226,7 +229,7 @@ function BuildHTML {
 #Report info
 # Get Messages
 #	Returns the current status of the service.
-$uriCurrentStatus = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/CurrentStatus"
+[uri]$uriCurrentStatus = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/CurrentStatus"
 
 if ($proxyServer) {
     [array]$allCurrentStatusMessages = (Invoke-RestMethod -Uri $uriCurrentStatus -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value

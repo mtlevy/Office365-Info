@@ -160,8 +160,8 @@ else {
 
 #Connect to Azure app and grab the service status
 ConnectAzureAD
-$urlOrca = "https://manage.office.com"
-$authority = "https://login.microsoftonline.com/$TenantID"
+[uri]$urlOrca = "https://manage.office.com"
+[uri]$authority = "https://login.microsoftonline.com/$($TenantID)"
 $authContext = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext" -ArgumentList $authority
 $clientCredential = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.ClientCredential" -ArgumentList $appId, $clientSecret
 $authenticationResult = ($authContext.AcquireTokenAsync($urlOrca, $clientCredential)).Result;
@@ -191,7 +191,7 @@ if (Test-Path "$($knownIssues)") { $knownIssuesList = Import-Csv $($knownIssues)
 
 
 #	Returns the messages about the service over a certain time range.
-[string]$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
+[uri]$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
 
 if ($ProxyServer) {
     [array]$allMessages = @((Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value)
@@ -236,7 +236,8 @@ if ($newIncidents.count -ge 1) {
             $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
             $mailMessage += "$($item.ImpactDescription)<br/><br/>"
             $emailPriority = Get-Severity "email" $item.severity
-            SendReport $mailMessage $EmailCreds $config $emailPriority
+			$emailSubject="New issue: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
+            SendReport $mailMessage $EmailCreds $config $emailPriority $emailSubject
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
             $evtMessage = $evtMessage.Replace("<b>", "")
             $evtMessage = $evtMessage.Replace("</b>", "")
@@ -276,11 +277,11 @@ foreach ($item in $reportClosed) {
     $mailMessage += "$($item.ImpactDescription)<br/><br/>"
     #Add the last action from microsoft to the email only - not to the event log entry (text can be too long)
     $mailWithLastAction = $mailMessage + "<b>Final Update from Microsoft</b>`t:<br/>"
-    $lastMessage = Get-htmlMessage ($item.messages.messagetext | Sort-Object $item.messages.messagetext.lastupdated -Descending | Select-Object -First 1)
+    $lastMessage = Get-htmlMessage ($item.messages.messagetext | Where-Object {$_ -like '*This is the final update*' -or $_ -like '*Final status:*'})
     $lastMessage = "<div style='background-color:azure'>" + $lastMessage.replace("<br><br>", "<br/>") + "</div>"
     $mailWithLastAction += "$($lastMessage)<br/><br/>"
-            
-    SendReport $mailWithLastAction $EmailCreds $config "Normal"
+	$emailSubject="Closed: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
+    SendReport $mailWithLastAction $EmailCreds $config "Normal" $emailSubject
     $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
     $evtMessage = $evtMessage.Replace("<b>", "")
     $evtMessage = $evtMessage.Replace("</b>", "")

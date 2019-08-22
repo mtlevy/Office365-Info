@@ -146,8 +146,8 @@ if ($UseEventLog) {
 #Connect to Azure app and grab the service status
 ConnectAzureAD
 #Connect to Graph API
-$urlOrca = "https://graph.microsoft.com"
-$authority = "https://login.microsoftonline.com/$TenantID"
+[uri]$urlOrca = "https://graph.microsoft.com"
+[uri]$authority = "https://login.microsoftonline.com/$($TenantID)"
 $authContext = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext" -ArgumentList $authority
 $clientCredential = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.ClientCredential" -ArgumentList $appId, $clientSecret
 $authenticationResult = ($authContext.AcquireTokenAsync($urlOrca, $clientCredential)).Result;
@@ -254,7 +254,7 @@ foreach ($O365Report in $allO365Reports) {
         $reportPeriod = "(period='$($period)')"
         $reportName = "$($O365Report)-$($period)"
     }
-    $reportURI = "https://graph.microsoft.com/v1.0/reports/$($O365Report)$($reportPeriod)"
+    [uri]$reportURI = "https://graph.microsoft.com/v1.0/reports/$($O365Report)$($reportPeriod)"
     $evtMessage = "Working on report URI: $($reportURI)"
     Write-Log $evtMessage
 

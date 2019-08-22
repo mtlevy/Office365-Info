@@ -68,6 +68,9 @@
     <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Usage Reports</EventSource>
   </UsageReports>
+  <IPURLs>
+    <MaxFeedItems>30</MaxFeedItems>
+  </IPURLs>
   <Proxy>
     <!-- Proxy settings if required-->
     <UseProxy>false</UseProxy>
