@@ -83,6 +83,8 @@ $config = LoadConfig $configXML
 [string]$evtSource = $config.MonitorEvtSource
 [boolean]$checklog = $false
 [boolean]$checksource = $false
+[string[]]$MonitorAlertsTo = $config.MonitorAlertsTo
+[string]$emailClosedBgd = "WhiteSmoke"
 
 #Configure local event log
 if ($config.UseEventlog -like 'true') {
@@ -137,7 +139,7 @@ $evtMessage = "Log Path: $($pathLogs)"
 Write-Log $evtMessage
 
 #Create event logs if set
-[System.Diagnostics.EventLog]$evtCheck=""
+[System.Diagnostics.EventLog]$evtCheck = ""
 if ($UseEventLog) {
     $evtCheck = Get-EventLog -List -ErrorAction SilentlyContinue | Where-Object { $_.LogDisplayName -eq $evtLogname }
     if (!($evtCheck)) {
@@ -236,8 +238,8 @@ if ($newIncidents.count -ge 1) {
             $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
             $mailMessage += "$($item.ImpactDescription)<br/><br/>"
             $emailPriority = Get-Severity "email" $item.severity
-			$emailSubject="New issue: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
-            SendReport $mailMessage $EmailCreds $config $emailPriority $emailSubject
+            $emailSubject = "New issue: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
+            SendReport $mailMessage $EmailCreds $config $emailPriority $emailSubject $MonitorAlertsTo
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
             $evtMessage = $evtMessage.Replace("<b>", "")
             $evtMessage = $evtMessage.Replace("</b>", "")
@@ -277,11 +279,12 @@ foreach ($item in $reportClosed) {
     $mailMessage += "$($item.ImpactDescription)<br/><br/>"
     #Add the last action from microsoft to the email only - not to the event log entry (text can be too long)
     $mailWithLastAction = $mailMessage + "<b>Final Update from Microsoft</b>`t:<br/>"
-    $lastMessage = Get-htmlMessage ($item.messages.messagetext | Where-Object {$_ -like '*This is the final update*' -or $_ -like '*Final status:*'})
-    $lastMessage = "<div style='background-color:azure'>" + $lastMessage.replace("<br><br>", "<br/>") + "</div>"
+    $lastMessage = Get-htmlMessage ($item.messages.messagetext | Where-Object { $_ -like '*This is the final update*' -or $_ -like '*Final status:*' })
+    $lastMessage = "<div style='background-color:$($emailClosedBgd)'>" + $lastMessage.replace("<br><br>", "<br/>") + "</div>"
     $mailWithLastAction += "$($lastMessage)<br/><br/>"
-	$emailSubject="Closed: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
-    SendReport $mailWithLastAction $EmailCreds $config "Normal" $emailSubject
+    $emailSubject = "Closed: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
+    Write-Log "Sending email to $($MonitorAlertsTo)"
+    SendReport $mailWithLastAction $EmailCreds $config "Normal" $emailSubject $MonitorAlertsTo
     $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
     $evtMessage = $evtMessage.Replace("<b>", "")
     $evtMessage = $evtMessage.Replace("</b>", "")
@@ -291,7 +294,7 @@ foreach ($item in $reportClosed) {
 
 #Update the know lists if issues. they might not have increased, but end times may have been added.
 if ($allMessages.count -gt 0) {
-	$currentIncidents | Export-Csv $($knownIssues) -Encoding UTF8 -NoTypeInformation
+    $currentIncidents | Export-Csv $($knownIssues) -Encoding UTF8 -NoTypeInformation
 }
 
 $swScript.Stop()

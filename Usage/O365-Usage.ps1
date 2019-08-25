@@ -40,7 +40,7 @@ function Write-Log {
         $script:FileHeader >> $script:logfile
         $script:loginitialized = $True
     }
-    $info = $(get-date).ToString() + ": " + $info
+    $info = $(Get-Date).ToString() + ": " + $info
     $info >> $script:logfile
 }
 
@@ -104,8 +104,8 @@ if ([system.IO.path]::IsPathRooted($pathUsageReports) -eq $false) {
 
 # setup the logfile
 # If logfile exists, the set flag to keep logfile
-$script:DailyLogFile = "$($pathLogs)\O365Usage-$($rptprofile)-$(get-date -format yyMMdd).log"
-$script:LogFile = "$($pathLogs)\tmpO365Usage-$($rptprofile)-$(get-date -format yyMMddHHmmss).log"
+$script:DailyLogFile = "$($pathLogs)\O365Usage-$($rptprofile)-$(Get-Date -format yyMMdd).log"
+$script:LogFile = "$($pathLogs)\tmpO365Usage-$($rptprofile)-$(Get-Date -format yyMMddHHmmss).log"
 $script:LogInitialized = $false
 $script:FileHeader = "*** Application Information ***"
 
@@ -265,8 +265,8 @@ foreach ($O365Report in $allO365Reports) {
         else {
             $allResults = Invoke-RestMethod -Uri $reportURI -Headers $authHeader -Method Get
         }
-    
-    
+
+
         if ($null -eq $allResults) {
             $evtMessage = "No result returned for $($O365Report) : $($reportURI)"
             Write-Log $evtMessage
@@ -276,7 +276,7 @@ foreach ($O365Report in $allO365Reports) {
             #theres some characters at the start of the output to remove
             $allResults = $allResults.replace("ï»¿", "") | ConvertFrom-Csv
             if (!($null -eq $allResults)) {
-                $allResults | Export-Csv -Path "$($pathUsageReports)$(get-date -f 'yyyyMMddHHmm')-$($reportName).csv" -NoTypeInformation -Encoding UTF8
+                $allResults | Export-Csv -Path "$($pathUsageReports)$(Get-Date -f 'yyyyMMddHHmm')-$($reportName).csv" -NoTypeInformation -Encoding UTF8
                 $evtMessage = "Exporting data for $($O365Report) : $($reportURI)"
                 Write-Log $evtMessage
             }
@@ -290,7 +290,7 @@ foreach ($O365Report in $allO365Reports) {
         $evtMessage = "Unable to download report for $($O365Report) : $($reportURI)`r`n"
         $evtMessage += "$($error[0].exception)"
         $evtLog = $evtMessage + "`r`n"
-        Write-Log $evtMessage        
+        Write-Log $evtMessage
         Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtLog -EventId 5 -EntryType Error
     }
 }

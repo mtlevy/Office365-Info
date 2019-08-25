@@ -3,6 +3,7 @@
   <Tenant>
     <!-- Basic tenant information. Shortname is used in filenames to help identify tenants-->
     <Name>Sample Tenant</Name>
+    <!-- Short name is used in filenames to help identify files per tenant-->
     <ShortName>Sample</ShortName>
     <Description>Sample tenant description</Description>
   </Tenant>
@@ -14,7 +15,7 @@
   </Azure>
   <Output>
     <!-- All paths, if not absolute, are relative to the location of the running script-->
-    <LogPath>Logs</LogPath>
+    <LogPath>.\Logs</LogPath>
     <!-- Where any HTML documents should be saved-->
     <HTMLPath>c:\inetpub\wwwroot\</HTMLPath>
     <!-- If using the local event log on the machine that runs the scripts, define which custom event log to use-->
@@ -29,7 +30,7 @@
     <Port>587</Port>
     <UseSSL>True</UseSSL>
     <From>sender@domain.com</From>
-    <!-- Leave blank for no authentication (ie internal mail system)-->
+    <!-- Blank for no authentication (ie internal mail system)-->
     <Username>authenticate@domain.com</Username>
     <PasswordFile>C:\credentials\StoreMySecurePassword.pwd</PasswordFile>
     <AESKeyFile>C:\credentials\StoreMyEncryptionKey.key</AESKeyFile>
@@ -61,6 +62,8 @@
     <EventSource>O365 Dashboard</EventSource>
     <Logo></Logo>
     <AddLink></AddLink>
+    <!-- Duration to show incidents recently closed (in days)-->
+    <History>3</History>
   </Dashboard>
   <UsageReports>
     <!-- Where to store the Office 365 Usage Reports (CSV)-->
@@ -70,6 +73,7 @@
   </UsageReports>
   <IPURLs>
     <MaxFeedItems>30</MaxFeedItems>
+    <Path></Path>
   </IPURLs>
   <Proxy>
     <!-- Proxy settings if required-->

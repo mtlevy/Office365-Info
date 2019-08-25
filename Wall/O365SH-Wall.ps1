@@ -9,7 +9,7 @@
     The script will build an HTML page displaying a dashboard of tiles for each workload and its feature status
 
     Configuration file is required allowing script to be called for multiple tenants.
-    
+
     Requires Azure AD powershell module (Install-Module AzureAD)
 
     Requires Azure AD Application - Tenant ID, Application ID and Secret.
@@ -51,7 +51,7 @@ function Write-Log {
         $script:FileHeader >> $script:logfile
         $script:loginitialized = $True
     }
-    $info = $(get-date).ToString() + ": " + $info
+    $info = $(Get-Date).ToString() + ": " + $info
     $info >> $script:logfile
 }
 
@@ -81,8 +81,8 @@ else { [boolean]$UseEventLog = $false }
 [string]$pathHTML = $config.HTMLPath
 [string]$HTMLFile = $config.WallHTML
 [string[]]$prefDashCards = $config.WallDashCards.split(",")
-$prefDashCards=$prefDashCards.Replace('"','')
-$prefDashCards=$prefDashCards.Trim()
+$prefDashCards = $prefDashCards.Replace('"', '')
+$prefDashCards = $prefDashCards.Trim()
 
 #Page refresh in minutes
 [int]$pageRefresh = $config.WallPageRefresh
@@ -123,8 +123,8 @@ if ([system.IO.path]::IsPathRooted($pathLogs) -eq $false) {
 
 # setup the logfile
 # If logfile exists, the set flag to keep logfile
-$script:DailyLogFile = "$($pathLogs)\O365Wall-$($rptprofile)-$(get-date -format yyMMdd).log"
-$script:LogFile = "$($pathLogs)\tmpO365Wall-$($rptprofile)-$(get-date -format yyMMddHHmmss).log"
+$script:DailyLogFile = "$($pathLogs)\O365Wall-$($rptprofile)-$(Get-Date -format yyMMdd).log"
+$script:LogFile = "$($pathLogs)\tmpO365Wall-$($rptprofile)-$(Get-Date -format yyMMddHHmmss).log"
 $script:LogInitialized = $false
 $script:FileHeader = "*** Application Information ***"
 
@@ -203,7 +203,7 @@ function BuildHTML {
     $htmlBody = @"
         <body>
         <h1>$($Title) - Workload Wall</h1>
-        <p>Page refreshed: <span id="datetime"></span><span>&nbsp;&nbsp;Data refresh:$(get-date -f 'MMM dd yyyy HH:mm:ss')</span></p>
+        <p>Page refreshed: <span id="datetime"></span><span>&nbsp;&nbsp;Data refresh:$(Get-Date -f 'MMM dd yyyy HH:mm:ss')</span></p>
         $($contentOne)
 "@
     $htmlFooter = @"

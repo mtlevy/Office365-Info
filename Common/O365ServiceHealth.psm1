@@ -70,28 +70,14 @@ function LoadConfig {
         TenantShortName      = $configFile.Settings.Tenant.ShortName
         TenantDescription    = $configFile.Settings.Tenant.Description
     
+        TenantID             = $configFile.Settings.Azure.TenantID
+        AppID                = $configFile.Settings.Azure.AppID
+        AppSecret            = $configFile.Settings.Azure.AppSecret
+    
         LogPath              = $configFile.Settings.Output.LogPath
         HTMLPath             = $configFile.Settings.Output.HTMLPath
         UseEventLog          = $configFile.Settings.Output.UseEventLog
         EventLog             = $configFile.Settings.Output.EventLog
-    
-        TenantID             = $configFile.Settings.Azure.TenantID
-        AppID                = $configFile.Settings.Azure.AppID
-        AppSecret            = $configFile.Settings.Azure.AppSecret
-  
-        WallReportName       = $configFile.Settings.WallDashboard.Name
-        WallHTML             = $configFile.Settings.WallDashboard.HTMLFilename
-        WallDashCards        = $configFile.Settings.WallDashboard.DashCards
-        WallPageRefresh      = $configFile.Settings.WallDashboard.Refresh
-        WallEventSource      = $configFile.Settings.WallDashboard.EventSource
-
-        DashboardName        = $configFile.Settings.Dashboard.Name
-        DashboardLogo        = $configFile.Settings.Dashboard.Logo
-        DashboardRefresh     = $configFile.Settings.Dashboard.Refresh
-        DashboardEvtSource   = $configFile.Settings.Dashboard.EventSource
-        DashboardHTML        = $configFile.Settings.Dashboard.HTMLFilename
-        DashboardCards       = $configFile.Settings.Dashboard.DashCards
-        DashboardAddLink     = $configFile.Settings.Dashboard.AddLink
 
         EmailHost            = $configFile.Settings.Email.SMTPServer
         EmailPort            = $configFile.Settings.Email.Port
@@ -103,16 +89,33 @@ function LoadConfig {
 
         MonitorAlertsTo      = [string[]]$configFile.Settings.Monitor.alertsTo
         MonitorEvtSource     = $configFile.Settings.Monitor.EventSource
+  
+        WallReportName       = $configFile.Settings.WallDashboard.Name
+        WallHTML             = $configFile.Settings.WallDashboard.HTMLFilename
+        WallDashCards        = $configFile.Settings.WallDashboard.DashCards
+        WallPageRefresh      = $configFile.Settings.WallDashboard.Refresh
+        WallEventSource      = $configFile.Settings.WallDashboard.EventSource
+
+        DashboardName        = $configFile.Settings.Dashboard.Name
+        DashboardHTML        = $configFile.Settings.Dashboard.HTMLFilename
+        DashboardCards       = $configFile.Settings.Dashboard.DashCards
+        DashboardRefresh     = $configFile.Settings.Dashboard.Refresh
+        DashboardEvtSource   = $configFile.Settings.Dashboard.EventSource
+        DashboardLogo        = $configFile.Settings.Dashboard.Logo
+        DashboardAddLink     = $configFile.Settings.Dashboard.AddLink
+		DashboardHistory     = $configFile.Settings.Dashboard.History
 
         UsageReportsPath     = $configFile.Settings.UsageReports.Path
         UsageEventSource     = $configFile.Settings.UsageReports.EventSource
 
 		MaxFeedItems         = $configFile.Settings.IPURLs.MaxFeedItems
+		IPURLPath            = $configFile.Settings.IPURLs.Path
+		IPURLAlertsTo        = $configFile.Settings.IPURLs.AlertsTo
     
         UseProxy             = $configFile.Settings.Proxy.UseProxy
         ProxyHost            = $configFile.Settings.Proxy.ProxyHost
+        ProxyIgnoreSSL       = $configFile.Settings.Proxy.IgnoreSSL
 
-		IPURLPath            = $configFile.Settings.IPURLs.Path
     }
     return $appSettings
 }
@@ -128,31 +131,36 @@ function Get-StatusDisplay {
     $icon2="<img src='images/2.jpg' alt='Warning' style='width:20px;height:20px;border:0;'>"
     $icon3="<img src='images/3.jpg' alt='OK' style='width:20px;height:20px;border:0;'>"
     #Each service status that is available is mapped to one of the levels - OK (3), warning (2) and error (1)
+	#Service status from: https://docs.microsoft.com/en-us/dotnet/api/microsoft.exchange.servicestatus.tenantcommunications.data.servicestatus?view=o365-service-communications
     switch ($type) {
         "icon" {
             switch ($statusName) {
-                "ExtendedRecovery" { $StatusDisplay = $icon1 }
-                "FalsePositive" { $StatusDisplay = $icon3 }
-                "Investigating" { $StatusDisplay = $icon2 }
-                "RestoringService" { $StatusDisplay = $icon2 }
-                "ServiceDegradation" { $StatusDisplay = $icon1 }
                 "ServiceInterruption" { $StatusDisplay = $icon1 }
-                "ServiceOperational" { $StatusDisplay = $icon3 }
+                "ServiceDegradation" { $StatusDisplay = $icon1 }
+                "RestoringService" { $StatusDisplay = $icon2 }
+                "ExtendedRecovery" { $StatusDisplay = $icon1 }
+                "Investigating" { $StatusDisplay = $icon2 }
                 "ServiceRestored" { $StatusDisplay = $icon3 }
+                "FalsePositive" { $StatusDisplay = $icon3 }
+                "PIRPublished" { $StatusDisplay = $icon3 }
+                "InformationUnavailable " { $StatusDisplay = $icon1 }
+                "ServiceOperational" { $StatusDisplay = $icon3 }
                 #Set default error icon if the status is not listed
                 default { $StatusDisplay = $icon1 }
             }
         }
         "class" {
             switch ($statusName) {
-                "ExtendedRecovery" { $StatusDisplay = "err" }
-                "FalsePositive" { $StatusDisplay = "ok" }
-                "Investigating" { $StatusDisplay = "warn" }
-                "RestoringService" { $StatusDisplay = "warn" }
-                "ServiceDegradation" { $StatusDisplay = "err" }
                 "ServiceInterruption" { $StatusDisplay = "err" }
-                "ServiceOperational" { $StatusDisplay = "ok" }
+                "ServiceDegradation" { $StatusDisplay = "err" }
+                "RestoringService" { $StatusDisplay = "warn" }
+                "ExtendedRecovery" { $StatusDisplay = "err" }
+                "Investigating" { $StatusDisplay = "warn" }
                 "ServiceRestored" { $StatusDisplay = "ok" }
+                "FalsePositive" { $StatusDisplay = "ok" }
+                "PIRPublished" { $StatusDisplay = "ok" }
+                "InformationUnavailable" { $StatusDisplay = "err" }
+                "ServiceOperational" { $StatusDisplay = "ok" }
                 #Set default error colour if the status is not listed
                 default { $StatusDisplay = "defcon" }
             }
@@ -287,7 +295,8 @@ function SendReport {
         [Parameter(Mandatory = $false)][AllowNull()] [System.Management.Automation.PSCredential]$credEmail,
         [Parameter(Mandatory = $true)] $config,
         [Parameter(Mandatory = $false)] [string]$strPriority = "Normal",
-        [Parameter(Mandatory = $false)] $subject
+        [Parameter(Mandatory = $false)] $subject,
+        [Parameter(Mandatory = $false)] [string[]]$emailTo
     ) 
 
     [string]$strSubject = $null
@@ -312,7 +321,7 @@ function SendReport {
     $strFooter += "</body>`n"
     $strFooter += "</html>`n"
     $strHTMLBody = $strHeader + $strBody + $strSig + $strFooter
-    [array]$strTo = $config.MonitorAlertsTo.Split(",")
+    [array]$strTo = $emailTo.Split(",")
     $strTo = $strTo.replace('"', '')
     if ($credEmail -notlike '') {
         #Credentials supplied

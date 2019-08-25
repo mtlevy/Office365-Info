@@ -20,10 +20,13 @@
     None
 
 .EXAMPLE
-    PS C:\> O365SH.ps1
+    PS C:\> O365SH.ps1 -configXML ..\config\production.xml
 
 .EXAMPLE
-    PS C:\> O365SH.ps1 -Tenant Production -HTMLPath c:\inetpub\wwwroot
+	Build all linked incident and advisory documents as local HTML files
+
+    PS C:\> O365SH.ps1 -configXML ..\config\production.xml -RebuildDocs
+
 
 .NOTES
     Author:  Jonathan Christie
@@ -44,7 +47,6 @@
 
 [CmdletBinding()]
 param (
-    #    [Parameter(Mandatory = $true)] [String]$configXML = "..\config\profile-test.xml",
     [Parameter(Mandatory = $true)] [String]$configXML = "..\config\profile-bhitprod.xml",
     [Parameter(Mandatory = $false)] [Switch]$RebuildDocs = $false
 )
@@ -91,10 +93,14 @@ else { [boolean]$UseEventLog = $false }
 [string]$tenantID = $config.TenantID
 [string]$appID = $config.AppID
 [string]$clientSecret = $config.AppSecret
+[string]$SMTPUser = $config.EmailUser
+[string]$SMTPPassword = $config.EmailPassword
+[string]$SMTPKey = $config.EmailKey
 
 [string]$addLink = $config.DashboardAddLink
 [string]$rptName = $config.DashboardName
 [int]$pageRefresh = $config.DashboardRefresh
+[int]$IncidentDays = $config.DashboardHistory
 #Dashboard cards
 [string[]]$dashCards = $config.DashboardCards.split(",")
 $dashCards = $dashCards.Replace('"', '')
@@ -113,8 +119,19 @@ $prefDashCards = $prefDashCards.Trim()
 [string]$HTMLFile = $config.DashboardHTML
 [string]$pathIPURLs = $config.IPURLPath
 
+[string[]]$emailIPURLAlerts = $config.IPURLAlertsTo
+
 [int]$maxFeedItems = $config.MaxFeedItems
 
+
+# Get Email credentials
+# Check for a username. No username, no need for credentials (internal mail host?)
+[PSCredential]$emailCreds = $null
+if ($smtpuser -notlike '') {
+    #Email credentials have been specified, so build the credentials.
+    #See readme on how to build credentials files
+    $EmailCreds = getCreds $SMTPUser $SMTPPassword $SMTPKey
+}
 
 
 #If no path has been specified, use the current script location
@@ -530,6 +547,8 @@ $SkuNames = @{
 [uri]$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
 #   Return the messages on the RSS feed for the O365 roadmap
 [uri]$uriO365Roadmap = "https://www.microsoft.com/en-gb/microsoft-365/RoadmapFeatureRSS"
+#   Return the messages on the RRS feed for Azure Updates
+[uri]$uriAzureUpdates="https://azurecomcdn.azureedge.net/en-gb/updates/feed/"
 
 #Connect to Microsoft graph and grab the licence information
 # Construct URI
@@ -663,6 +682,24 @@ catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Office 365 RSS Feed information - verify proxy and network connectivity</p><br/>"
 }
 
+try {
+    if ($proxyServer) {
+        $AzureUpdates = @((Invoke-WebRequest -Uri $uriAzureUpdates -Proxy $proxyHost -ProxyUseDefaultCredentials).content)
+    }
+    else {
+        $AzureUpdates = @((Invoke-WebRequest -Uri $uriAzureUpdates).content)
+    }
+    if ($null -eq $AzureUpdates -or $AzureUpdates.Count -eq 0) {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Azure Updates RSS Feed information - verify proxy and network connectivity</p><br/>"
+    }
+    else {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($AzureUpdates.count) feed items retrieved.</p><br/>"
+    }
+}
+catch {
+    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Azure Updates RSS Feed information - verify proxy and network connectivity</p><br/>"
+}
+
 
 
 
@@ -760,7 +797,6 @@ $rptActiveTable += "</div><br/>`n"
 
 #Show recently closed messages
 #create a timespan for recently closed messages - 3 to include weekends
-[int]$IncidentDays = 3
 $recentDate = (Get-Date).AddDays(-$IncidentDays)
 [array]$RecentMessagesOpen = @()
 $RecentMessagesOpen = $allMessages | Where-Object { ($_.messagetype -notlike 'MessageCenter' -and $_.EndTime -ne $null -and ((Get-Date $_.EndTime) -ge (Get-Date $recentdate))) } | Sort-Object LastUpdatedTime -Descending
@@ -1138,6 +1174,11 @@ else {
 $version = Invoke-RestMethod -Uri ($ipurlVersion)
 if (($version.latest -gt $lastVersion) -or ($null -eq $currentData)) {
     $ipurlOutput += "New version of Office 365 worldwide commercial service instance endpoints detected<br />`r`n"
+	#Send email to users on IP/URL change
+	$emailSubject="IPs and URLs: New version $($version.latest)"
+	$emailMessage="new version of Office 365 Worldwide Commercial service instance endpoints"
+    SendReport $emailMessage $EmailCreds $config "Normal" $emailSubject $emailIPURLAlerts
+
     # write the new version number to the version file
     @($clientRequestId, $version.latest) | Out-File $versionpath
     # invoke endpoints method to get the new data
@@ -1218,7 +1259,7 @@ else {
 $ipurlSummary += "<b>Client Request ID: " + $clientRequestId + "</b><br />`r`n"
 $ipurlSummary += "<b>Last Version: " + $lastVersion + "</b><br />`r`n"
 $ipurlSummary += "<b>New Version: " + $version.latest + "</b><br />`r`n"
-    
+
 #IPv4
 $ipurlOutput += "<b>IPv4 Firewall IP Address Ranges</b><br />`r`n"
 $ipurlOutput += "<b>Optimize (Direct connection):</b><br />`r`n"
@@ -1362,10 +1403,65 @@ $rptSectionEightOne += "</div></div>`n"
 
 $divEight = $rptSectionEightOne
 
-$rptSectionEightTwo = "<div class='section'><div class='header'>Azure 3656 Roadmap</div>`n"
+$rptSectionEightTwo = "<div class='section'><div class='header'>Azure Updates</div>`n"
 $rptSectionEightTwo += "<div class='content'>`n"
-$rptSectionEightTwo += "</div></div>`n"
 
+#Azure Updates URI: https://azurecomcdn.azureedge.net/en-gb/updates/feed/
+$rptSectionEightTwo += "Last 20 items. Full roadmap can be viewed here: <a href='https://azure.microsoft.com/en-gb/updates/' target=_blank>https://azure.microsoft.com/en-gb/updates/</a><br/>`r`n"
+$AzureUpdates = $AzureUpdates.replace("ï»¿", "")
+[xml]$content = $AzureUpdates
+$feed = $content.rss.channel
+$feedMessages = @{ }
+$feedMessages = foreach ($msg in $feed.Item) {
+    $description = $msg.description
+    $description = $description -replace ("`n", '<br>')
+    $description = $description -replace ([char]226, "'")
+    $description = $description -replace ([char]128, "")
+    $description = $description -replace ([char]153, "")
+    $description = $description -replace ([char]162, "")
+    $description = $description -replace ([char]194, "")
+    $description = $description -replace ([char]195, "")
+    $description = $description -replace ([char]8217, "'")
+    $description = $description -replace ([char]8220, '"')
+    $description = $description -replace ([char]8221, '"')
+    $description = $description -replace ('\[', '<b><i>')
+    $description = $description -replace ('\]', '</i></b>')
+
+    [PSCustomObject]@{
+        'Published'   = [datetime]$msg.pubDate
+        'Description' = $description
+        'Title'       = $msg.Title
+        'Category'    = $msg.Category
+        'Link'        = $msg.link
+    }
+}
+
+$feedMessages = $feedmessages | Sort-Object published -Descending | Select-Object -First $maxFeedItems
+$rptFeedTable=$null
+if ($feedMessages.count -ge 1) {
+    $rptFeedTable += "<div class='tableFeed'>`n"
+    $rptFeedTable += "<div class='tableFeed-title'>Azure Updates</div>`n"
+    $rptFeedTable += "<div class='tableFeed-header'>`n`t<div class='tableFeed-header-c'>Category</div>`n`t<div class='tableFeed-header-c'>Title</div>`n`t<div class='tableFeed-header-c'>Description</div>`n`t<div class='tableFeed-header-c'>Published</div>`n`t</div>`n"
+    foreach ($item in $feedMessages) {
+        if ($item.Published) { $Published = $(Get-Date $item.Published -f 'dd-MMM-yyyy HH:mm') } else { $EndTime = "" }
+        $link = $item.Link
+        #Build link to detailed message
+        #$link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
+        if ($item.link) {
+            $ID = "<a href=$($item.link) target=_blank>$($item.Title)</a>"
+        }
+        else { $ID = "$($item.Title)" }
+        $rptFeedTable += "<div class='tableFeed-row'>`n`t"
+        $rptFeedTable += "<div class='tableFeed-cell-cat'>$($item.Category -join ' | ')</div>`n`t"
+        $rptFeedTable += "<div class='tableFeed-cell-title'>$($ID)</div>`n`t"
+        $rptFeedTable += "<div class='tableFeed-cell-desc'>$($item.description)</div>`n`t"
+        $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($Published)</div>`n`t"
+        $rptFeedTable += "</div>`n"
+    }
+}
+
+$rptSectionEightTwo+=$rptFeedTable
+$rptSectionEightTwo += "</div></div>`n"
 $divEight += $rptSectionEightTwo
 
 $rptSectionEightThree = "<div class='section'><div class='header'>Information</div>`n"
