@@ -2,7 +2,7 @@
 function saveCredentials {
     param (
         [Parameter(Mandatory = $true)] [string]$Password,
-        [Parameter(Mandatory = $true)] [bool]$CreateKey,
+        [Parameter(Mandatory = $true)] [boolean]$CreateKey,
         [Parameter(Mandatory = $true)] [string]$KeyPath,
         [Parameter(Mandatory = $true)] [string]$CredsPath
     ) 
@@ -107,6 +107,12 @@ function LoadConfig {
 
         UsageReportsPath     = $configFile.Settings.UsageReports.Path
         UsageEventSource     = $configFile.Settings.UsageReports.EventSource
+
+		DiagnosticsNotes     = ($configfile.Settings.Diagnostics.Notes).InnerXML
+		DiagnosticsWeb       = $configfile.Settings.Diagnostics.Web
+		DiagnosticsPorts     = $configfile.Settings.Diagnostics.Ports
+		DiagnosticsURLs      = $configfile.Settings.Diagnostics.URLs
+
 
 		MaxFeedItems         = $configFile.Settings.IPURLs.MaxFeedItems
 		IPURLPath            = $configFile.Settings.IPURLs.Path

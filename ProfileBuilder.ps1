@@ -89,6 +89,11 @@ if (Test-Path $configXML) {
         UsageReportsPath   = $xmlExisting.Settings.UsageReports.Path
         UsageEventSource   = $xmlExisting.Settings.UsageReports.EventSource
 
+		DiagnosticsNotes   = ($xmlExisting.Settings.Diagnostics.Notes).InnerXML
+		DiagnosticsWeb     = $xmlExisting.Settings.Diagnostics.Web
+		DiagnosticsPorts   = $xmlExisting.Settings.Diagnostics.Ports
+		DiagnosticsURLs    = $xmlExisting.Settings.Diagnostics.URLs
+
         MaxFeedItems       = $xmlExisting.Settings.IPURLs.MaxFeedItems
         IPURLPath          = $xmlExisting.Settings.IPURLs.Path
         IPURLAlertsTo      = $xmlExisting.Settings.IPURLs.AlertsTo
@@ -173,6 +178,16 @@ if (Test-Path $configXML) {
     <!-- Events source to use when logging to the event log-->
     <EventSource>$($appSettings.UsageEventSource)</EventSource>
   </UsageReports>
+  <Diagnostics>
+	<!-- Text to add to Diagnostics tab. Will be converted to HTML so can include HTML tags-->
+	<Notes>$($appSettings.DiagnosticsNotes)</Notes>
+	<!-- Run http/https tests for IP connections: true/false-->
+	<Web>$($appSettings.DiagnosticsWeb)</Web>
+	<!-- Run port connectivity tests: true/false-->
+	<Ports>$($appSettings.DiagnosticsPorts)</Ports>
+	<!-- Run http/https connectivity tests to URLs: true/false-->
+	<URLs>$($appSettings.DiagnosticsURLs)</URLs>
+  </Diagnostics>
   <IPURLs>
     <!-- Maximum number of items to return if feed provides more -->
     <MaxFeedItems>$($appSettings.MaxFeedItems)</MaxFeedItems>
