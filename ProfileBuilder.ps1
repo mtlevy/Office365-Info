@@ -55,6 +55,7 @@ if (Test-Path $configXML) {
         HTMLPath           = $xmlExisting.Settings.Output.HTMLPath
         UseEventLog        = $xmlExisting.Settings.Output.UseEventLog
         EventLog           = $xmlExisting.Settings.Output.EventLog
+		HostURL            = $xmlExisting.Settings.Output.HostURL
 
         TenantID           = $xmlExisting.Settings.Azure.TenantID
         AppID              = $xmlExisting.Settings.Azure.AppID
@@ -69,6 +70,7 @@ if (Test-Path $configXML) {
         DashboardName      = $xmlExisting.Settings.Dashboard.Name
         DashboardLogo      = $xmlExisting.Settings.Dashboard.Logo
         DashboardRefresh   = $xmlExisting.Settings.Dashboard.Refresh
+        DashboardAlertsTo  = $xmlExisting.Settings.Dashboard.AlertsTo
         DashboardEvtSource = $xmlExisting.Settings.Dashboard.EventSource
         DashboardHTML      = $xmlExisting.Settings.Dashboard.HTMLFilename
         DashboardCards     = $xmlExisting.Settings.Dashboard.DashCards
@@ -93,6 +95,7 @@ if (Test-Path $configXML) {
 		DiagnosticsWeb     = $xmlExisting.Settings.Diagnostics.Web
 		DiagnosticsPorts   = $xmlExisting.Settings.Diagnostics.Ports
 		DiagnosticsURLs    = $xmlExisting.Settings.Diagnostics.URLs
+		DiagnosticsVerbose = $xmlExisting.Settings.Diagnostics.Verbose
 
         MaxFeedItems       = $xmlExisting.Settings.IPURLs.MaxFeedItems
         IPURLPath          = $xmlExisting.Settings.IPURLs.Path
@@ -128,6 +131,7 @@ if (Test-Path $configXML) {
     <!-- If using the local event log on the machine that runs the scripts, define which custom event log to use-->
     <UseEventLog>$($appSettings.UseEventLog)</UseEventLog>
     <EventLog>$($appSettings.EventLog)</EventLog>
+	<HostURL>$($appSettings.HostURL)</HostURL>
   </Output>
   <Email>
     <!-- Email server connectivity settings. Can be office365 or other mail system-->
@@ -165,6 +169,8 @@ if (Test-Path $configXML) {
     <DashCards>$($appSettings.DashboardCards)</DashCards>
     <!-- Refresh interval in minutes-->
     <Refresh>$($appSettings.DashboardRefresh)</Refresh>
+	<!-- Send alert emails to -->
+	<AlertsTo></AlertsTo>
     <!-- Events source to use when logging to the event log-->
     <EventSource>$($appSettings.DashboardEvtSource)</EventSource>
     <Logo>$($appSettings.DashboardLogo)</Logo>
@@ -187,6 +193,8 @@ if (Test-Path $configXML) {
 	<Ports>$($appSettings.DiagnosticsPorts)</Ports>
 	<!-- Run http/https connectivity tests to URLs: true/false-->
 	<URLs>$($appSettings.DiagnosticsURLs)</URLs>
+	<!-- Show detailed errors for pages: true/false-->
+	<Verbose>$($appSettings.DiagnosticsVerbose)</Verbose>
   </Diagnostics>
   <IPURLs>
     <!-- Maximum number of items to return if feed provides more -->

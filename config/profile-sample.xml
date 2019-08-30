@@ -21,6 +21,7 @@
     <!-- If using the local event log on the machine that runs the scripts, define which custom event log to use-->
     <UseEventLog>True</UseEventLog>
     <EventLog>O365 Health</EventLog>
+    <HostURL>https://myhost.internal.com</HostURL>
   </Output>
   <Email>
     <!-- Email server connectivity settings. Can be office365 or other mail system-->
@@ -58,6 +59,8 @@
     <DashCards>"Office Online", "Exchange Online", "Skype for Business", "SharePoint Online", "Identity Service", "Social Engagement"</DashCards>
     <!-- Refresh interval in minutes-->
     <Refresh>15</Refresh>
+    <!-- Send alert emails to -->
+    <AlertsTo></AlertsTo>
     <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Dashboard</EventSource>
     <Logo></Logo>
@@ -71,14 +74,32 @@
     <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Usage Reports</EventSource>
   </UsageReports>
+  <Diagnostics>
+    <!-- Text to add to Diagnostics tab. Will be converted to HTML so can include HTML tags-->
+    <Notes></Notes>
+    <!-- Run http/https tests for IP connections: true/false-->
+    <Web>true</Web>
+    <!-- Run port connectivity tests: true/false-->
+    <Ports>true</Ports>
+    <!-- Run http/https connectivity tests to URLs: true/false-->
+    <URLs>true</URLs>
+    <!-- Show detailed errors for pages: true/false-->
+    <Verbose>false</Verbose>
+  </Diagnostics>
   <IPURLs>
+    <!-- Maximum number of items to return if feed provides more -->
     <MaxFeedItems>30</MaxFeedItems>
     <Path></Path>
+    <!-- Where to send updates to IP and URLs to. Comma separated quoted list "john@home.com","bob@vader.net"-->
+    <AlertsTo></AlertsTo>
   </IPURLs>
   <Proxy>
     <!-- Proxy settings if required-->
+    <!-- Use proxy values: true/false-->
     <UseProxy>false</UseProxy>
+    <!-- Proxy server FQDN value http://proxyfqdn.domain.com -->
     <ProxyHost>http://proxyfqdn.domain.com</ProxyHost>
+    <!-- Ignore SSL: true/false-->
     <IgnoreSSL>true</IgnoreSSL>
   </Proxy>
 </Settings>

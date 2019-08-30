@@ -78,6 +78,7 @@ function LoadConfig {
         HTMLPath             = $configFile.Settings.Output.HTMLPath
         UseEventLog          = $configFile.Settings.Output.UseEventLog
         EventLog             = $configFile.Settings.Output.EventLog
+		HostURL              = $configFile.Settings.Output.HostURL
 
         EmailHost            = $configFile.Settings.Email.SMTPServer
         EmailPort            = $configFile.Settings.Email.Port
@@ -100,6 +101,7 @@ function LoadConfig {
         DashboardHTML        = $configFile.Settings.Dashboard.HTMLFilename
         DashboardCards       = $configFile.Settings.Dashboard.DashCards
         DashboardRefresh     = $configFile.Settings.Dashboard.Refresh
+		DashboardAlertsTo    = $configFile.Settings.Dashboard.AlertsTo
         DashboardEvtSource   = $configFile.Settings.Dashboard.EventSource
         DashboardLogo        = $configFile.Settings.Dashboard.Logo
         DashboardAddLink     = $configFile.Settings.Dashboard.AddLink
@@ -112,6 +114,7 @@ function LoadConfig {
 		DiagnosticsWeb       = $configfile.Settings.Diagnostics.Web
 		DiagnosticsPorts     = $configfile.Settings.Diagnostics.Ports
 		DiagnosticsURLs      = $configfile.Settings.Diagnostics.URLs
+		DiagnosticsVerbose   = $configfile.Settings.Diagnostics.Verbose
 
 
 		MaxFeedItems         = $configFile.Settings.IPURLs.MaxFeedItems

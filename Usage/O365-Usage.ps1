@@ -137,8 +137,6 @@ if ($UseEventLog) {
     }
 }
 
-[string]$proxyHost = $config.ProxyHost
-
 #Keep a list of known issues in CSV. This is useful if the event log is cleared, or not used.
 [string]$evtLogAll = $null
 

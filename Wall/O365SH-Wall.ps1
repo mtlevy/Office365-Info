@@ -98,6 +98,9 @@ $prefDashCards = $prefDashCards.Trim()
 [string]$rptProfile = $config.TenantShortName
 [string]$rptTenantName = $config.TenantName
 
+[string]$proxyHost = $config.ProxyHost
+
+
 #If no path has been specified, use the current script location
 if (!$pathLogs) {
     $pathLogs = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
@@ -155,7 +158,6 @@ else {
     $evtMessage = "No proxy to be used."
     Write-Log $evtMessage
 }
-[string]$proxyHost = $config.ProxyHost
 
 #Connect to Azure app and grab the service status
 ConnectAzureAD
@@ -253,7 +255,7 @@ else {
 [array]$listLineOne = @()
 [array]$listTheRest = @()
 foreach ($card in $prefDashCards) { $listLineOne += $allCurrentStatusMessages | Where-Object { $_.workloaddisplayname -like $card } }
-$listTheRest = $allCurrentStatusMessages | Where-Object { $_.workloaddisplayname -notin $listlineone.workloaddisplayname } | Sort-Object  workloaddisplayname
+$listTheRest = $allCurrentStatusMessages | Where-Object { $_.workloaddisplayname -notin $listlineone.workloaddisplayname } | Sort-Object  status, workloaddisplayname
 $DashWorkloads = $listLineOne + $ListTheRest
 $rptFeatureDash = "<div class='container'>`n"
 foreach ($workload in $DashWorkloads) {

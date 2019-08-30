@@ -117,11 +117,18 @@ $prefDashCards = $prefDashCards.Trim()
 [string]$pathLogs = $config.LogPath
 [string]$pathHTML = $config.HTMLPath
 [string]$HTMLFile = $config.DashboardHTML
+[string]$emailDashAlertsTo = $config.DashboardAlertsTo
 [string]$pathIPURLs = $config.IPURLPath
 
 [string[]]$emailIPURLAlerts = $config.IPURLAlertsTo
 
+[string]$proxyHost = $config.ProxyHost
 
+#Check diagnostics and save as boolean
+if ($config.DiagnosticsWeb -like 'true') { [boolean]$diagWeb = $true } else { [boolean]$diagWeb = $false }
+if ($config.DiagnosticsPorts -like 'true') { [boolean]$diagPorts = $true } else { [boolean]$diagPorts = $false }
+if ($config.DiagnosticsURLs -like 'true') { [boolean]$diagURLs = $true } else { [boolean]$diagURLs = $false }
+if ($config.Verbose -like 'true') { [boolean]$diagVerbose = $true } else { [boolean]$diagVerbose = $false }
 [string]$diagNotes = $config.DiagnosticsNotes
 
 [int]$maxFeedItems = $config.MaxFeedItems
@@ -213,10 +220,6 @@ else {
     Write-Log $evtMessage
 }
 
-#Check diagnostics and save as boolean
-if ($config.DiagnosticsWeb -like 'true') { [boolean]$diagWeb = $true } else { [boolean]$diagWeb = $false }
-if ($config.DiagnosticsPorts -like 'true') { [boolean]$diagPorts = $true } else { [boolean]$diagPorts = $false }
-if ($config.DiagnosticsURLs -like 'true') { [boolean]$diagURLs = $true } else { [boolean]$diagURLs = $false }
 
 #Connect to Azure app and grab the service status
 ConnectAzureAD
@@ -465,116 +468,33 @@ function OnlineEndPoints {
     if ($diagWeb) {
         # CRL Endpoint tests
         $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting CRL Endpoint Tests (Invoke-WebRequest)</p><br/>"
-
         foreach ($url in $CRL) {
-            try {
-                if ($ProxyServer) {
-                    $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -Proxy $proxyHost -ProxyUseDefaultCredentials
-                }
-                else {
-                    $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue
-                }
-                Switch ($Result.StatusCode) {
-                    200 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Successfully obtained CRL from $($url).</p><br/>" }
-                    400 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to obtain CRL from $($url): Bad request.</p><br/>" }
-                    401 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to obtain CRL from $($url): Unauthorized.</p><br/>" }
-                    403 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to obtain CRL from $($url): Forbidden.</p><br/>" }
-                    404 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to obtain CRL from $($url): Not found.</p><br/>" }
-                    407 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to obtain CRL from $($url): Proxy authentication required.</p><br/>" }
-                    502 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to obtain CRL from $($url): Bad gateway (likely proxy).</p><br/>" }
-                    503 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to obtain CRL from $($url): Service unavailable (transient, try again).</p><br/>" }
-                    504 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to obtain CRL from $($url): Gateway timeout (likely proxy).</p><br/>" }
-                    default {
-                        $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to obtain CRL from $($url).</p><br/>"
-                    }
-                }
-            }
-            catch {
-                $ErrorMessage = $_
-                $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Exception: Unable to obtain CRL from $($url).</p><br/>"
-                $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>$($ErrorMessage).</p><br/>"
-            }
+            $rptTests += checkURL $url $diagVerbose $proxyServer $proxyHost $false
         } # End Foreach CRL
 
         # Required Resources Endpoints tests
         $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Required Resources Endpoints (Invoke-WebRequest).</p><br/>"
         foreach ($url in $RequiredResourcesEndpoints) {
-            try {
-                if ($ProxyServer) {
-                    $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -Proxy $proxyHost -ProxyUseDefaultCredentials
-                }
-                else {
-                    $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue
-                }
-                Switch ($Result.StatusCode) {
-                    200 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Successfully connected to $($url).</p><br/>" }
-                    400 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact $($url): Bad request.</p><br/>" }
-                    401 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Unauthorized.</p><br/>" }
-                    403 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Forbidden.</p><br/>" }
-                    404 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Not found.</p><br/>" }
-                    407 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Proxy authentication required.</p><br/>" }
-                    502 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Bad gateway (likely proxy).</p><br/>" }
-                    503 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Service unavailable (transient, try again).</p><br/>" }
-                    504 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Gateway timeout (likely proxy).</p><br/>" }
-                    default {
-                        $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url).</p><br/>"
-                    }
-                }
-            }
-            catch {
-                $ErrorMessage = $_
-                $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Exception: Failed to contact $($url) [$($ip4)]:443</p><br/>"
-                $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>$($ErrorMessage)</p><br/>"
-			
-            }
+            $rptTests += checkURL $url $diagVerbose $proxyServer $proxyHost $false
         } # End Foreach RequiredResourcesEndpoints
 	
         # Optional Resources Endpoints tests
         $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Optional Resources Endpoints (Invoke-WebRequest).</p><br/>"
         foreach ($url in $OptionalResourcesEndpoints) {
-            try {
-                if ($ProxyServer) {
-                    $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -Proxy $proxyHost -ProxyUseDefaultCredentials
-                }
-                else {
-                    $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue
-                }
-                Switch ($Result.StatusCode) {
-                    200 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Successfully connected to $($url).</p><br/>" }
-                    400 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact $($url): Bad request.</p><br/>" }
-                    401 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Unauthorized.</p><br/>" }
-                    403 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Forbidden.</p><br/>" }
-                    404 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Not found.</p><br/>" }
-                    407 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Proxy authentication required.</p><br/>" }
-                    502 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Bad gateway (likely proxy).</p><br/>" }
-                    503 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Service unavailable (transient, try again).</p><br/>" }
-                    504 { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url): Gateway timeout (likely proxy).</p><br/>" }
-                    default {
-                        $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact $($url).</p><br/>"
-                    }
-                }
-            }
-            catch {
-                $ErrorMessage = $_
-                $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Exception: Failed to contact $($url) [$($ip4)]:443</p><br/>"
-                $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>$($ErrorMessage)</p><br/>"
-			
-            }
+            $rptTests += checkURL $url $diagVerbose $proxyServer $proxyHost $false
         } # End Foreach RequiredResourcesEndpoints
-
-
     } #End web tests
 
     # Required Resource tests
     if ($diagPorts) {
         $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Required Resources (TCP:443) DNS Resolution may fail from clients.</p><br/>"
         foreach ($url in $RequiredResources) {
-            try { [array]$ResourceAddresses = (Resolve-DnsName $url -ErrorAction stop).IP4Address }
+            try { [array]$ResourceAddresses = (Resolve-DnsName $url -ErrorAction stop -QuickTimeout).IP4Address }
             catch { $ErrorMessage = $_; $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to resolve host URL $($url).</p><br/>"; Continue }
             foreach ($ip4 in $ResourceAddresses) {
                 try {
-                    $Result = Test-NetConnection $ip4 -Port 443 -ea stop -wa silentlycontinue
-                    switch ($Result.TcpTestSucceeded) {
+                    $Result = Test-NetConnection $ip4 -Port 443 -ea stop -wa silentlycontinue -InformationLevel Quiet
+                    switch ($Result) {
                         true { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>TCP connection to $($url) [$($ip4)]:443 success.</p><br/>" }
                         false { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>TCP connection to $($url) [$($ip4)]:443 failed.</p><br/>" }
                     }
@@ -590,13 +510,13 @@ function OnlineEndPoints {
         # Option Resources tests
         $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Optional Resources (TCP:443) DNS Resolution may fail from clients.</p><br/>"
         foreach ($url in $OptionalResources) {
-            try { [array]$ResourceAddresses = (Resolve-DnsName $url -ErrorAction stop).IP4Address }
+            try { [array]$ResourceAddresses = (Resolve-DnsName $url -ErrorAction stop -QuickTimeout).IP4Address }
             catch { $ErrorMessage = $_; $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Unable to resolve host URL $($url).</p><br/>"; Continue }
 		
             foreach ($ip4 in $ResourceAddresses) {
                 try {
-                    $Result = Test-NetConnection $ip4 -Port 443 -ea stop -wa silentlycontinue
-                    switch ($Result.TcpTestSucceeded) {
+                    $Result = Test-NetConnection $ip4 -Port 443 -ea stop -wa silentlycontinue -InformationLevel Quiet
+                    switch ($Result) {
                         true { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>TCP connection to $($url) [$($ip4)]:443 success.</p><br/>" }
                         false {
                             $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>TCP connection to $($url) [$($ip4)]:443 failed.</p><br/>"
@@ -615,13 +535,13 @@ function OnlineEndPoints {
         # Seamless SSO Endpoints
         $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Seamless SSO Endpoints (TCP:443) DNS Resolution may fail from clients.</p><br/>"
         foreach ($url in $SeamlessSSOEndpoints) {
-            try { [array]$ResourceAddresses = (Resolve-DnsName $url -ErrorAction stop).IP4Address }
+            try { [array]$ResourceAddresses = (Resolve-DnsName $url -ErrorAction stop -QuickTimeout).IP4Address }
             catch { $ErrorMesage = $_; $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to resolve host URL $($url).</p><br/>"; Continue }
 		
             foreach ($ip4 in $ResourceAddresses) {
                 try {
-                    $Result = Test-NetConnection $ip4 -Port 443 -ea stop -wa silentlycontinue
-                    switch ($Result.TcpTestSucceeded) {
+                    $Result = Test-NetConnection $ip4 -Port 443 -ea stop -wa silentlycontinue -InformationLevel Quiet
+                    switch ($Result) {
                         true { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>TCP connection to $($url) [$($ip4)]:443 success.</p><br/>" }
                         false { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>TCP connection to $($url) [$($ip4)]:443 failed.</p><br/>" }
                     }
@@ -641,7 +561,7 @@ function OnlineEndPoints {
             foreach ($url in $AdditionalResources) {
                 if ($url -match "\:") {
                     $Name = $url.Split(":")[0]
-                    try { [array]$Resources = (Resolve-DnsName $Name -ErrorAction stop).IP4Address }
+                    try { [array]$Resources = (Resolve-DnsName $Name -ErrorAction stop -QuickTimeout).IP4Address }
                     catch { $ErrorMessage = $_; $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Unable to resolve host $($Name).</p><br/>"; Continue }
 				
                     #[array]$Resources = (Resolve-DnsName $Name).Ip4Address
@@ -649,7 +569,7 @@ function OnlineEndPoints {
                 }
                 Else {
                     $Name = $url
-                    try { [array]$Resources = (Resolve-DnsName $Name -ErrorAction stop).IP4Address }
+                    try { [array]$Resources = (Resolve-DnsName $Name -ErrorAction stop -QuickTimeout).IP4Address }
                     catch { $ErrorMessage = $_; $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Unable to resolve host URL $($url).</p><br/>"; Continue }
 				
                     #[array]$Resources = (Resolve-DnsName $Name).IP4Address
@@ -657,8 +577,8 @@ function OnlineEndPoints {
                 }
                 foreach ($ip4 in $Resources) {
                     try {
-                        $Result = Test-NetConnection $ip4 -Port $ResourcesPort -ea stop -wa silentlycontinue
-                        switch ($Result.TcpTestSucceeded) {
+                        $Result = Test-NetConnection $ip4 -Port $ResourcesPort -ea stop -wa silentlycontinue -InformationLevel Quiet
+                        switch ($Result) {
                             true { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>TCP connection to $($Name) [$($ip4)]:$($ResourcesPort) success.</p><br/>" }
                             false {
                                 $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>TCP connection to $($Name) [$($ip4)]:$($ResourcesPort) failed.</p><br>"
@@ -866,6 +786,7 @@ $token = ($tokenRequest.Content | ConvertFrom-Json).access_token
 
 #Fetch the information from Office 365 Service Health API
 #Get Services: Get the list of subscribed services
+$uriError = ""
 try {
     if ($proxyServer) {
         [array]$allSubscribedMessages = @((Invoke-RestMethod -Uri $uriServices -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value)
@@ -882,6 +803,8 @@ try {
 }
 catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Subscribed services returned - verify proxy and network connectivity</p><br/>"
+    $uriError += "Error connecting to $($uriservices)<br/><br/>`r`n"
+    $uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
 }
 
 #Get Current Status: Get a real-time view of current and ongoing service incidents and maintenance events
@@ -995,6 +918,10 @@ catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Azure Updates RSS Feed information - verify proxy and network connectivity</p><br/>"
 }
 
+if ($uriError) {
+    $emailSubject = "Error(s) retrieving URL(s)"
+    SendReport $uriError $EmailCreds $config "High" $emailSubject $emailDashAlertsTo
+}
 
 $rptO365Info += "<br/>You can add some general information in here if needed.<br />"
 $rptO365Info += "ie updates or links to external (ie cloud only) activity to verify Azure AD App is working (ie Flow to Teams Channel)"
@@ -1174,129 +1101,84 @@ $checkOptHTTP = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPor
 $checkOptHTTPs = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*443*' -and $_.category -match 'Optimize') }
 $checkAllowHTTP = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.category -match 'Allow') -and ($_.tcpPorts -like '*443*' -or $_.tcpPorts -like '*80*') }
 $checkAllowHTTPs = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*443*' -and $_.category -match 'Allow') }
-if ($diagWeb) {
+
+function checkURL {
+    Param(
+        [Parameter(Mandatory = $true)] [string]$url,
+        [Parameter(Mandatory = $true)] [boolean]$diagVerbose,
+        [Parameter(Mandatory = $true)] [boolean]$proxyServer,
+        [Parameter(Mandatory = $true)] [string]$proxyHost,
+        [Parameter(Mandatory = $true)] [boolean]$urlOptimized
+    )
+    $intAttempts = 0
+    $stopLoop = $false
+    do {
+        try {
+            $intAttempts++
+            #Proxy servers should not be used for optimized paths
+            if ($ProxyServer -and !($urlOptimized)) {
+                $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -Proxy $proxyHost -ProxyUseDefaultCredentials -UseBasicParsing -TimeoutSec 3
+            }
+            else {
+                $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -UseBasicParsing -TimeoutSec 3
+            }
+            Switch ($Result.StatusCode) {
+                200 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Successfully contacted site $($url).</p><br/>" }
+                400 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Bad request.</p><br/>" }
+                401 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Unauthorized.</p><br/>" }
+                403 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Forbidden.</p><br/>" }
+                404 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Not found.</p><br/>" }
+                407 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Proxy authentication required.</p><br/>" }
+                502 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Bad gateway (likely proxy).</p><br/>" }
+                503 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Service unavailable (transient, try again).</p><br/>" }
+                504 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Gateway timeout (likely proxy).</p><br/>" }
+                default {
+                    $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to contact site  $($url).</p><br/>"
+                }
+            }
+            $stopLoop = $true
+        }
+        catch {
+            if ($intAttempts -ge 3) { $stopLoop = $true }
+            else {
+                $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Attempt $($intAttempts) - Exception: Unable to contact site $($url).</p><br/>"
+                if ($diagVerbose) {
+                    $ErrorMessage = $_.substring(0, [system.math]::Min(250, $_.length))
+                    $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>$($ErrorMessage).</p><br/>"
+                }
+            }
+        }
+    }
+    while ($stopLoop -eq $false)
+    return $resultURL
+}
+if ($diagURLs) {
     # Microsoft Office 365 URL tests - check the Optimize HTTP connections
     $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting HTTP checks for 'Optimize' Sites (Invoke-WebRequest)</p><br/>"
     foreach ($entry in $checkOptHTTP) {
         $url = "http://$($entry.url)"
-        try {
-            #Proxy servers should not be used for optimized paths
-            $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -UseBasicParsing
-            Switch ($Result.StatusCode) {
-                200 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Successfully contacted site $($url).</p><br/>" }
-                400 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Bad request.</p><br/>" }
-                401 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Unauthorized.</p><br/>" }
-                403 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Forbidden.</p><br/>" }
-                404 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Not found.</p><br/>" }
-                407 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Proxy authentication required.</p><br/>" }
-                502 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Bad gateway (likely proxy).</p><br/>" }
-                503 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Service unavailable (transient, try again).</p><br/>" }
-                504 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Gateway timeout (likely proxy).</p><br/>" }
-                default {
-                    $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to contact site  $($url).</p><br/>"
-                }
-            }
-        }
-        catch {
-            $ErrorMessage = $_
-            $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Exception: Unable to contact site $($url).</p><br/>"
-            $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>$($ErrorMessage).</p><br/>"
-        }
+        $rptIPURLs += checkURL $url $diagVerbose $proxyServer $proxyHost $true
     } # End Foreach URL List
 
     # Microsoft Office 365 URL tests - check the Optimize HTTPs connections
     $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting HTTPs checks for 'Optimize' Sites (Invoke-WebRequest)</p><br/>"
     foreach ($entry in $checkOptHTTPs) {
         $url = "https://$($entry.url)"
-        try {
-            #Proxy servers should not be used for optimized paths
-            $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -UseBasicParsing
-            Switch ($Result.StatusCode) {
-                200 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Successfully contacted site $($url).</p><br/>" }
-                400 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Bad request.</p><br/>" }
-                401 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Unauthorized.</p><br/>" }
-                403 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Forbidden.</p><br/>" }
-                404 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Not found.</p><br/>" }
-                407 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Proxy authentication required.</p><br/>" }
-                502 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Bad gateway (likely proxy).</p><br/>" }
-                503 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Service unavailable (transient, try again).</p><br/>" }
-                504 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Gateway timeout (likely proxy).</p><br/>" }
-                default {
-                    $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to contact site  $($url).</p><br/>"
-                }
-            }
-        }
-        catch {
-            $ErrorMessage = $_
-            $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Exception: Unable to contact site $($url).</p><br/>"
-            $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>$($ErrorMessage).</p><br/>"
-        }
+        $rptIPURLs += checkURL $url $diagVerbose $proxyServer $proxyHost $true
     } # End Foreach URL List
 
     # Microsoft Office 365 URL tests - check the Allow HTTP connections
     $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting HTTP checks for 'Allow' Sites (Invoke-WebRequest)</p><br/>"
     foreach ($entry in $checkAllowHTTP) {
         $url = "http://$($entry.url)"
-        try {
-            if ($ProxyServer) {
-                $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -Proxy $proxyHost -ProxyUseDefaultCredentials -UseBasicParsing
-            }
-            else {
-                $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -UseBasicParsing
-            }
-            Switch ($Result.StatusCode) {
-                200 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Successfully contacted site $($url).</p><br/>" }
-                400 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Bad request.</p><br/>" }
-                401 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Unauthorized.</p><br/>" }
-                403 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Forbidden.</p><br/>" }
-                404 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Not found.</p><br/>" }
-                407 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Proxy authentication required.</p><br/>" }
-                502 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Bad gateway (likely proxy).</p><br/>" }
-                503 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Service unavailable (transient, try again).</p><br/>" }
-                504 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Gateway timeout (likely proxy).</p><br/>" }
-                default {
-                    $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to contact site  $($url).</p><br/>"
-                }
-            }
-        }
-        catch {
-            $ErrorMessage = $_
-            $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Exception: Unable to contact site $($url).</p><br/>"
-            $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>$($ErrorMessage).</p><br/>"
-        }
+        $rptIPURLs += checkURL $url $diagVerbose $proxyServer $proxyHost $false
     } # End Foreach URL List
 
     # Microsoft Office 365 URL tests - check the Allow HTTPs connections
     $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting HTTPs checks for 'Allow' Sites (Invoke-WebRequest)</p><br/>"
     foreach ($entry in $checkAllowHTTPs) {
         $url = "https://$($entry.url)"
-        try {
-            if ($ProxyServer) {
-                $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -Proxy $proxyHost -ProxyUseDefaultCredentials -UseBasicParsing
-            }
-            else {
-                $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -UseBasicParsing
-            }
-            Switch ($Result.StatusCode) {
-                200 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Successfully contacted site $($url).</p><br/>" }
-                400 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Bad request.</p><br/>" }
-                401 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Unauthorized.</p><br/>" }
-                403 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Forbidden.</p><br/>" }
-                404 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Not found.</p><br/>" }
-                407 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Proxy authentication required.</p><br/>" }
-                502 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Bad gateway (likely proxy).</p><br/>" }
-                503 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Service unavailable (transient, try again).</p><br/>" }
-                504 { $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Gateway timeout (likely proxy).</p><br/>" }
-                default {
-                    $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to contact site  $($url).</p><br/>"
-                }
-            }
-        }
-        catch {
-            $ErrorMessage = $_
-            $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Exception: Unable to contact site $($url).</p><br/>"
-            $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>$($ErrorMessage).</p><br/>"
-        }
+        $rptIPURLs += checkURL $url $diagVerbose $proxyServer $proxyHost $false
     } # End Foreach URL List
 
 }
@@ -1455,7 +1337,7 @@ $divOne += $rptSectionOneThree
 [array]$listLineOne = @()
 [array]$listTheRest = @()
 foreach ($card in $prefDashCards) { $listLineOne += $allCurrentStatusMessages | Where-Object { $_.workloaddisplayname -like $card } }
-$listTheRest = $allCurrentStatusMessages | Where-Object { $_.workloaddisplayname -notin $listlineone.workloaddisplayname } | Sort-Object  workloaddisplayname
+$listTheRest = $allCurrentStatusMessages | Where-Object { $_.workloaddisplayname -notin $listlineone.workloaddisplayname } | Sort-Object  status, workloaddisplayname
 $DashWorkloads = $listLineOne + $ListTheRest
 $rptFeatureDash = "<div class='container'>`n"
 foreach ($workload in $DashWorkloads) {
@@ -1829,9 +1711,9 @@ if ($feedMessages.count -ge 1) {
         $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($LastUpdated)</div>`n`t"
         $rptFeedTable += "</div>`n"
     }
+    #Close tablefeed
+    $rptFeedTable += "</div>"
 }
-#Close tablefeed
-$rptFeedTable += "</div>"
 $rptSectionEightOne += $rptFeedTable
 $rptSectionEightOne += "</div></div>`n"
 
@@ -1892,10 +1774,10 @@ if ($feedMessages.count -ge 1) {
         $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($Published)</div>`n`t"
         $rptFeedTable += "</div>`n"
     }
+    #Close tablefeed
+    $rptFeedTable += "</div>"
 }
 
-#Close tablefeed
-$rptFeedTable += "</div>"
 $rptSectionEightTwo += $rptFeedTable
 $rptSectionEightTwo += "</div></div>`n"
 $divEight += $rptSectionEightTwo
