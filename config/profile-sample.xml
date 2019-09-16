@@ -3,6 +3,7 @@
   <Tenant>
     <!-- Basic tenant information. Shortname is used in filenames to help identify tenants-->
     <Name>Sample Tenant</Name>
+    <!-- Short name is used in filenames to help identify files per tenant-->
     <ShortName>Sample</ShortName>
     <Description>Sample tenant description</Description>
   </Tenant>
@@ -14,12 +15,15 @@
   </Azure>
   <Output>
     <!-- All paths, if not absolute, are relative to the location of the running script-->
-    <LogPath>Logs</LogPath>
+    <LogPath>.\Logs</LogPath>
     <!-- Where any HTML documents should be saved-->
     <HTMLPath>c:\inetpub\wwwroot\</HTMLPath>
+    <!-- Where any working files should be saved-->
+    <WorkingPath>.\Working</WorkingPath>
     <!-- If using the local event log on the machine that runs the scripts, define which custom event log to use-->
     <UseEventLog>True</UseEventLog>
     <EventLog>O365 Health</EventLog>
+    <HostURL>https://myhost.internal.com</HostURL>
   </Output>
   <Email>
     <!-- Email server connectivity settings. Can be office365 or other mail system-->
@@ -29,7 +33,7 @@
     <Port>587</Port>
     <UseSSL>True</UseSSL>
     <From>sender@domain.com</From>
-    <!-- Leave blank for no authentication (ie internal mail system)-->
+    <!-- Blank for no authentication (ie internal mail system)-->
     <Username>authenticate@domain.com</Username>
     <PasswordFile>C:\credentials\StoreMySecurePassword.pwd</PasswordFile>
     <AESKeyFile>C:\credentials\StoreMyEncryptionKey.key</AESKeyFile>
@@ -43,6 +47,8 @@
   <WallDashboard>
     <Name>Office 365 Workload Wall</Name>
     <HTMLFileName>O365Wall.html</HTMLFileName>
+    <!-- Always show these cards first on the Wall. This helps with the layout-->
+    <DashCards>"Dynamics 365", "Exchange Online", "Microsoft Kaizala", "Microsoft Teams", "Office 365 Portal", "OneDrive for Business", "SharePoint Online", "Skype for Business"</DashCards>
     <!-- Refresh interval in minutes-->
     <Refresh>5</Refresh>
     <!-- Events source to use when logging to the event log-->
@@ -51,11 +57,18 @@
   <Dashboard>
     <Name>Office 365 Dashboard</Name>
     <HTMLFileName>O365Dashboard.html</HTMLFileName>
+    <!-- Show these dashboard cards in current status -->
+    <DashCards>"Office Online", "Exchange Online", "Skype for Business", "SharePoint Online", "Identity Service", "Social Engagement"</DashCards>
     <!-- Refresh interval in minutes-->
     <Refresh>15</Refresh>
+    <!-- Send alert emails to -->
+    <AlertsTo></AlertsTo>
     <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Dashboard</EventSource>
     <Logo></Logo>
+    <AddLink></AddLink>
+    <!-- Duration to show incidents recently closed (in days)-->
+    <History>3</History>
   </Dashboard>
   <UsageReports>
     <!-- Where to store the Office 365 Usage Reports (CSV)-->
@@ -63,9 +76,32 @@
     <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Usage Reports</EventSource>
   </UsageReports>
+  <Diagnostics>
+    <!-- Text to add to Diagnostics tab. Will be converted to HTML so can include HTML tags-->
+    <Notes></Notes>
+    <!-- Run http/https tests for IP connections: true/false-->
+    <Web>true</Web>
+    <!-- Run port connectivity tests: true/false-->
+    <Ports>true</Ports>
+    <!-- Run http/https connectivity tests to URLs: true/false-->
+    <URLs>true</URLs>
+    <!-- Show detailed errors for pages: true/false-->
+    <Verbose>false</Verbose>
+  </Diagnostics>
+  <IPURLs>
+    <!-- Maximum number of items to return if feed provides more -->
+    <MaxFeedItems>30</MaxFeedItems>
+    <Path></Path>
+    <!-- Where to send updates to IP and URLs to. Comma separated quoted list "john@home.com","bob@vader.net"-->
+    <AlertsTo></AlertsTo>
+  </IPURLs>
   <Proxy>
     <!-- Proxy settings if required-->
+    <!-- Use proxy values: true/false-->
     <UseProxy>false</UseProxy>
+    <!-- Proxy server FQDN value http://proxyfqdn.domain.com -->
     <ProxyHost>http://proxyfqdn.domain.com</ProxyHost>
+    <!-- Ignore SSL: true/false-->
+    <IgnoreSSL>true</IgnoreSSL>
   </Proxy>
 </Settings>
