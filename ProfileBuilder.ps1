@@ -92,15 +92,18 @@ if (Test-Path $configXML) {
         UsageReportsPath   = $xmlExisting.Settings.UsageReports.Path
         UsageEventSource   = $xmlExisting.Settings.UsageReports.EventSource
 
+        DiagnosticsName    = $xmlExisting.Settings.Diagnostics.Name
+		DiagnosticsHTML    = $xmlExisting.Settings.Diagnostics.HTMLFilename
 		DiagnosticsNotes   = ($xmlExisting.Settings.Diagnostics.Notes).InnerXML
 		DiagnosticsWeb     = $xmlExisting.Settings.Diagnostics.Web
 		DiagnosticsPorts   = $xmlExisting.Settings.Diagnostics.Ports
 		DiagnosticsURLs    = $xmlExisting.Settings.Diagnostics.URLs
 		DiagnosticsVerbose = $xmlExisting.Settings.Diagnostics.Verbose
+        DiagnosticsRefresh = $xmlExisting.Settings.Diagnostics.Refresh
 
         MaxFeedItems       = $xmlExisting.Settings.IPURLs.MaxFeedItems
-        IPURLsPath          = $xmlExisting.Settings.IPURLs.Path
-        IPURLsAlertsTo      = $xmlExisting.Settings.IPURLs.AlertsTo
+        IPURLsPath         = $xmlExisting.Settings.IPURLs.Path
+        IPURLsAlertsTo     = $xmlExisting.Settings.IPURLs.AlertsTo
 
         UseProxy           = $xmlExisting.Settings.Proxy.UseProxy
         ProxyHost          = $xmlExisting.Settings.Proxy.ProxyHost
@@ -188,6 +191,8 @@ if (Test-Path $configXML) {
     <EventSource>$($appSettings.UsageEventSource)</EventSource>
   </UsageReports>
   <Diagnostics>
+    <Name>$($appSettings.DiagnosticsName)</Name>
+    <HTMLFileName>$($appSettings.DiagnosticsHTML)</HTMLFileName>
     <!-- Text to add to Diagnostics tab. Will be converted to HTML so can include HTML tags-->
     <Notes>$($appSettings.DiagnosticsNotes)</Notes>
     <!-- Run http/https tests for IP connections: true/false-->
@@ -198,6 +203,8 @@ if (Test-Path $configXML) {
     <URLs>$($appSettings.DiagnosticsURLs)</URLs>
     <!-- Show detailed errors for pages: true/false-->
     <Verbose>$($appSettings.DiagnosticsVerbose)</Verbose>
+    <!-- Refresh interval in minutes-->
+    <Refresh>$($appSettings.DiagnosticsRefresh)</Refresh>
   </Diagnostics>
   <IPURLs>
     <!-- Maximum number of items to return if feed provides more -->
@@ -218,6 +225,6 @@ if (Test-Path $configXML) {
 </Settings>
 "@
 
-    $xmlNewConfig | Set-Content -Path "NEW-$($configXMLFile)"
+    $xmlNewConfig | Set-Content -Path "$($configXMLFile).new"
     #$xmlNewConfig | ConvertTo-Json | Set-Content -Path "New-$($configXMLFile).json"
 }

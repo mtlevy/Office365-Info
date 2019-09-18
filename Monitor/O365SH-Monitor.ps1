@@ -230,7 +230,7 @@ if ($newIncidents.count -ge 1) {
             $mailMessage += "$($item.ImpactDescription)<br/><br/>"
             $emailPriority = Get-Severity "email" $item.severity
             $emailSubject = "New issue: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
-			if ($emailcreds) {SendReport $mailMessage $EmailCreds $config $emailPriority $emailSubject $MonitorAlertsTo}
+			if ($MonitorAlertsTo) {SendReport $mailMessage $EmailCreds $config $emailPriority $emailSubject $MonitorAlertsTo}
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
             $evtMessage = $evtMessage.Replace("<b>", "")
             $evtMessage = $evtMessage.Replace("</b>", "")
@@ -275,7 +275,7 @@ foreach ($item in $reportClosed) {
     $mailWithLastAction += "$($lastMessage)<br/><br/>"
     $emailSubject = "Closed: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
     Write-Log "Sending email to $($MonitorAlertsTo)"
-    if ($emailCreds) {SendReport $mailWithLastAction $EmailCreds $config "Normal" $emailSubject $MonitorAlertsTo}
+    if ($MonitorAlertsTo) {SendReport $mailWithLastAction $EmailCreds $config "Normal" $emailSubject $MonitorAlertsTo}
     $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
     $evtMessage = $evtMessage.Replace("<b>", "")
     $evtMessage = $evtMessage.Replace("</b>", "")

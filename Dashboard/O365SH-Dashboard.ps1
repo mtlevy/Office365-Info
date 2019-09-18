@@ -402,6 +402,8 @@ try {
 }
 catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Cannot retrieve the current status of services - verify proxy and network connectivity</p><br/>"
+    $uriError += "Error connecting to $($uriCurrentStatus)<br/><br/>`r`n"
+    $uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
 }
 
 #Get Historical Status: Get a historical view of service health, including service incidents and maintenance events.
@@ -421,6 +423,8 @@ try {
 }
 catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No historical service health messages retrieved - verify proxy and network connectivity</p><br/>"
+    $uriError += "Error connecting to $($uriHistoricalStatus)<br/><br/>`r`n"
+    $uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
 }
 
 #Get Messages: Find Incident, Planned Maintenance, and Message Center communications.
@@ -440,6 +444,8 @@ try {
 }
 catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No message center messages retrieved - verify proxy and network connectivity</p><br/>"
+    $uriError += "Error connecting to $($uriMessages)<br/><br/>`r`n"
+    $uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
 }
 
 try {
@@ -458,6 +464,8 @@ try {
 }
 catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Office 365 RSS Feed information - verify proxy and network connectivity</p><br/>"
+    $uriError += "Error connecting to $($uriO365Roadmap)<br/><br/>`r`n"
+    $uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
 }
 
 try {
@@ -476,6 +484,8 @@ try {
 }
 catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Azure Updates RSS Feed information - verify proxy and network connectivity</p><br/>"
+    $uriError += "Error connecting to $($uriAzureUpdates)<br/><br/>`r`n"
+    $uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
 }
 
 if ($uriError) {
@@ -754,10 +764,10 @@ if ($advNew.count -gt 0) {
 		$advTemp | Add-Member -MemberType NoteProperty -Name ID -Value $message.ID
 		$advTemp | Add-Member -MemberType NoteProperty -Name ActionType -Value $message.Actiontype
 		$advTemp | Add-Member -MemberType NoteProperty -Name Classification -Value $message.Classification
-        $advTemp | Add-Member -MemberType NoteProperty -Name StartTime -Value $dtmStartTime
-		$advTemp | Add-Member -MemberType NoteProperty -Name LastUpdatedTime -Value dtmLastUpdatedTime
-		$advTemp | Add-Member -MemberType NoteProperty -Name EndTime -Value dtmEndTime
-		$advTemp | Add-Member -MemberType NoteProperty -Name ActionRequiredByDate -Value dtmActionRequiredByDate
+        $advTemp | Add-Member -MemberType NoteProperty -Name StartTime -Value $($dtmStartTime)
+		$advTemp | Add-Member -MemberType NoteProperty -Name LastUpdatedTime -Value $($dtmLastUpdatedTime)
+		$advTemp | Add-Member -MemberType NoteProperty -Name EndTime -Value $($dtmEndTime)
+		$advTemp | Add-Member -MemberType NoteProperty -Name ActionRequiredByDate -Value $($dtmActionRequiredByDate)
 		$advTemp | Add-Member -MemberType NoteProperty -Name MessageType -Value $message.MessageType
 		$advTemp | Add-Member -MemberType NoteProperty -Name PostIncidentDocumentURL -Value $message.PostIncidentDocumentURL
 		$advTemp | Add-Member -MemberType NoteProperty -Name Severity -Value $message.Severity
@@ -766,15 +776,15 @@ if ($advNew.count -gt 0) {
 		$advTemp | Add-Member -MemberType NoteProperty -Name ExternalLink -Value $message.ExternalLink
 		$advTemp | Add-Member -MemberType NoteProperty -Name IsMajorChange -Value $message.IsMajorChange
 		$advTemp | Add-Member -MemberType NoteProperty -Name AppliesTo -Value $message.AppliesTo
-		$advTemp | Add-Member -MemberType NoteProperty -Name MilestoneDate -Value dtmMilestoneDate
+		$advTemp | Add-Member -MemberType NoteProperty -Name MilestoneDate -Value $($dtmMilestoneDate)
 		$advTemp | Add-Member -MemberType NoteProperty -Name Milestone -Value $message.Milestone
 		$advTemp | Add-Member -MemberType NoteProperty -Name BlogLink -Value $message.BlogLink
 		$advTemp | Add-Member -MemberType NoteProperty -Name HelpLink -Value $message.HelpLink
 
-		$advTemp | Export-Csv -Append -Path "$($pathWorking)\$($advFileName)" -NoTypeInformation -Encoding UTF8
+		$advTemp | Export-Csv -Append -Path "$($advPath)" -NoTypeInformation -Encoding UTF8
 	}
 }
-Copy-Item ".\$($advFileName)" -Destination "$($pathHTML)"
+Copy-Item "$($advPath)" -Destination "$($pathHTML)"
 
 $rptSectionFourOne = "<div class='section'>"
 $rptSectionFourOne += "<div class='tableinc-cell-r'>Download all items <a href='$($advFileName)' target='_blank'>here</a></div>"
@@ -1090,7 +1100,7 @@ $evtMessage = "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] Tenant: $($rptProfile) - Ge
 $evtLogMessage += $evtMessage
 Write-Verbose $evtMessage
 
-BuildHTML $rptTitle $divOne $divTwo $divThree $divFour $divFive $divLast $HTMLFile
+BuildHTML $rptTitle $divOne $divTwo $divThree $divFour $divFive $divLast $rptHTMLName
 #Check if .css file exists in HTML file destination
 if (!(Test-Path "$($pathHTML)\$($cssfile)")) {
     Write-Log "Copying O365Health.css to directory $($pathHTML)"

@@ -137,11 +137,14 @@ function LoadConfig {
         UsageReportsPath     = $configFile.Settings.UsageReports.Path
         UsageEventSource     = $configFile.Settings.UsageReports.EventSource
 
+        DiagnosticsName      = $configFile.Settings.Diagnostics.Name
+		DiagnosticsHTML      = $configfile.Settings.Diagnostics.HTMLFilename
 		DiagnosticsNotes     = ($configfile.Settings.Diagnostics.Notes).InnerXML
 		DiagnosticsWeb       = $configfile.Settings.Diagnostics.Web
 		DiagnosticsPorts     = $configfile.Settings.Diagnostics.Ports
 		DiagnosticsURLs      = $configfile.Settings.Diagnostics.URLs
 		DiagnosticsVerbose   = $configfile.Settings.Diagnostics.Verbose
+        DiagnosticsRefresh   = $configfile.Settings.Diagnostics.Refresh
 
 
 		MaxFeedItems         = $configFile.Settings.IPURLs.MaxFeedItems
@@ -359,24 +362,26 @@ function SendReport {
     $strHTMLBody = $strHeader + $strBody + $strSig + $strFooter
     [array]$strTo = $emailTo.Split(",")
     $strTo = $strTo.replace('"', '')
-    if ($credEmail -notlike '') {
-        #Credentials supplied
-        if ($config.EmailUseSSL -eq 'True') {
-            Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -UseSSL -Credential $credEmail
-        }
-        else {
-            Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -Credential $credEmail
-        }
-    }
-    else {
-        #No credentials
-        if ($config.EmailUseSSL -eq 'True') {
-            Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -UseSSL
-        }
-        else {
-            Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort
-        }
-    }
+	if ($null -ne $config.EmailFrom) {
+		if ($credEmail -notlike '') {
+	        #Credentials supplied
+			if ($config.EmailUseSSL -eq 'True') {
+	            Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -UseSSL -Credential $credEmail
+			}
+			else {
+	            Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -Credential $credEmail
+			}
+		}
+		else {
+	        #No credentials
+			if ($config.EmailUseSSL -eq 'True') {
+	            Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort -UseSSL
+			}
+			else {
+	            Send-MailMessage -To $strTo -Subject $strSubject -Body $strHTMLBody -BodyAsHtml -Priority $strPriority -From $config.EmailFrom -SmtpServer $config.EmailHost -Port $config.EmailPort
+			}
+		}
+	}
 }
 
 function cardBuilder {
