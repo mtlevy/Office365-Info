@@ -104,6 +104,7 @@ if (Test-Path $configXML) {
         MaxFeedItems       = $xmlExisting.Settings.IPURLs.MaxFeedItems
         IPURLsPath         = $xmlExisting.Settings.IPURLs.Path
         IPURLsAlertsTo     = $xmlExisting.Settings.IPURLs.AlertsTo
+        IPURLsNotesFilename= $xmlExisting.Settings.IPURLs.NotesFilename
 
         UseProxy           = $xmlExisting.Settings.Proxy.UseProxy
         ProxyHost          = $xmlExisting.Settings.Proxy.ProxyHost
@@ -212,6 +213,8 @@ if (Test-Path $configXML) {
     <Path>$($appSettings.IPURLsPath)</Path>
     <!-- Where to send updates to IP and URLs to. Comma separated quoted list "john@home.com","bob@vader.net"-->
     <AlertsTo>$($appSettings.IPURLsAlertsTo)</AlertsTo>
+    <!-- Custom CSV file to hold additional information relation to URLs. Matches URL list on ID and URL-->
+    <NotesFilename>$($appSettings.IPURLsNotesFilename)</NotesFilename>
   </IPURLs>
   <Proxy>
     <!-- Proxy settings if required-->

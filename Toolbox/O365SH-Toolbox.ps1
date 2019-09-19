@@ -110,6 +110,7 @@ else { [boolean]$UseEventLog = $false }
 [string]$pathWorking = $config.WorkingPath
 
 [string[]]$emailIPURLAlerts = $config.IPURLAlertsTo
+[string]$fileIPURLsNotes = "$($config.IPURLNotesFilename)-$($rptProfile).csv"
 
 [string]$proxyHost = $config.ProxyHost
 
@@ -242,6 +243,7 @@ function BuildHTML {
         [Parameter(Mandatory = $true)] $contentTwo,
         [Parameter(Mandatory = $true)] $contentThree,
         [Parameter(Mandatory = $true)] $contentFour,
+        [Parameter(Mandatory = $true)] $contentFive,
         [Parameter(Mandatory = $true)] $swStopWatch,
         [Parameter(Mandatory = $true)] $HTMLOutput
     )
@@ -271,6 +273,7 @@ function BuildHTML {
     <button class="tablinks" onclick="openTab(event,'Diagnostics')" id="defaultOpen">Diagnostics</button>
     <button class="tablinks" onclick="openTab(event,'Licences')">Licences</button>
     <button class="tablinks" onclick="openTab(event,'IPsandURLs')">IPs and URLs</button>
+    <button class="tablinks" onclick="openTab(event,'URLs')">URLs</button>
     <button class="tablinks" onclick="openTab(event,'Logs')">Logs</button>
 </div>
 
@@ -287,8 +290,12 @@ function BuildHTML {
     $($contentThree)
 </div>
 
-<div id="Logs" class="tabcontent">
+<div id="URLs" class="tabcontent">
     $($contentFour)
+</div>
+
+<div id="Logs" class="tabcontent">
+    $($contentFive)
 </div>
 
 "@
@@ -894,13 +901,16 @@ if ($altLink) { $rptO365Info += "<a href='$($altLink)' target=_blank> here </a><
 #From docs.microsoft.com : https://docs.microsoft.com/en-us/Office365/Enterprise/office-365-ip-web-service
 [uri]$ws = "https://endpoints.office.com"
 $versionpath = $pathIPURLs + "\O365_endpoints_latestversion-$($rptProfile).txt"
-$pathIP4 = $pathIPURLs + "\O365_endpoints_ip4-$($rptProfile).txt"
-$pathIP6 = $pathIPURLs + "\O365_endpoints_ip6-$($rptProfile).txt"
-$pathIPurl = $pathIPURLs + "\O365_endpoints_urls-$($rptProfile).txt"
+$pathIP4 = $pathIPURLs + "\O365_endpoints_ip4-$($rptProfile).csv"
+$pathIP6 = $pathIPURLs + "\O365_endpoints_ip6-$($rptProfile).csv"
+$pathIPurl = $pathIPURLs + "\O365_endpoints_urls-$($rptProfile).csv"
 $fileData = "O365_endpoints_data-$($rptProfile).txt"
 $pathData = $pathIPURLs + "\" + $fileData
 $currentData = $null
-$currentData = Get-Content $pathData
+
+if (test-path $pathdata) {
+	$currentData = Get-Content $pathData
+}
 
 # fetch client ID and version if version file exists; otherwise create new file and client ID
 if (Test-Path $versionpath) {
@@ -918,13 +928,15 @@ else {
 [uri]$ipurlVersion = "$($ws)/version/Worldwide?clientRequestId=$($clientRequestId)"
 if ($proxyServer) {$version = Invoke-RestMethod -Uri ($ipurlVersion) -Proxy $proxyhost -ProxyUseDefaultCredentials}
 else {$version = Invoke-RestMethod -Uri ($ipurlVersion)}
-if (($version.latest -gt $lastVersion) -or ($null -eq $currentData)) {
+if (($version.latest -gt $lastVersion) -or ($null -like $currentData)) {
     $ipurlOutput += "New version of Office 365 worldwide commercial service instance endpoints detected<br />`r`n"
-    #Send email to users on IP/URL change
-    $emailSubject = "IPs and URLs: New version $($version.latest)"
-    $emailMessage = "new version of Office 365 Worldwide Commercial service instance endpoints"
-    SendReport $emailMessage $EmailCreds $config "Normal" $emailSubject $emailIPURLAlerts
-
+    #If ian updated version has been found, generate an email (prevents sending on new installs/clearing files)
+	if (($version.latest -gt $lastVersion -and $lastversion -notlike "0000000000" ) ) {
+		#Send email to users on IP/URL change
+		$emailSubject = "IPs and URLs: New version $($version.latest)"
+		$emailMessage = "new version of Office 365 Worldwide Commercial service instance endpoints"
+		SendReport $emailMessage $EmailCreds $config "Normal" $emailSubject $emailIPURLAlerts
+	}
     # write the new version number to the version file
     @($clientRequestId, $version.latest) | Out-File $versionpath
     # invoke endpoints method to get the new data
@@ -939,23 +951,18 @@ if (($version.latest -gt $lastVersion) -or ($null -eq $currentData)) {
         $urlCustomObjects = @()
         $urlCustomObjects = $urls | ForEach-Object {
             $url=$_
-            [array]$uriPorts = $(if ($endpointSet.tcpPorts.Count -gt 0) { $endpointSet.tcpPorts -split(",")} else { @() })
-            $uriCustomObjects = @()
-            $uriCustomObjects = $uriPorts | ForEach-Object {
                 [PSCustomObject]@{
                     id                     = $endpointSet.id;
                     serviceArea            = $endpointSet.ServiceArea;
                     serviceAreaDisplayName = $endpointSet.serviceAreaDisplayName;
                     category               = $endpointSet.category;
-                    url                    = $url;
-                    tcpPorts               = $_;
+                    url                    = $_;
+                    tcpPorts               = $endpointSet.tcpPorts;
                     udpPorts               = $endpointSet.udpPorts;
                     notes                  = $endpointSet.notes;
                     expressRoute           = $endpointSet.expressRoute;
                     required               = $endpointSet.required;
                 }
-            }
-            $uriCustomObjects
         }
         $urlCustomObjects
     }
@@ -1011,6 +1018,20 @@ else {
     $flatIp6s = Import-Csv $pathIP6
 
 }
+$notesCustom=import-csv $fileIPURLsNotes
+
+#match custom notes data to ID and url
+foreach ($url in $flaturls) {
+	$notes=@($notesCustom | where-object {$_.ID -like $url.ID -and $_.url -like $url.url})
+	$url | Add-Member -MemberType NoteProperty -Name "AmendedURL" -Value $notes.AmendedURL
+	$url | Add-Member -MemberType NoteProperty -Name "DirectInternet" -Value $notes.DirectInternet
+	$url | Add-Member -MemberType NoteProperty -Name "ProxyAuth" -Value $notes.ProxyAuth
+	$url | Add-Member -MemberType NoteProperty -Name "SSLInspection" -Value $notes.SSLInspection
+	$url | Add-Member -MemberType NoteProperty -Name "DLP" -Value $notes.DLP
+	$url | Add-Member -MemberType NoteProperty -Name "Antivirus" -Value $notes.Antivirus
+	$url | Add-Member -MemberType NoteProperty -Name "OurNotes" -Value $notes.Notes
+}
+
 # write output to screen
 # Clients arent going to want to view this, are they?
 $ipurlSummary += "<b>Client Request ID: " + $clientRequestId + "</b><br />`r`n"
@@ -1068,6 +1089,7 @@ Copy-Item $pathdata -Destination $pathHTML
 Copy-Item $pathIPurl -Destination $pathHTML
 Copy-Item $pathIP4 -Destination $pathHTML
 Copy-Item $pathIP6 -Destination $pathHTML
+Copy-Item $fileIPURLsNotes -Destination $pathHTML
 
 $checkOptHTTP = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*80*' -and $_.category -match 'Optimize') }
 $checkOptHTTPs = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*443*' -and $_.category -match 'Optimize') }
@@ -1261,10 +1283,50 @@ $divThree += $rptSectionThreeThree
 #Build Div4
 $rptSectionFourOne = "<div class='section'><div class='header'>Logs</div>`n"
 $rptSectionFourOne += "<div class='content'>`n"
-$rptSectionFourOne += $rptO365Info
+$rptURLTable="<table>"
+$cols=@($flatUrls | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty 'name')
+$rptURLTable+="<tr>"
+$rptURLTable+="<th>ID</th><th>serviceArea</th><th>category</th><th>url</th><th>tcpPorts</th><th>udpPorts</th><th>notes</th><th>expressRoute</th><th>required</th>"
+$rptURLTable+="<th>AmendedURL</th><th>DirectInternet</th><th>ProxyAuth</th><th>SSLInspection</th><th>DLP</th><th>Antivirus</th><th>ourNotes</th>"
+#$rptURLTable+="<th>ID</th><th>serviceArea</th><th>serviceAreaName</th><th>category</th><th>url</th><th>tcpPorts</th><th>udpPorts</th><th>notes</th><th>expressRoute</th><th>required</th>"
+$rptURLTable+="</tr>"
+foreach ($entry in $flaturls) {
+	$rptURLTable+="<tr>"
+	$rptURLTable+="<td>$($entry.id)</td>"
+	$rptURLTable+="<td>$($entry.serviceArea)</td>"
+	#$rptURLTable+="<td>$($entry.serviceAreaDisplayName)</td>"
+	$rptURLTable+="<td>$($entry.category)</td>"
+	$rptURLTable+="<td>$($entry.url)</td>"
+	$rptURLTable+="<td>$($entry.tcpPorts)</td>"
+	$rptURLTable+="<td>$($entry.udpPorts)</td>"
+	$rptURLTable+="<td>$($entry.notes)</td>"
+	$rptURLTable+="<td>$($entry.expressRoute)</td>"
+	$rptURLTable+="<td>$($entry.required)</td>"
+	$rptURLTable+="<td>$($entry.AmendedURL)</td>"
+	$rptURLTable+="<td>$($entry.DirectInternet)</td>"
+	$rptURLTable+="<td>$($entry.ProxyAuth)</td>"
+	$rptURLTable+="<td>$($entry.SSLInspection)</td>"
+	$rptURLTable+="<td>$($entry.DLP)</td>"
+	$rptURLTable+="<td>$($entry.Antivirus)</td>"
+	$rptURLTable+="<td>$($entry.ourNotes)</td>"
+	$rptURLTable+="</tr>`r`n"
+}
+$rptURLTable+="</table>`r`n"
+$rptURLTable+="Download ourNotes from <a href='$($fileIPURLsNotes)' target=_blank>here</a>"
+
+
+$rptSectionFourOne += $rptURLTable
 $rptSectionFourOne += "</div></div>`n"
 
 $divFour = $rptSectionFourOne
+
+#Build Div5
+$rptSectionFiveOne = "<div class='section'><div class='header'>Logs</div>`n"
+$rptSectionFiveOne += "<div class='content'>`n"
+$rptSectionFiveOne += $rptO365Info
+$rptSectionFiveOne += "</div></div>`n"
+
+$divFive = $rptSectionFiveOne
 
 $rptHTMLName = $HTMLFile.Replace(" ", "")
 $rptTitle = $rptTenantName + " " + $rptName
@@ -1273,7 +1335,7 @@ $evtMessage = "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] Tenant: $($rptProfile) - Ge
 $evtLogMessage += $evtMessage
 Write-Verbose $evtMessage
 
-BuildHTML $rptTitle $divOne $divTwo $divThree $divFour  $swScript.Elapsed $rptHTMLName
+BuildHTML $rptTitle $divOne $divTwo $divThree $divFour $divFive  $swScript.Elapsed $rptHTMLName
 #Check if .css file exists in HTML file destination
 if (!(Test-Path "$($pathHTML)\$($cssfile)")) {
     Write-Log "Copying O365Health.css to directory $($pathHTML)"

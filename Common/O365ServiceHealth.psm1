@@ -150,6 +150,7 @@ function LoadConfig {
 		MaxFeedItems         = $configFile.Settings.IPURLs.MaxFeedItems
 		IPURLPath            = $configFile.Settings.IPURLs.Path
 		IPURLAlertsTo        = $configFile.Settings.IPURLs.AlertsTo
+		IPURLNotesFilename   = $configFile.Settings.IPURLs.NotesFilename
     
         UseProxy             = $configFile.Settings.Proxy.UseProxy
         ProxyHost            = $configFile.Settings.Proxy.ProxyHost

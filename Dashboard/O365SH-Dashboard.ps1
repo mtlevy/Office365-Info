@@ -484,8 +484,8 @@ try {
 }
 catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Azure Updates RSS Feed information - verify proxy and network connectivity</p><br/>"
-    $uriError += "Error connecting to $($uriAzureUpdates)<br/><br/>`r`n"
-    $uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
+    #$uriError += "Error connecting to $($uriAzureUpdates)<br/><br/>`r`n"
+    #$uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
 }
 
 if ($uriError) {
