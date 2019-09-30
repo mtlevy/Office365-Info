@@ -291,6 +291,7 @@ function Get-htmlMessage ($msgText) {
     $htmlMessage = $htmlMessage -replace "Root Cause:", "<b>Root Cause</b>:"
     $htmlMessage = $htmlMessage -replace "Next Steps:", "<b>Next Steps</b>:"
     $htmlMessage = $htmlMessage -replace "Next Update:", "<b>Next Update</b>:"
+    $htmlMessage = $htmlMessage -replace "This is the final update for the event.", "<b><u>This is the final update for the event.</u></b>:"
     $htmlMessage = $htmlMessage -replace "`n", "<br/>"
 
     return $htmlMessage
@@ -494,8 +495,6 @@ function Get-IncidentInHTML {
         foreach ($message in $subMessages) {
 			$htmlBuild = Get-htmlMessage $message.messagetext
             $htmlBuild = "<br/><b>Update:</b> $(get-date $message.PublishedTime -f 'dd-MMM-yyyy HH:mm')<br/>" + $htmlBuild
-            #Data is pulled down differently - do Matts replacements still hold?
-            #$htmlBuild=$htmlBuild -replace("`n",'<br>') -replace([char]8217,"'") -replace([char]8220,'"') -replace([char]8221,'"') -replace('\[','<b><i>') -replace('\]','</i></b>')
             $htmlSub += $htmlBuild + "<hr><br/>"
         }
         $htmlBody += "<tr><td colspan=7>$($htmlSub)</td></tr>"
@@ -535,7 +534,6 @@ function Get-AdvisoryInHTML {
             $htmlBuild = "<br/><b>Update:</b> $(get-date $message.PublishedTime -f 'dd-MMM-yyyy HH:mm')<br/>" + $htmlBuild
             $htmlBuild = $htmlBuild -replace "Title:", "<b>Title</b>:"
             $htmlBuild = $htmlBuild -replace "`n", "<br/>"
-            #Data is pulled down differently - do Matts replacements still hold?
             $htmlBuild = $htmlBuild -replace ("`n", '<br>') -replace ([char]8217, "'") -replace ([char]8220, '"') -replace ([char]8221, '"') -replace ('\[', '<b><i>') -replace ('\]', '</i></b>')
             $htmlSub += $htmlBuild + "<br/>"
         }

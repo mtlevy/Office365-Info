@@ -112,6 +112,7 @@ else { [boolean]$UseEventLog = $false }
 
 [string[]]$emailIPURLAlerts = $config.IPURLsAlertsTo
 [string]$fileIPURLsNotes = "$($config.IPURLsNotesFilename)-$($rptProfile).csv"
+[string]$fileIPURLsNotesAll = "$($config.IPURLsNotesFilename)All-$($rptProfile).csv"
 [string]$fileCustomNotes = "$($config.CustomNotesFilename)-$($rptProfile).csv"
 
 [string]$proxyHost = $config.ProxyHost
@@ -921,6 +922,7 @@ if (test-path $pathIPurl) { $flatUrls = Import-Csv $pathIPurl } else { $fileMiss
 if (test-path $pathIP4) { $flatIp4s = Import-Csv $pathIP4 } else { $fileMissing = $true }
 if (test-path $pathIP6) { $flatIp6s = Import-Csv $pathIP6 } else { $fileMissing = $true }
 if (test-path $pathIPChanges) { $flatChanges = Import-Csv $pathIPChanges } else { $fileMissing = $true }
+if (test-path $pathIPChangeIDX) { $flatChangesIDX = Import-Csv $pathIPChangeIDX } else { $fileMissing = $true }
 
 
 
@@ -962,7 +964,7 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
         $allChanges += $change
     }
     #Index of changes
-    $flatChanges = $changes | ForEach-Object {
+    $flatChangesIDX = $changes | ForEach-Object {
         $changeSet = $_
         $idxCustomObjects = [PSCustomObject]@{
             id            = $changeSet.id;
@@ -975,7 +977,7 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
         }
         $idxCustomObjects
     }
-    $flatChanges | Export-Csv $pathIPChangeIDX -Encoding UTF8 -NoTypeInformation
+    $flatChangesIDX | Export-Csv $pathIPChangeIDX -Encoding UTF8 -NoTypeInformation
 
     #Adds
     $flatAddChanges = $changes | Where-Object { $_.add -ne $null } | ForEach-Object {
@@ -1004,6 +1006,7 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
         $addCustomObjects
     }
     $flatRemoveChanges | Export-Csv $pathIPChanges -Encoding UTF8 -NoTypeInformation -Append
+    $flatChanges = [array]$flatAddChanges + $flatRemoveChanges
 
     #If an updated version has been found, generate an email (prevents sending on new installs/clearing files)
     if (($version.latest -gt $lastVersion -and $lastversion -notlike "0000000000" ) -and $emailEnabled) {
@@ -1089,24 +1092,40 @@ else {
     $ipurlSummary += "Data available from <a href='https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges' target=_blank>https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges</a><br/>`r`n"
 }
 
-$changesLast = $flatChanges | Sort-Object id -Descending | Select-Object -First 5
+$changesLast = $changesLast = $flatChangesIDX | Sort-Object { [int]::parse($_.id) } -Descending | Select-Object -First 20
 $changesHTML = $null
-$changesHTML = "<table>"
-$changesHTML += "<tr><th>ID</th><th>EndpointSetID</th><th>Disposition</th><th>Version</th><th>Impact</th><th>Current</th><th>Previous</th><th>Add</th><th>Remove</th></tr>"
+$changesHTML = "<div class='tableInc'>`n"
+$changesHTML += "<div class='tableInc-header'>`n`t<div class='tableInc-header-l'>ID</div>`n`t<div class='tableInc-header-l'>EndpointSetID</div>`n`t<div class='tableInc-header-l'>Disposition</div>`n`t<div class='tableInc-header-l'>Version</div>`n`t"
+$changesHTML += "<div class='tableInc-header-l'>Impact</div>`n`t<div class='tableInc-header-l'>Current</div>`n`t<div class='tableInc-header-l'>Previous</div>`n`t<div class='tableInc-header-l'>Add</div>`n`t<div class='tableInc-header-l'>Remove</div>`n</div>`n"
 foreach ($entry in $changesLast) {
-    $changesHTML += "<tr>"
-    $changesHTML += "<td>$($entry.ID)</td>"
-    $changesHTML += "<td>$($entry.endpointSetId)</td>"
-    $changesHTML += "<td>$($entry.disposition)</td>"
-    $changesHTML += "<td>$($entry.version)</td>"
-    $changesHTML += "<td>$($entry.impact)</td>"
-    $changesHTML += "<td>$($entry.current)</td>"
-    $changesHTML += "<td>$($entry.previous)</td>"
-    $changesHTML += "<td>$($entry.add.effectivedate)</br>$($entry.add.ips)</br>$($entry.add.urls)</td>"
-    $changesHTML += "<td>$($entry.remove.urls)</br>$($entry.remove.IPs)</td>"
-    $changesHTML += "</tr>"
+    $addEntry, $remEntry = @()
+    $addED, $addIP, $addURL = $null
+    $remIP, $remURL = $null
+
+    $changesHTML += "<div class='tableInc-row'>`n`t"
+    $changesHTML += "<div class='tableInc-cell-l'>$($entry.ID)</div>`n`t"
+    $changesHTML += "<div class='tableInc-cell-l'>$($entry.endpointSetId)</div>`n`t"
+    $changesHTML += "<div class='tableInc-cell-l'>$($entry.disposition)</div>`n`t"
+    $changesHTML += "<div class='tableInc-cell-l'>$($entry.version)</div>`n`t"
+    $changesHTML += "<div class='tableInc-cell-l'>$($entry.impact)</div>`n`t"
+    $changesHTML += "<div class='tableInc-cell-l'>$($entry.current)</div>`n`t"
+    $changesHTML += "<div class='tableInc-cell-l'>$($entry.previous)</div>`n`t"
+    $addEntry = @($flatChanges | where-object { $_.id -eq $entry.id -and $_.action -eq 'Add' })
+    if ($addentry.count -gt 0) {
+        if ($addEntry.effectivedate -ne "") { $addED = "Effective Date: $($addEntry.effectivedate)<br/>" }
+        if ($addEntry.ips -ne "") { $addIP = "Add IPs: $($addEntry.ips)<br/>" }
+        if ($addEntry.urls -ne "") { $addURL = "Add URLs: $($addEntry.urls)" }
+    }
+    $changesHTML += "<div class='tableInc-cell-l'>$($addED)$($addIP)$($addURL)</div>`n`t"
+    $remEntry = @($flatChanges | where-object { $_.id -eq $entry.id -and $_.action -eq 'Remove' })
+    if ($remEntry.count -gt 0) {
+        if ($remEntry.ips -ne "") { $remIP = "Remove IPs: $($remEntry.ips)<br/>" }
+        if ($remEntry.urls -ne "") { $remURL = "Remove URLs: $($remEntry.urls)" }
+    }
+    $changesHTML += "<div class='tableInc-cell-l'>$($remIP)$($remURL)</div>`n`t"
+    $changesHTML += "</div>`n"
 }
-$changesHTML += "</table>"
+$changesHTML += "</div>`n"
 
 if (test-path $fileIPURLsNotes) {
     $notesCustom = import-csv $fileIPURLsNotes
@@ -1121,7 +1140,11 @@ if (test-path $fileIPURLsNotes) {
         $url | Add-Member -MemberType NoteProperty -Name "Antivirus" -Value $notes.Antivirus
         $url | Add-Member -MemberType NoteProperty -Name "OurNotes" -Value $notes.Notes
     }
+    #Export a full list with additional information
+    $flaturls | Export-Csv $fileIPURLsNotesAll -NoTypeInformation -Encoding UTF8
+
 }
+
 
 # write output to screen
 # Clients arent going to want to view this, are they?
@@ -1182,6 +1205,7 @@ if (test-path $pathIPurl) { Copy-Item $pathIPurl -Destination $pathHTML }
 if (test-path $pathIP4) { Copy-Item $pathIP4 -Destination $pathHTML }
 if (test-path $pathIP6) { Copy-Item $pathIP6 -Destination $pathHTML }
 if (test-path $fileIPURLsNotes) { Copy-Item $fileIPURLsNotes -Destination $pathHTML }
+if (test-path $fileIPURLsNotesAll) { Copy-Item $fileIPURLsNotesAll -Destination $pathHTML }
 if (test-path $fileCustomNotes) { Copy-Item $fileCustomNotes -Destination $pathHTML }
 
 $checkOptHTTP = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*80*' -and $_.category -match 'Optimize') }
@@ -1374,7 +1398,7 @@ $rptSectionThreeThree += "</div></div>`n"
 $divThree += $rptSectionThreeThree
 
 #Build Div4
-$rptURLTable=""
+$rptURLTable = ""
 if ($null -ne $fileIPURLsNotes) { if (Test-Path $($fileIPURLsNotes)) { $rptURLTable += "Download URL notes from <a href='$($fileIPURLsNotes)' target=_blank>here</a><br />" } }
 if ($null -ne $fileIPURLsNotesAll) { if (Test-Path $($fileIPURLsNotesAll)) { $rptURLTable += "Download combined URLs and notes from <a href='$($fileIPURLsNotesAll)' target=_blank>here</a><br />" } }
 if ($null -ne $fileCustomNotes) {
@@ -1383,6 +1407,7 @@ if ($null -ne $fileCustomNotes) {
         $customURLs = Import-Csv $fileCustomNotes
     }
 }
+
 
 $rptSectionFourOne = $rptURLTable
 $rptSectionFourOne += "<div class='section'><div class='header'>Optimize URLs</div>`n"
@@ -1406,11 +1431,11 @@ foreach ($entry in $urlList) {
     $rptURLTable += "<div class='tableInc-cell-c'>$($entry.required)</div>`n`t"
     if (Test-Path $($fileIPURLsNotes)) {
         $e1, $e2, $e3, $e4, $e5 = $null
-        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false')  { $e1 = "False" }
-        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false')  { $e2 = "False" }
-        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false')  { $e3 = "False" }
-        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false')  { $e4 = "False" }
-        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false')  { $e5 = "False" }
+        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false') { $e1 = "False" }
+        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false') { $e2 = "False" }
+        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false') { $e3 = "False" }
+        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false') { $e4 = "False" }
+        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false') { $e5 = "False" }
         $rptURLTable += "<div class='tableInc-cell-l'>$($entry.AmendedURL)</div>`n`t"
         $rptURLTable += "<div class='tableInc-cell-c'>$($e1)</div>`n`t"
         $rptURLTable += "<div class='tableInc-cell-c'>$($e2)</div>`n`t"
@@ -1445,11 +1470,11 @@ if ($customURLs) {
         $rptURLTable += "<div class='tableInc-cell-l'>$($entry.url)</div>`n`t"
         $rptURLTable += "<div class='tableInc-cell-l'>$($entry.tcpPorts)</div>`n`t"
         $rptURLTable += "<div class='tableInc-cell-l'>$($entry.udpPorts)</div>`n`t"
-        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false')  { $e1 = "False" }
-        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false')  { $e2 = "False" }
-        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false')  { $e3 = "False" }
-        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false')  { $e4 = "False" }
-        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false')  { $e5 = "False" }
+        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false') { $e1 = "False" }
+        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false') { $e2 = "False" }
+        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false') { $e3 = "False" }
+        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false') { $e4 = "False" }
+        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false') { $e5 = "False" }
         $rptURLTable += "<div class='tableInc-cell-c'>$($e1)</div>`n`t"
         $rptURLTable += "<div class='tableInc-cell-c'>$($e2)</div>`n`t"
         $rptURLTable += "<div class='tableInc-cell-c'>$($e3)</div>`n`t"
@@ -1486,11 +1511,11 @@ foreach ($entry in $urlList) {
     $rptURLTable += "<div class='tableInc-cell-c'>$($entry.required)</div>`n`t"
     if (Test-Path $($fileIPURLsNotes)) {
         $e1, $e2, $e3, $e4, $e5 = $null
-        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false')  { $e1 = "False" }
-        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false')  { $e2 = "False" }
-        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false')  { $e3 = "False" }
-        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false')  { $e4 = "False" }
-        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false')  { $e5 = "False" }
+        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false') { $e1 = "False" }
+        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false') { $e2 = "False" }
+        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false') { $e3 = "False" }
+        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false') { $e4 = "False" }
+        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false') { $e5 = "False" }
         $rptURLTable += "<div class='tableInc-cell-l'>$($entry.AmendedURL)</div>`n`t"
         $rptURLTable += "<div class='tableInc-cell-c'>$($e1)</div>`n`t"
         $rptURLTable += "<div class='tableInc-cell-c'>$($e2)</div>`n`t"
@@ -1529,11 +1554,11 @@ foreach ($entry in $urlList) {
     $rptURLTable += "<div class='tableInc-cell-c'>$($entry.required)</div>`n`t"
     if (Test-Path $($fileIPURLsNotes)) {
         $e1, $e2, $e3, $e4, $e5 = $null
-        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false')  { $e1 = "False" }
-        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false')  { $e2 = "False" }
-        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false')  { $e3 = "False" }
-        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false')  { $e4 = "False" }
-        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false')  { $e5 = "False" }
+        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false') { $e1 = "False" }
+        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false') { $e2 = "False" }
+        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false') { $e3 = "False" }
+        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false') { $e4 = "False" }
+        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false') { $e5 = "False" }
         $rptURLTable += "<div class='tableInc-cell-l'>$($entry.AmendedURL)</div>`n`t"
         $rptURLTable += "<div class='tableInc-cell-c'>$($e1)</div>`n`t"
         $rptURLTable += "<div class='tableInc-cell-c'>$($e2)</div>`n`t"
