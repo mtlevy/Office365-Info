@@ -29,6 +29,7 @@
     <!-- Email server connectivity settings. Can be office365 or other mail system-->
     <!-- SendReport function in the common module can be trimmed if there is no need for username/password (ie internal systems)-->
     <!-- Current settings are required to use exchange online. 'From' should be the authenticated user -->
+    <Enabled></Enabled>
     <SMTPServer>smtp.office365.com</SMTPServer>
     <Port>587</Port>
     <UseSSL>True</UseSSL>
@@ -77,6 +78,8 @@
     <EventSource>O365 Usage Reports</EventSource>
   </UsageReports>
   <Diagnostics>
+    <Name>Diagnostics</Name>
+    <HTMLFileName></HTMLFileName>
     <!-- Text to add to Diagnostics tab. Will be converted to HTML so can include HTML tags-->
     <Notes></Notes>
     <!-- Run http/https tests for IP connections: true/false-->
@@ -87,6 +90,8 @@
     <URLs>true</URLs>
     <!-- Show detailed errors for pages: true/false-->
     <Verbose>false</Verbose>
+    <!-- Refresh interval in minutes-->
+    <Refresh></Refresh>
   </Diagnostics>
   <IPURLs>
     <!-- Maximum number of items to return if feed provides more -->
@@ -94,6 +99,10 @@
     <Path></Path>
     <!-- Where to send updates to IP and URLs to. Comma separated quoted list "john@home.com","bob@vader.net"-->
     <AlertsTo></AlertsTo>
+    <!-- Custom CSV file to hold additional information relation to URLs. Matches URL list on ID and URL. System will append short tenant name when loading-->
+    <NotesFilename></NotesFilename>
+    <!-- Custom CSV file to hold additional URLs. System will append short tenant name when loading -->
+    <CustomNotesFilename></CustomNotesFilename>
   </IPURLs>
   <Proxy>
     <!-- Proxy settings if required-->

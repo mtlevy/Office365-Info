@@ -93,6 +93,7 @@ else { [boolean]$UseEventLog = $false }
 [string]$tenantID = $config.TenantID
 [string]$appID = $config.AppID
 [string]$clientSecret = $config.AppSecret
+[string]$emailEnabled = $config.EmailEnabled
 [string]$SMTPUser = $config.EmailUser
 [string]$SMTPPassword = $config.EmailPassword
 [string]$SMTPKey = $config.EmailKey
@@ -106,30 +107,35 @@ else { [boolean]$UseEventLog = $false }
 
 [string]$pathLogs = $config.LogPath
 [string]$pathHTML = $config.HTMLPath
-[string]$pathIPURLs = $config.IPURLPath
+[string]$pathIPURLs = $config.IPURLsPath
 [string]$pathWorking = $config.WorkingPath
 
-[string[]]$emailIPURLAlerts = $config.IPURLAlertsTo
-[string]$fileIPURLsNotes = "$($config.IPURLNotesFilename)-$($rptProfile).csv"
+[string[]]$emailIPURLAlerts = $config.IPURLsAlertsTo
+[string]$fileIPURLsNotes = "$($config.IPURLsNotesFilename)-$($rptProfile).csv"
+[string]$fileCustomNotes = "$($config.CustomNotesFilename)-$($rptProfile).csv"
 
 [string]$proxyHost = $config.ProxyHost
+[array]$customURLs = @()
 
 #Check diagnostics and save as boolean
 if ($config.DiagnosticsWeb -like 'true') { [boolean]$diagWeb = $true } else { [boolean]$diagWeb = $false }
 if ($config.DiagnosticsPorts -like 'true') { [boolean]$diagPorts = $true } else { [boolean]$diagPorts = $false }
 if ($config.DiagnosticsURLs -like 'true') { [boolean]$diagURLs = $true } else { [boolean]$diagURLs = $false }
 if ($config.DiagnosticsVerbose -like 'true') { [boolean]$diagVerbose = $true } else { [boolean]$diagVerbose = $false }
+if ($config.EmailEnabled -like 'true') { [boolean]$emailEnabled = $true } else { [boolean]$emailEnabled = $false }
+
 [string]$diagNotes = $config.DiagnosticsNotes
 
 
 [boolean]$rptOutage = $false
+[boolean]$fileMissing = $false
 
 [string]$cssfile = ".\O365Health.css"
 
 # Get Email credentials
 # Check for a username. No username, no need for credentials (internal mail host?)
 [PSCredential]$emailCreds = $null
-if ($smtpuser -notlike '') {
+if ($emailEnabled -and $smtpuser -notlike '') {
     #Email credentials have been specified, so build the credentials.
     #See readme on how to build credentials files
     $EmailCreds = getCreds $SMTPUser $SMTPPassword $SMTPKey
@@ -185,19 +191,19 @@ ConnectAzureAD
 $authContext = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext" -ArgumentList $authority
 $clientCredential = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.ClientCredential" -ArgumentList $appId, $clientSecret
 $authenticationResult = ($authContext.AcquireTokenAsync($urlOrca, $clientCredential)).Result;
-$bearerToken = $authenticationResult.AccessToken
+# $bearerToken = $authenticationResult.AccessToken
 if ($null -eq $authenticationResult) {
     $evtMessage = "ERROR - No authentication result for Auzre AD App"
     Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 1 -EntryType Error
     Write-Log $evtMessage
 }
 
-$authHeader = @{
-    'Content-Type'  = 'application/json'
-    'Authorization' = "Bearer " + $bearerToken
-}
+# $authHeader = @{
+#     'Content-Type'  = 'application/json'
+#     'Authorization' = "Bearer " + $bearerToken
+# }
 #Now remove any system default proxy in order to test no-proxy paths.
-$defaultproxy=[System.Net.WebProxy]::GetDefaultProxy()
+$defaultproxy = [System.Net.WebProxy]::GetDefaultProxy()
 [System.Net.GlobalProxySelection]::Select = [System.Net.GlobalProxySelection]::GetEmptyWebProxy()
 
 function EnsureAzureADModule() {
@@ -478,7 +484,7 @@ function OnlineEndPoints {
         $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Seamless SSO Endpoints (TCP:443) DNS Resolution may fail from clients.</p><br/>"
         foreach ($url in $SeamlessSSOEndpoints) {
             try { [array]$ResourceAddresses = (Resolve-DnsName $url -ErrorAction stop -QuickTimeout).IP4Address }
-            catch { $ErrorMesage = $_; $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to resolve host URL $($url).</p><br/>"; Continue }
+            catch { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to resolve host URL $($url).</p><br/>"; Continue }
 		
             foreach ($ip4 in $ResourceAddresses) {
                 try {
@@ -855,8 +861,8 @@ $body = @{
     grant_type    = "client_credentials"
 }
 # Get OAuth 2.0 Token
-if ($proxyServer) {$tokenRequest = Invoke-WebRequest -Method Post -Uri $uriToken -ContentType "application/x-www-form-urlencoded" -Body $body -UseBasicParsing -Proxy $proxyHost -ProxyUseDefaultCredentials}
-else {$tokenRequest = Invoke-WebRequest -Method Post -Uri $uriToken -ContentType "application/x-www-form-urlencoded" -Body $body -UseBasicParsing}
+if ($proxyServer) { $tokenRequest = Invoke-WebRequest -Method Post -Uri $uriToken -ContentType "application/x-www-form-urlencoded" -Body $body -UseBasicParsing -Proxy $proxyHost -ProxyUseDefaultCredentials }
+else { $tokenRequest = Invoke-WebRequest -Method Post -Uri $uriToken -ContentType "application/x-www-form-urlencoded" -Body $body -UseBasicParsing }
 # Access Token
 $token = ($tokenRequest.Content | ConvertFrom-Json).access_token
 #	Returns the tenant licence information
@@ -886,7 +892,7 @@ catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No licence information retrieved - verify proxy and network connectivity</p><br/>"
 }
 
-if ($uriError) {
+if ($uriError -and $emaiLEnabled) {
     $emailSubject = "Error(s) retrieving URL(s)"
     SendReport $uriError $EmailCreds $config "High" $emailSubject $emailDashAlertsTo
 }
@@ -904,13 +910,19 @@ $versionpath = $pathIPURLs + "\O365_endpoints_latestversion-$($rptProfile).txt"
 $pathIP4 = $pathIPURLs + "\O365_endpoints_ip4-$($rptProfile).csv"
 $pathIP6 = $pathIPURLs + "\O365_endpoints_ip6-$($rptProfile).csv"
 $pathIPurl = $pathIPURLs + "\O365_endpoints_urls-$($rptProfile).csv"
+$pathIPChanges = $pathIPURLs + "\O365_IPChanges-$($rptProfile).csv"
+$pathIPChangeIDX = $pathIPURLs + "\O365_IPChangeIDX-$($rptProfile).csv"
 $fileData = "O365_endpoints_data-$($rptProfile).txt"
 $pathData = $pathIPURLs + "\" + $fileData
 $currentData = $null
 
-if (test-path $pathdata) {
-	$currentData = Get-Content $pathData
-}
+if (test-path $pathdata) { $currentData = Get-Content $pathData } else { $fileMissing = $true }
+if (test-path $pathIPurl) { $flatUrls = Import-Csv $pathIPurl } else { $fileMissing = $true }
+if (test-path $pathIP4) { $flatIp4s = Import-Csv $pathIP4 } else { $fileMissing = $true }
+if (test-path $pathIP6) { $flatIp6s = Import-Csv $pathIP6 } else { $fileMissing = $true }
+if (test-path $pathIPChanges) { $flatChanges = Import-Csv $pathIPChanges } else { $fileMissing = $true }
+
+
 
 # fetch client ID and version if version file exists; otherwise create new file and client ID
 if (Test-Path $versionpath) {
@@ -926,23 +938,86 @@ else {
 
 # call version method to check the latest version, and pull new data if version number is different
 [uri]$ipurlVersion = "$($ws)/version/Worldwide?clientRequestId=$($clientRequestId)"
-if ($proxyServer) {$version = Invoke-RestMethod -Uri ($ipurlVersion) -Proxy $proxyhost -ProxyUseDefaultCredentials}
-else {$version = Invoke-RestMethod -Uri ($ipurlVersion)}
-if (($version.latest -gt $lastVersion) -or ($null -like $currentData)) {
+if ($proxyServer) { $version = Invoke-RestMethod -Uri ($ipurlVersion) -Proxy $proxyhost -ProxyUseDefaultCredentials }
+else { $version = Invoke-RestMethod -Uri ($ipurlVersion) }
+if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileMissing) {
     $ipurlOutput += "New version of Office 365 worldwide commercial service instance endpoints detected<br />`r`n"
-    #If ian updated version has been found, generate an email (prevents sending on new installs/clearing files)
-	if (($version.latest -gt $lastVersion -and $lastversion -notlike "0000000000" ) ) {
-		#Send email to users on IP/URL change
-		$emailSubject = "IPs and URLs: New version $($version.latest)"
-		$emailMessage = "new version of Office 365 Worldwide Commercial service instance endpoints"
-		SendReport $emailMessage $EmailCreds $config "Normal" $emailSubject $emailIPURLAlerts
-	}
+    #Build changes
+    [uri]$ipurlChanges = "$($ws)/changes/Worldwide/0000000000?ClientRequestId=$($clientRequestId)"
+    if ($proxyServer) { $changes = Invoke-RestMethod -Uri ($ipurlChanges) -Proxy $proxyhost -ProxyUseDefaultCredentials }
+    else { $changes = Invoke-RestMethod -Uri ($ipurlChanges) }
+    #Flatten the IP/URL Changes
+    [array]$allChanges = @()
+    $changes | ForEach-Object {
+        $change = New-Object PSCustomObject
+        $change | Add-Member -MemberType NoteProperty -Name ID -Value $_.ID
+        $change | Add-Member -MemberType NoteProperty -Name endpointSetId -Value $_.endpointSetId
+        $change | Add-Member -MemberType NoteProperty -Name disposition -Value $_.disposition
+        $change | Add-Member -MemberType NoteProperty -Name version -Value $_.version
+        $change | Add-Member -MemberType NoteProperty -Name impact -Value $_.impact
+        $change | Add-Member -MemberType NoteProperty -Name current -Value $_.current
+        $change | Add-Member -MemberType NoteProperty -Name previous -Value $_.previous
+        $change | Add-Member -MemberType NoteProperty -Name add -Value $_.add
+        $change | Add-Member -MemberType NoteProperty -Name remove -Value $_.remove
+        $allChanges += $change
+    }
+    #Index of changes
+    $flatChanges = $changes | ForEach-Object {
+        $changeSet = $_
+        $idxCustomObjects = [PSCustomObject]@{
+            id            = $changeSet.id;
+            endpointSetId = $changeSet.endpointSetId;
+            Disposition   = $changeSet.disposition;
+            version       = $changeSet.version;
+            Impact        = $changeSet.Impact;
+            current       = $changeSet.current
+            previous      = $changeSet.previous
+        }
+        $idxCustomObjects
+    }
+    $flatChanges | Export-Csv $pathIPChangeIDX -Encoding UTF8 -NoTypeInformation
+
+    #Adds
+    $flatAddChanges = $changes | Where-Object { $_.add -ne $null } | ForEach-Object {
+        $changeSet = $_
+        $addCustomObjects = [PSCustomObject]@{
+            id            = $changeSet.id;
+            action        = "Add";
+            effectiveDate = [datetime]::parseexact($($changeSet.add.effectiveDate), 'yyyyMMdd', $null).tostring('dd MMM yyyy');
+            ips           = $changeSet.add.ips -join ", ";
+            urls          = $changeSet.add.urls -join ", ";
+        }
+        $addCustomObjects
+    }
+    $flatAddChanges | Export-Csv $pathIPChanges -Encoding UTF8 -NoTypeInformation
+
+    #Removes
+    $flatRemoveChanges = $changes | Where-Object { $_.remove -ne $null } | ForEach-Object {
+        $changeSet = $_
+        $addCustomObjects = [PSCustomObject]@{
+            id            = $changeSet.id;
+            action        = "Remove";
+            effectiveDate = $null
+            ips           = $changeSet.remove.ips -join ", ";
+            urls          = $changeSet.remove.urls -join ", ";
+        }
+        $addCustomObjects
+    }
+    $flatRemoveChanges | Export-Csv $pathIPChanges -Encoding UTF8 -NoTypeInformation -Append
+
+    #If an updated version has been found, generate an email (prevents sending on new installs/clearing files)
+    if (($version.latest -gt $lastVersion -and $lastversion -notlike "0000000000" ) -and $emailEnabled) {
+        #Send email to users on IP/URL change
+        $emailSubject = "IPs and URLs: New version $($version.latest)"
+        $emailMessage = "new version of Office 365 Worldwide Commercial service instance endpoints"
+        SendReport $emailMessage $EmailCreds $config "Normal" $emailSubject $emailIPURLAlerts
+    }
     # write the new version number to the version file
     @($clientRequestId, $version.latest) | Out-File $versionpath
     # invoke endpoints method to get the new data
     [uri]$ipurlEndpoint = "$($ws)/endpoints/Worldwide?clientRequestId=$($clientRequestId)"
-    if ($proxyserver) {$endpointSets = Invoke-RestMethod -Uri ($ipurlEndpoint) -Proxy $proxyHost -ProxyUseDefaultCredentials}
-	else {$endpointSets = Invoke-RestMethod -Uri ($ipurlEndpoint)}
+    if ($proxyserver) { $endpointSets = Invoke-RestMethod -Uri ($ipurlEndpoint) -Proxy $proxyHost -ProxyUseDefaultCredentials }
+    else { $endpointSets = Invoke-RestMethod -Uri ($ipurlEndpoint) }
     # filter results for Allow and Optimize endpoints, and transform these into custom objects with port and category
     # URL results
     $flatUrls = $endpointSets | ForEach-Object {
@@ -950,19 +1025,18 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData)) {
         $urls = $(if ($endpointSet.urls.Count -gt 0) { $endpointSet.urls } else { @() })
         $urlCustomObjects = @()
         $urlCustomObjects = $urls | ForEach-Object {
-            $url=$_
-                [PSCustomObject]@{
-                    id                     = $endpointSet.id;
-                    serviceArea            = $endpointSet.ServiceArea;
-                    serviceAreaDisplayName = $endpointSet.serviceAreaDisplayName;
-                    category               = $endpointSet.category;
-                    url                    = $_;
-                    tcpPorts               = $endpointSet.tcpPorts;
-                    udpPorts               = $endpointSet.udpPorts;
-                    notes                  = $endpointSet.notes;
-                    expressRoute           = $endpointSet.expressRoute;
-                    required               = $endpointSet.required;
-                }
+            [PSCustomObject]@{
+                id                     = $endpointSet.id;
+                serviceArea            = $endpointSet.ServiceArea;
+                serviceAreaDisplayName = $endpointSet.serviceAreaDisplayName;
+                category               = $endpointSet.category;
+                url                    = $_;
+                tcpPorts               = $endpointSet.tcpPorts;
+                udpPorts               = $endpointSet.udpPorts;
+                notes                  = $endpointSet.notes;
+                expressRoute           = $endpointSet.expressRoute;
+                required               = $endpointSet.required;
+            }
         }
         $urlCustomObjects
     }
@@ -1013,23 +1087,40 @@ else {
     $ipurlSummary += "Office 365 worldwide commercial service instance endpoints are up-to-date. <br />`r`n"
     $ipurlSummary += "Importing previous results. <br />`r`n"
     $ipurlSummary += "Data available from <a href='https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges' target=_blank>https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges</a><br/>`r`n"
-    $flatUrls = Import-Csv $pathIPurl
-    $flatIp4s = Import-Csv $pathIP4
-    $flatIp6s = Import-Csv $pathIP6
-
 }
-$notesCustom=import-csv $fileIPURLsNotes
 
-#match custom notes data to ID and url
-foreach ($url in $flaturls) {
-	$notes=@($notesCustom | where-object {$_.ID -like $url.ID -and $_.url -like $url.url})
-	$url | Add-Member -MemberType NoteProperty -Name "AmendedURL" -Value $notes.AmendedURL
-	$url | Add-Member -MemberType NoteProperty -Name "DirectInternet" -Value $notes.DirectInternet
-	$url | Add-Member -MemberType NoteProperty -Name "ProxyAuth" -Value $notes.ProxyAuth
-	$url | Add-Member -MemberType NoteProperty -Name "SSLInspection" -Value $notes.SSLInspection
-	$url | Add-Member -MemberType NoteProperty -Name "DLP" -Value $notes.DLP
-	$url | Add-Member -MemberType NoteProperty -Name "Antivirus" -Value $notes.Antivirus
-	$url | Add-Member -MemberType NoteProperty -Name "OurNotes" -Value $notes.Notes
+$changesLast = $flatChanges | Sort-Object id -Descending | Select-Object -First 5
+$changesHTML = $null
+$changesHTML = "<table>"
+$changesHTML += "<tr><th>ID</th><th>EndpointSetID</th><th>Disposition</th><th>Version</th><th>Impact</th><th>Current</th><th>Previous</th><th>Add</th><th>Remove</th></tr>"
+foreach ($entry in $changesLast) {
+    $changesHTML += "<tr>"
+    $changesHTML += "<td>$($entry.ID)</td>"
+    $changesHTML += "<td>$($entry.endpointSetId)</td>"
+    $changesHTML += "<td>$($entry.disposition)</td>"
+    $changesHTML += "<td>$($entry.version)</td>"
+    $changesHTML += "<td>$($entry.impact)</td>"
+    $changesHTML += "<td>$($entry.current)</td>"
+    $changesHTML += "<td>$($entry.previous)</td>"
+    $changesHTML += "<td>$($entry.add.effectivedate)</br>$($entry.add.ips)</br>$($entry.add.urls)</td>"
+    $changesHTML += "<td>$($entry.remove.urls)</br>$($entry.remove.IPs)</td>"
+    $changesHTML += "</tr>"
+}
+$changesHTML += "</table>"
+
+if (test-path $fileIPURLsNotes) {
+    $notesCustom = import-csv $fileIPURLsNotes
+    #match custom notes data to ID and url
+    foreach ($url in $flaturls) {
+        $notes = @($notesCustom | where-object { $_.ID -like $url.ID -and $_.url -like $url.url })
+        $url | Add-Member -MemberType NoteProperty -Name "AmendedURL" -Value $notes.AmendedURL
+        $url | Add-Member -MemberType NoteProperty -Name "DirectInternet" -Value $notes.DirectInternet
+        $url | Add-Member -MemberType NoteProperty -Name "ProxyAuth" -Value $notes.ProxyAuth
+        $url | Add-Member -MemberType NoteProperty -Name "SSLInspection" -Value $notes.SSLInspection
+        $url | Add-Member -MemberType NoteProperty -Name "DLP" -Value $notes.DLP
+        $url | Add-Member -MemberType NoteProperty -Name "Antivirus" -Value $notes.Antivirus
+        $url | Add-Member -MemberType NoteProperty -Name "OurNotes" -Value $notes.Notes
+    }
 }
 
 # write output to screen
@@ -1085,11 +1176,13 @@ Write-Output "IPv6 Firewall IP Address Ranges" | Out-File $pathData -Append
 Write-Output "" | Out-File $pathData -Append
 Write-Output "URLs for Proxy Server" | Out-File $pathData -Append
 ($flatUrls.url | Sort-Object -Unique) -join ", " | Out-File $pathData -Append
-Copy-Item $pathdata -Destination $pathHTML
-Copy-Item $pathIPurl -Destination $pathHTML
-Copy-Item $pathIP4 -Destination $pathHTML
-Copy-Item $pathIP6 -Destination $pathHTML
-Copy-Item $fileIPURLsNotes -Destination $pathHTML
+
+if (test-path $pathdata) { Copy-Item $pathdata -Destination $pathHTML }
+if (test-path $pathIPurl) { Copy-Item $pathIPurl -Destination $pathHTML }
+if (test-path $pathIP4) { Copy-Item $pathIP4 -Destination $pathHTML }
+if (test-path $pathIP6) { Copy-Item $pathIP6 -Destination $pathHTML }
+if (test-path $fileIPURLsNotes) { Copy-Item $fileIPURLsNotes -Destination $pathHTML }
+if (test-path $fileCustomNotes) { Copy-Item $fileCustomNotes -Destination $pathHTML }
 
 $checkOptHTTP = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*80*' -and $_.category -match 'Optimize') }
 $checkOptHTTPs = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*443*' -and $_.category -match 'Optimize') }
@@ -1155,13 +1248,13 @@ if ($diagURLs) {
         $url = "http://$($entry.url)"
         $rptIPURLs += checkURL $url $diagVerbose $false $proxyHost $true
     } # End Foreach URL List
-	if ($proxyServer) {
-		$rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>via Proxy (un-optimized route)</p><br/>"
-		foreach ($entry in $checkOptHTTP) {
-	        $url = "http://$($entry.url)"
-			$rptIPURLs += checkURL $url $diagVerbose $proxyServer $proxyHost $true
-		} # End Foreach URL List
-	}
+    if ($proxyServer) {
+        $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>via Proxy (un-optimized route)</p><br/>"
+        foreach ($entry in $checkOptHTTP) {
+            $url = "http://$($entry.url)"
+            $rptIPURLs += checkURL $url $diagVerbose $proxyServer $proxyHost $true
+        } # End Foreach URL List
+    }
 
     # Microsoft Office 365 URL tests - check the Optimize HTTPs connections
     $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting HTTPs checks for 'Optimize' Sites (Invoke-WebRequest)</p><br/>"
@@ -1170,13 +1263,13 @@ if ($diagURLs) {
         $url = "https://$($entry.url)"
         $rptIPURLs += checkURL $url $diagVerbose $false $proxyHost $true
     } # End Foreach URL List
-	if ($proxyserver){
-		$rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>via Proxy (un-optimized route)</p><br/>"
-		foreach ($entry in $checkOptHTTPs) {
-			$url = "https://$($entry.url)"
-			$rptIPURLs += checkURL $url $diagVerbose $proxyServer $proxyHost $true
-		} # End Foreach URL List
-	}
+    if ($proxyserver) {
+        $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>via Proxy (un-optimized route)</p><br/>"
+        foreach ($entry in $checkOptHTTPs) {
+            $url = "https://$($entry.url)"
+            $rptIPURLs += checkURL $url $diagVerbose $proxyServer $proxyHost $true
+        } # End Foreach URL List
+    }
 
     # Microsoft Office 365 URL tests - check the Allow HTTP connections
     $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting HTTP checks for 'Allow' Sites (Invoke-WebRequest)</p><br/>"
@@ -1231,8 +1324,8 @@ foreach ($sku in $allLicences) {
     $NicePartNumber = ($skunames.GetEnumerator() | Where-Object { $_.name -like "$($sku.skupartnumber)" }).Value
     if ($NicePartNumber -eq "") { $NicePartNumber = $($sku.SkuPartNumber) }
     $NicePartNumber += "<br/><span class=tooltiptext'> $($sku.consumedUnits) / $(($sku.prepaidunits).enabled +($sku.prepaidunits).warning) assigned"
-    if (($sku.prepaidunits).warning -gt 0) {$NicePartNumber += "<br/>$(($sku.prepaidunits).warning) in warning state"}
-    if (($sku.prepaidunits).suspended -gt 0) {$NicePartNumber += "<br/>$(($sku.prepaidunits).suspended) in suspended state"}
+    if (($sku.prepaidunits).warning -gt 0) { $NicePartNumber += "<br/>$(($sku.prepaidunits).warning) in warning state" }
+    if (($sku.prepaidunits).suspended -gt 0) { $NicePartNumber += "<br/>$(($sku.prepaidunits).suspended) in suspended state" }
     $NicePartNumber += "</span>"
     [int]$intPlanCount = 0
     foreach ($serviceplan in $sku.serviceplans) {
@@ -1275,50 +1368,187 @@ $divThree += $rptSectionThreeTwo
 
 $rptSectionThreeThree = "<div class='section'><div class='header'>IP and URL History</div>`n"
 $rptSectionThreeThree += "<div class='content'>`n"
-[string]$ipurlHistory = "<b>IP and URL history of changes</b><br />"
+$rptSectionThreeThree += $changesHTML
 $rptSectionThreeThree += "</div></div>`n"
 
 $divThree += $rptSectionThreeThree
 
 #Build Div4
-$rptSectionFourOne = "<div class='section'><div class='header'>Logs</div>`n"
-$rptSectionFourOne += "<div class='content'>`n"
-$rptURLTable="<table>"
-$cols=@($flatUrls | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty 'name')
-$rptURLTable+="<tr>"
-$rptURLTable+="<th>ID</th><th>serviceArea</th><th>category</th><th>url</th><th>tcpPorts</th><th>udpPorts</th><th>notes</th><th>expressRoute</th><th>required</th>"
-$rptURLTable+="<th>AmendedURL</th><th>DirectInternet</th><th>ProxyAuth</th><th>SSLInspection</th><th>DLP</th><th>Antivirus</th><th>ourNotes</th>"
-#$rptURLTable+="<th>ID</th><th>serviceArea</th><th>serviceAreaName</th><th>category</th><th>url</th><th>tcpPorts</th><th>udpPorts</th><th>notes</th><th>expressRoute</th><th>required</th>"
-$rptURLTable+="</tr>"
-foreach ($entry in $flaturls) {
-	$rptURLTable+="<tr>"
-	$rptURLTable+="<td>$($entry.id)</td>"
-	$rptURLTable+="<td>$($entry.serviceArea)</td>"
-	#$rptURLTable+="<td>$($entry.serviceAreaDisplayName)</td>"
-	$rptURLTable+="<td>$($entry.category)</td>"
-	$rptURLTable+="<td>$($entry.url)</td>"
-	$rptURLTable+="<td>$($entry.tcpPorts)</td>"
-	$rptURLTable+="<td>$($entry.udpPorts)</td>"
-	$rptURLTable+="<td>$($entry.notes)</td>"
-	$rptURLTable+="<td>$($entry.expressRoute)</td>"
-	$rptURLTable+="<td>$($entry.required)</td>"
-	$rptURLTable+="<td>$($entry.AmendedURL)</td>"
-	$rptURLTable+="<td>$($entry.DirectInternet)</td>"
-	$rptURLTable+="<td>$($entry.ProxyAuth)</td>"
-	$rptURLTable+="<td>$($entry.SSLInspection)</td>"
-	$rptURLTable+="<td>$($entry.DLP)</td>"
-	$rptURLTable+="<td>$($entry.Antivirus)</td>"
-	$rptURLTable+="<td>$($entry.ourNotes)</td>"
-	$rptURLTable+="</tr>`r`n"
+if ($null -ne $fileIPURLsNotes) { if (Test-Path $($fileIPURLsNotes)) { $rptURLTable = "Download URL notes from <a href='$($fileIPURLsNotes)' target=_blank>here</a><br />" } }
+if ($null -ne $fileIPURLsNotesAll) { if (Test-Path $($fileIPURLsNotesAll)) { $rptURLTable = "Download combined URLs and notes from <a href='$($fileIPURLsNotesAll)' target=_blank>here</a><br />" } }
+if ($null -ne $fileCustomNotes) {
+    if (Test-Path $($fileCustomNotes)) {
+        $rptURLTable = "Download custom URLs and notes from <a href='$($fileCustomNotes)' target=_blank>here</a><br />";
+        $customURLs = Import-Csv $fileCustomNotes
+    }
 }
-$rptURLTable+="</table>`r`n"
-$rptURLTable+="Download ourNotes from <a href='$($fileIPURLsNotes)' target=_blank>here</a>"
 
 
+$rptSectionFourOne = $rptURLTable
+$rptSectionFourOne += "<div class='section'><div class='header'>Optimize URLs</div>`n"
+$rptSectionFourOne += "<div class='content'>`n"
+$rptURLTable = "<div class='tableInc'>"
+$rptURLTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-l'>ID</div>`n`t<div class='tableInc-header-l'>serviceArea</div>`n`t<div class='tableInc-header-l'>url</div>`n`t<div class='tableInc-header-l'>tcpPorts</div>`n`t<div class='tableInc-header-l'>udpPorts</div>`n`t<div class='tableInc-header-l'>notes</div>`n`t<div class='tableInc-header-c'>required</div>`n"
+if (Test-Path $($fileIPURLsNotes)) { $rptURLTable += "<div class='tableInc-header-l'>AmendedURL</div>`n`t<div class='tableInc-header-c'>DirectInternet</div>`n`t<div class='tableInc-header-c'>ProxyAuth</div>`n`t<div class='tableInc-header-c'>SSLInspection</div>`n`t<div class='tableInc-header-c'>DLP</div>`n`t<div class='tableInc-header-c'>Antivirus</div>`n`t<div class='tableInc-header-l'>ourNotes</div>`n" }
+$rptURLTable += "</div>`n"
+
+[array]$urlList = @()
+$urlList = $flatUrls | Where-Object { $_.category -like 'optimize' }
+foreach ($entry in $urlList) {
+    $rptURLTable += "<div class='tableInc-row'>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.id)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.serviceArea)</div>`n`t"
+    #$rptURLTable+="<td>$($entry.serviceAreaDisplayName)</td>"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.url)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.tcpPorts)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.udpPorts)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.notes)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-c'>$($entry.required)</div>`n`t"
+    if (Test-Path $($fileIPURLsNotes)) {
+        $e1, $e2, $e3, $e4, $e5 = $null
+        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false')  { $e1 = "False" }
+        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false')  { $e2 = "False" }
+        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false')  { $e3 = "False" }
+        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false')  { $e4 = "False" }
+        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false')  { $e5 = "False" }
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.AmendedURL)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e1)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e2)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e3)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e4)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e5)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.ourNotes)</div>`n"
+    }
+    $rptURLTable += "</div>`n"
+}
+$rptURLTable += "</div>`n"
 $rptSectionFourOne += $rptURLTable
 $rptSectionFourOne += "</div></div>`n"
 
 $divFour = $rptSectionFourOne
+
+#Custom URLS - our URLs particular to our deployment, and documented here
+if ($customURLs) {
+    $rptSectionFourTwo += "<div class='section'><div class='header'>Additional URLs associated with O365 deployment</div>`n"
+    $rptSectionFourTwo += "<div class='content'>`n"
+    $rptURLTable = "<div class='tableInc'>"
+    $rptURLTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-l'>ID</div>`n`t<div class='tableInc-header-l'>serviceArea</div>`n`t<div class='tableInc-header-l'>url</div>`n`t<div class='tableInc-header-l'>tcpPorts</div>`n`t<div class='tableInc-header-l'>udpPorts</div>`n`t"
+    $rptURLTable += "<div class='tableInc-header-c'>DirectInternet</div>`n`t<div class='tableInc-header-c'>ProxyAuth</div>`n`t<div class='tableInc-header-c'>SSLInspection</div>`n`t<div class='tableInc-header-c'>DLP</div>`n`t<div class='tableInc-header-c'>Antivirus</div>`n`t<div class='tableInc-header-l'>Notes</div>`n"
+    $rptURLTable += "</div>`n"
+    [array]$urlList = @()
+    $urlList = $customURLs | Where-Object { $_.ID -gt 0 }
+    foreach ($entry in $urlList) {
+        $e1, $e2, $e3, $e4, $e5 = $null
+        $rptURLTable += "<div class='tableInc-row'>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.id)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.serviceArea)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.url)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.tcpPorts)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.udpPorts)</div>`n`t"
+        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false')  { $e1 = "False" }
+        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false')  { $e2 = "False" }
+        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false')  { $e3 = "False" }
+        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false')  { $e4 = "False" }
+        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false')  { $e5 = "False" }
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e1)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e2)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e3)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e4)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e5)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.Notes)</div>`n"
+        $rptURLTable += "</div>`n"
+    }
+    $rptURLTable += "</div>`n"
+    $rptSectionFourTwo += $rptURLTable
+    $rptSectionFourTwo += "</div></div>`n"
+}
+$divFour += $rptSectionFourTwo
+
+#Microsoft specified Allow URLs
+$rptSectionFourThree += "<div class='section'><div class='header'>Allow URLs</div>`n"
+$rptSectionFourThree += "<div class='content'>`n"
+$rptURLTable = "<div class='tableInc'>"
+$rptURLTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-l'>ID</div>`n`t<div class='tableInc-header-l'>serviceArea</div>`n`t<div class='tableInc-header-l'>url</div>`n`t<div class='tableInc-header-l'>tcpPorts</div>`n`t<div class='tableInc-header-l'>udpPorts</div>`n`t<div class='tableInc-header-l'>notes</div>`n`t<div class='tableInc-header-c'>required</div>`n"
+if (Test-Path $($fileIPURLsNotes)) { $rptURLTable += "<div class='tableInc-header-l'>AmendedURL</div>`n`t<div class='tableInc-header-c'>DirectInternet</div>`n`t<div class='tableInc-header-c'>ProxyAuth</div>`n`t<div class='tableInc-header-c'>SSLInspection</div>`n`t<div class='tableInc-header-c'>DLP</div>`n`t<div class='tableInc-header-c'>Antivirus</div>`n`t<div class='tableInc-header-l'>ourNotes</div>`n" }
+$rptURLTable += "</div>`n"
+
+[array]$urlList = @()
+$urlList = $flatUrls | Where-Object { $_.category -like 'allow' }
+foreach ($entry in $urlList) {
+    $rptURLTable += "<div class='tableInc-row'>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.id)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.serviceArea)</div>`n`t"
+    #$rptURLTable+="<td>$($entry.serviceAreaDisplayName)</td>"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.url)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.tcpPorts)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.udpPorts)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.notes)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-c'>$($entry.required)</div>`n`t"
+    if (Test-Path $($fileIPURLsNotes)) {
+        $e1, $e2, $e3, $e4, $e5 = $null
+        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false')  { $e1 = "False" }
+        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false')  { $e2 = "False" }
+        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false')  { $e3 = "False" }
+        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false')  { $e4 = "False" }
+        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false')  { $e5 = "False" }
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.AmendedURL)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e1)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e2)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e3)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e4)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e5)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.ourNotes)</div>`n"
+    }
+    $rptURLTable += "</div>`n"
+}
+$rptURLTable += "</div>`n"
+$rptSectionFourThree += $rptURLTable
+$rptSectionFourThree += "</div></div>`n"
+
+$divFour += $rptSectionFourThree
+
+#Microsoft specified Default URLs
+$rptSectionFourFour += "<div class='section'><div class='header'>Default URLs</div>`n"
+$rptSectionFourFour += "<div class='content'>`n"
+$rptURLTable = "<div class='tableInc'>"
+$rptURLTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-l'>ID</div>`n`t<div class='tableInc-header-l'>serviceArea</div>`n`t<div class='tableInc-header-l'>url</div>`n`t<div class='tableInc-header-l'>tcpPorts</div>`n`t<div class='tableInc-header-l'>udpPorts</div>`n`t<div class='tableInc-header-l'>notes</div>`n`t<div class='tableInc-header-c'>required</div>`n"
+if (Test-Path $($fileIPURLsNotes)) { $rptURLTable += "<div class='tableInc-header-l'>AmendedURL</div>`n`t<div class='tableInc-header-c'>DirectInternet</div>`n`t<div class='tableInc-header-c'>ProxyAuth</div>`n`t<div class='tableInc-header-c'>SSLInspection</div>`n`t<div class='tableInc-header-c'>DLP</div>`n`t<div class='tableInc-header-c'>Antivirus</div>`n`t<div class='tableInc-header-l'>ourNotes</div>`n" }
+$rptURLTable += "</div>`n"
+
+[array]$urlList = @()
+$urlList = $flatUrls | Where-Object { $_.category -like 'default' }
+foreach ($entry in $urlList) {
+    $rptURLTable += "<div class='tableInc-row'>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.id)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.serviceArea)</div>`n`t"
+    #$rptURLTable+="<td>$($entry.serviceAreaDisplayName)</td>"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.url)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.tcpPorts)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.udpPorts)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.notes)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-c'>$($entry.required)</div>`n`t"
+    if (Test-Path $($fileIPURLsNotes)) {
+        $e1, $e2, $e3, $e4, $e5 = $null
+        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false')  { $e1 = "False" }
+        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false')  { $e2 = "False" }
+        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false')  { $e3 = "False" }
+        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false')  { $e4 = "False" }
+        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false')  { $e5 = "False" }
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.AmendedURL)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e1)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e2)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e3)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e4)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e5)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.ourNotes)</div>`n"
+    }
+    $rptURLTable += "</div>`n"
+}
+$rptURLTable += "</div>`n"
+$rptSectionFourFour += $rptURLTable
+$rptSectionFourFour += "</div></div>`n"
+
+$divFour += $rptSectionFourFour
 
 #Build Div5
 $rptSectionFiveOne = "<div class='section'><div class='header'>Logs</div>`n"

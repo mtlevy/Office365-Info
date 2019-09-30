@@ -93,6 +93,7 @@ else { [boolean]$UseEventLog = $false }
 [string]$tenantID = $config.TenantID
 [string]$appID = $config.AppID
 [string]$clientSecret = $config.AppSecret
+[string]$emailEnabled = $config.EmailEnabled
 [string]$SMTPUser = $config.EmailUser
 [string]$SMTPPassword = $config.EmailPassword
 [string]$SMTPKey = $config.EmailKey
@@ -120,6 +121,8 @@ $prefDashCards = $prefDashCards.Trim()
 [string]$HTMLFile = $config.DashboardHTML
 [string]$emailDashAlertsTo = $config.DashboardAlertsTo
 
+[string]$htmlWall = $config.WallHTML
+[string]$htmlDiagnostics = $config.DiagnosticsHTML
 
 [string]$proxyHost = $config.ProxyHost
 
@@ -129,10 +132,12 @@ $prefDashCards = $prefDashCards.Trim()
 
 [string]$cssfile = "O365Health.css"
 
+if ($config.EmailEnabled -like 'true') { [boolean]$emailEnabled = $true } else { [boolean]$emailEnabled = $false }
+
 # Get Email credentials
 # Check for a username. No username, no need for credentials (internal mail host?)
 [PSCredential]$emailCreds = $null
-if ($smtpuser -notlike '') {
+if ($emailEnabled -and $smtpuser -notlike '') {
     #Email credentials have been specified, so build the credentials.
     #See readme on how to build credentials files
     $EmailCreds = getCreds $SMTPUser $SMTPPassword $SMTPKey
@@ -488,13 +493,15 @@ catch {
     #$uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
 }
 
-if ($uriError) {
+if ($emailEnabled -and $uriError) {
     $emailSubject = "Error(s) retrieving URL(s)"
     SendReport $uriError $EmailCreds $config "High" $emailSubject $emailDashAlertsTo
 }
 
-$rptO365Info += "<br/>You can add some general information in here if needed.<br />"
-$rptO365Info += "ie updates or links to external (ie cloud only) activity to verify Azure AD App is working (ie Flow to Teams Channel)"
+$rptO365Info += "<br/>"
+$rptO365Info += "Information wall can be found here: <a href=$($htmlWall) target=_blank>Information Wall</a><br />"
+$rptO365Info += "Diagnostics can be found here: <a href=$($htmlDiagnostics) target=_blank>Diagnostics page</a><br />"
+
 if ($addLink) { $rptO365Info += "<a href='$($addLink)' target=_blank> here </a></li></ul><br>" }
 
 #Start Building the Pages
@@ -505,6 +512,7 @@ $HistoryIncidents = $allMessages | Where-Object { ($_.EndTime -ne $null -and $_.
 $rptSectionOneOne = "<div class='section'><div class='header'>Office 365 Dashboard Status</div>`n"
 $rptSectionOneOne += "<div class='content'>`n"
 $rptSectionOneOne += "<div class='dash-outer'><div class='dash-inner'>`n"
+$card = $null
 foreach ($card in $dashCards) {
     [array]$item = @()
     [array]$hist = @()
@@ -520,7 +528,8 @@ foreach ($card in $dashCards) {
     else {
         $days = "&gt;30"
     }
-    $cardClass = Get-StatusDisplay $($item.status) "Class"
+    try { $cardClass = Get-StatusDisplay $($item.status) "Class" }
+    catch { Write-Log "No status available for $card - $($item.workloaddisplayname)" }
     $cardText = cardbuilder $($item.workloaddisplayname) $($Days) $($Hist.count) $advisories $cardClass
     $rptSectionOneOne += "$cardText`n"
 }
@@ -734,55 +743,55 @@ $divThree = $rptSectionThreeOne
 
 #Build Div4
 #Get current messages
-[array]$advNew=@()
-[string]$advPath=""
-[string]$advFileName=""
-$allAdvisories = @($allMessages | Where-Object { ($_.messagetype -like 'MessageCenter')} | Sort-Object MilestoneDate -Descending)
+[array]$advNew = @()
+[string]$advPath = ""
+[string]$advFileName = ""
+$allAdvisories = @($allMessages | Where-Object { ($_.messagetype -like 'MessageCenter') } | Sort-Object MilestoneDate -Descending)
 #Get previously downloaded messages
-$advFileName="Advisories-$($rptProfile).csv"
-$advPath="$($pathWorking)\$($advFileName)"
+$advFileName = "Advisories-$($rptProfile).csv"
+$advPath = "$($pathWorking)\$($advFileName)"
 if (Test-Path $advPath) {
-	$advExisting=Import-Csv $advPath
+    $advExisting = Import-Csv $advPath
 }
-$advNew=@($allAdvisories | Where-Object { ($_.id -notin $advExisting.id)})
+$advNew = @($allAdvisories | Where-Object { ($_.id -notin $advExisting.id) })
 if ($advNew.count -gt 0) {
-	Write-Log "Adding $($advNew.count) new advisories to local file"
-	foreach ($message in $advNew) {
-		# Build new exportable list
-        $dtmStartTime=$null
-        $dtmLastUpdatedTime=$null
-        $dtmEndTime=$null
-        $dtmActionRequiredByDate=$null
-        $dtmMilestoneDate=$null
+    Write-Log "Adding $($advNew.count) new advisories to local file"
+    foreach ($message in $advNew) {
+        # Build new exportable list
+        $dtmStartTime = $null
+        $dtmLastUpdatedTime = $null
+        $dtmEndTime = $null
+        $dtmActionRequiredByDate = $null
+        $dtmMilestoneDate = $null
 
-		if ($null -ne $message.StartTime) { $dtmStartTime=$(get-date $message.StartTime -f 'dd-MMM-yyyy HH:mm')} 
-		if ($null -ne $message.LastUpdatedTime) { $dtmLastUpdatedTime=$(get-date $message.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')} 
-		if ($null -ne $message.EndTime) { $dtmEndTime=$(get-date $message.EndTime -f 'dd-MMM-yyyy HH:mm')} 
-		if ($null -ne $message.ActionRequiredByDate) { $dtmActionRequiredByDate=$(get-date $message.ActionRequiredByDate -f 'dd-MMM-yyyy HH:mm')} 
-		if ($null -ne $message.MilestoneDate) { $dtmMilestoneDate=$(get-date $message.MilestoneDate -f 'dd-MMM-yyyy HH:mm')} 
-		$advTemp=New-Object PSObject
-		$advTemp | Add-Member -MemberType NoteProperty -Name ID -Value $message.ID
-		$advTemp | Add-Member -MemberType NoteProperty -Name ActionType -Value $message.Actiontype
-		$advTemp | Add-Member -MemberType NoteProperty -Name Classification -Value $message.Classification
+        if ($null -ne $message.StartTime) { $dtmStartTime = $(get-date $message.StartTime -f 'dd-MMM-yyyy HH:mm') } 
+        if ($null -ne $message.LastUpdatedTime) { $dtmLastUpdatedTime = $(get-date $message.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') } 
+        if ($null -ne $message.EndTime) { $dtmEndTime = $(get-date $message.EndTime -f 'dd-MMM-yyyy HH:mm') } 
+        if ($null -ne $message.ActionRequiredByDate) { $dtmActionRequiredByDate = $(get-date $message.ActionRequiredByDate -f 'dd-MMM-yyyy HH:mm') } 
+        if ($null -ne $message.MilestoneDate) { $dtmMilestoneDate = $(get-date $message.MilestoneDate -f 'dd-MMM-yyyy HH:mm') } 
+        $advTemp = New-Object PSObject
+        $advTemp | Add-Member -MemberType NoteProperty -Name ID -Value $message.ID
+        $advTemp | Add-Member -MemberType NoteProperty -Name ActionType -Value $message.Actiontype
+        $advTemp | Add-Member -MemberType NoteProperty -Name Classification -Value $message.Classification
         $advTemp | Add-Member -MemberType NoteProperty -Name StartTime -Value $($dtmStartTime)
-		$advTemp | Add-Member -MemberType NoteProperty -Name LastUpdatedTime -Value $($dtmLastUpdatedTime)
-		$advTemp | Add-Member -MemberType NoteProperty -Name EndTime -Value $($dtmEndTime)
-		$advTemp | Add-Member -MemberType NoteProperty -Name ActionRequiredByDate -Value $($dtmActionRequiredByDate)
-		$advTemp | Add-Member -MemberType NoteProperty -Name MessageType -Value $message.MessageType
-		$advTemp | Add-Member -MemberType NoteProperty -Name PostIncidentDocumentURL -Value $message.PostIncidentDocumentURL
-		$advTemp | Add-Member -MemberType NoteProperty -Name Severity -Value $message.Severity
-		$advTemp | Add-Member -MemberType NoteProperty -Name Title -Value $message.Title
-		$advTemp | Add-Member -MemberType NoteProperty -Name Category -Value $message.Category
-		$advTemp | Add-Member -MemberType NoteProperty -Name ExternalLink -Value $message.ExternalLink
-		$advTemp | Add-Member -MemberType NoteProperty -Name IsMajorChange -Value $message.IsMajorChange
-		$advTemp | Add-Member -MemberType NoteProperty -Name AppliesTo -Value $message.AppliesTo
-		$advTemp | Add-Member -MemberType NoteProperty -Name MilestoneDate -Value $($dtmMilestoneDate)
-		$advTemp | Add-Member -MemberType NoteProperty -Name Milestone -Value $message.Milestone
-		$advTemp | Add-Member -MemberType NoteProperty -Name BlogLink -Value $message.BlogLink
-		$advTemp | Add-Member -MemberType NoteProperty -Name HelpLink -Value $message.HelpLink
+        $advTemp | Add-Member -MemberType NoteProperty -Name LastUpdatedTime -Value $($dtmLastUpdatedTime)
+        $advTemp | Add-Member -MemberType NoteProperty -Name EndTime -Value $($dtmEndTime)
+        $advTemp | Add-Member -MemberType NoteProperty -Name ActionRequiredByDate -Value $($dtmActionRequiredByDate)
+        $advTemp | Add-Member -MemberType NoteProperty -Name MessageType -Value $message.MessageType
+        $advTemp | Add-Member -MemberType NoteProperty -Name PostIncidentDocumentURL -Value $message.PostIncidentDocumentURL
+        $advTemp | Add-Member -MemberType NoteProperty -Name Severity -Value $message.Severity
+        $advTemp | Add-Member -MemberType NoteProperty -Name Title -Value $message.Title
+        $advTemp | Add-Member -MemberType NoteProperty -Name Category -Value $message.Category
+        $advTemp | Add-Member -MemberType NoteProperty -Name ExternalLink -Value $message.ExternalLink
+        $advTemp | Add-Member -MemberType NoteProperty -Name IsMajorChange -Value $message.IsMajorChange
+        $advTemp | Add-Member -MemberType NoteProperty -Name AppliesTo -Value $message.AppliesTo
+        $advTemp | Add-Member -MemberType NoteProperty -Name MilestoneDate -Value $($dtmMilestoneDate)
+        $advTemp | Add-Member -MemberType NoteProperty -Name Milestone -Value $message.Milestone
+        $advTemp | Add-Member -MemberType NoteProperty -Name BlogLink -Value $message.BlogLink
+        $advTemp | Add-Member -MemberType NoteProperty -Name HelpLink -Value $message.HelpLink
 
-		$advTemp | Export-Csv -Append -Path "$($advPath)" -NoTypeInformation -Encoding UTF8
-	}
+        $advTemp | Export-Csv -Append -Path "$($advPath)" -NoTypeInformation -Encoding UTF8
+    }
 }
 Copy-Item "$($advPath)" -Destination "$($pathHTML)"
 
@@ -797,7 +806,7 @@ $rptSectionFourOne += "<div class='content'>`n"
 $MessagesFix = $allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and $_.category -like 'Prevent or Fix Issues') } | Sort-Object MilestoneDate -Descending
 if ($MessagesFix.count -ge 1) {
     $rptMessagesFixTable += "<div class='tableInc'>`n"
-#    $rptMessagesFixTable += "<div class='tableInc-title'>Closed Incidents</div>`n"
+    #    $rptMessagesFixTable += "<div class='tableInc-title'>Closed Incidents</div>`n"
     $rptMessagesFixTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-dt'>Feature</div>`n`t<div class='tableInc-header-dt'>Severity</div>`n`t<div class='tableInc-header-dt'>Action</div>`n`t<div class='tableInc-header-dt'>ID</div>`n`t<div class='tableInc-header-l'>Title</div>`n`t<div class='tableInc-header-dt'>Milestone</div>`n<div class='tableInc-header-dt'>Action Rqd By</div>`n</div>`n"
     foreach ($item in $MessagesFix) {
         if ($item.LastUpdatedTime) { $LastUpdated = $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') }
@@ -1088,7 +1097,7 @@ $divLast = $rptSectionLastOne
 $rptSectionLastTwo = "<div class='section'><div class='header'>Script Runtime</div>`n"
 $rptSectionLastTwo += "<div class='content'>`n"
 
-[string]$strTime="$($swScript.Elapsed.Hours)H:$($swScript.Elapsed.Minutes)m:$($swScript.Elapsed.Seconds)s:$($swScript.Elapsed.Milliseconds)ms"
+[string]$strTime = "$($swScript.Elapsed.Hours)H:$($swScript.Elapsed.Minutes)m:$($swScript.Elapsed.Seconds)s:$($swScript.Elapsed.Milliseconds)ms"
 $rptSectionLastTwo += "Elapsed runtime $strTime"
 $rptSectionLastTwo += "</div></div>`n"
 $divLast += $rptSectionLastTwo

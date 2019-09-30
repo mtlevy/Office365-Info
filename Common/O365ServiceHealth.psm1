@@ -107,6 +107,7 @@ function LoadConfig {
         EventLog             = $configFile.Settings.Output.EventLog
 		HostURL              = $configFile.Settings.Output.HostURL
 
+        EmailEnabled         = $configFile.Settings.Email.Enabled
         EmailHost            = $configFile.Settings.Email.SMTPServer
         EmailPort            = $configFile.Settings.Email.Port
         EmailUseSSL          = $configFile.Settings.Email.UseSSL
@@ -148,9 +149,10 @@ function LoadConfig {
 
 
 		MaxFeedItems         = $configFile.Settings.IPURLs.MaxFeedItems
-		IPURLPath            = $configFile.Settings.IPURLs.Path
-		IPURLAlertsTo        = $configFile.Settings.IPURLs.AlertsTo
-		IPURLNotesFilename   = $configFile.Settings.IPURLs.NotesFilename
+		IPURLsPath            = $configFile.Settings.IPURLs.Path
+		IPURLsAlertsTo        = $configFile.Settings.IPURLs.AlertsTo
+		IPURLsNotesFilename   = $configFile.Settings.IPURLs.NotesFilename
+		CustomNotesFilename  = $configFile.Settings.IPURLs.CustomNotesFilename
     
         UseProxy             = $configFile.Settings.Proxy.UseProxy
         ProxyHost            = $configFile.Settings.Proxy.ProxyHost

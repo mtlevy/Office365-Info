@@ -62,6 +62,7 @@ if (Test-Path $configXML) {
         EventLog           = $xmlExisting.Settings.Output.EventLog
 		HostURL            = $xmlExisting.Settings.Output.HostURL
 
+        EmailEnabled       = $xmlExisting.Settings.Email.Enabled
         EmailHost          = $xmlExisting.Settings.Email.SMTPServer
         EmailPort          = $xmlExisting.Settings.Email.Port
         EmailUseSSL        = $xmlExisting.Settings.Email.UseSSL
@@ -102,9 +103,10 @@ if (Test-Path $configXML) {
         DiagnosticsRefresh = $xmlExisting.Settings.Diagnostics.Refresh
 
         MaxFeedItems       = $xmlExisting.Settings.IPURLs.MaxFeedItems
-        IPURLsPath         = $xmlExisting.Settings.IPURLs.Path
-        IPURLsAlertsTo     = $xmlExisting.Settings.IPURLs.AlertsTo
-        IPURLsNotesFilename= $xmlExisting.Settings.IPURLs.NotesFilename
+        IPURLsPath          = $xmlExisting.Settings.IPURLs.Path
+        IPURLsAlertsTo      = $xmlExisting.Settings.IPURLs.AlertsTo
+        IPURLsNotesFilename = $xmlExisting.Settings.IPURLs.NotesFilename
+        CustomNotesFilename = $xmlExisting.Settings.IPURLs.CustomNotesFilename
 
         UseProxy           = $xmlExisting.Settings.Proxy.UseProxy
         ProxyHost          = $xmlExisting.Settings.Proxy.ProxyHost
@@ -144,6 +146,7 @@ if (Test-Path $configXML) {
     <!-- Email server connectivity settings. Can be office365 or other mail system-->
     <!-- SendReport function in the common module can be trimmed if there is no need for username/password (ie internal systems)-->
     <!-- Current settings are required to use exchange online. 'From' should be the authenticated user -->
+    <Enabled>$($appSettings.EmailEnabled)</Enabled>
     <SMTPServer>$($appSettings.EmailHost)</SMTPServer>
     <Port>$($appSettings.EmailPort)</Port>
     <UseSSL>$($appSettings.EmailUseSSL)</UseSSL>
@@ -213,8 +216,10 @@ if (Test-Path $configXML) {
     <Path>$($appSettings.IPURLsPath)</Path>
     <!-- Where to send updates to IP and URLs to. Comma separated quoted list "john@home.com","bob@vader.net"-->
     <AlertsTo>$($appSettings.IPURLsAlertsTo)</AlertsTo>
-    <!-- Custom CSV file to hold additional information relation to URLs. Matches URL list on ID and URL-->
+    <!-- Custom CSV file to hold additional information relation to URLs. Matches URL list on ID and URL. System will append short tenant name when loading-->
     <NotesFilename>$($appSettings.IPURLsNotesFilename)</NotesFilename>
+    <!-- Custom CSV file to hold additional URLs. System will append short tenant name when loading -->
+    <CustomNotesFilename>$($appSettings.CustomNotesFilename)</CustomNotesFilename>
   </IPURLs>
   <Proxy>
     <!-- Proxy settings if required-->

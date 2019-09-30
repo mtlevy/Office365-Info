@@ -75,6 +75,7 @@ $config = LoadConfig $configXML
 [string]$clientSecret = $config.AppSecret
 [string]$rptProfile = $config.TenantShortName
 [string]$proxyHost = $config.ProxyHost
+[string]$emailEnabled = $config.EmailEnabled
 [string]$SMTPUser = $config.EmailUser
 [string]$SMTPPassword = $config.EmailPassword
 [string]$SMTPKey = $config.EmailKey
@@ -99,10 +100,12 @@ if ($config.UseEventlog -like 'true') {
 }
 else { [boolean]$UseEventLog = $false }
 
+if ($config.EmailEnabled -like 'true') { [boolean]$emailEnabled = $true } else { [boolean]$emailEnabled = $false }
+
 # Get Email credentials
 # Check for a username. No username, no need for credentials (internal mail host?)
 [PSCredential]$emailCreds = $null
-if ($smtpuser -notlike '') {
+if ($emailEnabled -and $smtpuser -notlike '') {
     #Email credentials have been specified, so build the credentials.
     #See readme on how to build credentials files
     $EmailCreds = getCreds $SMTPUser $SMTPPassword $SMTPKey
@@ -230,7 +233,7 @@ if ($newIncidents.count -ge 1) {
             $mailMessage += "$($item.ImpactDescription)<br/><br/>"
             $emailPriority = Get-Severity "email" $item.severity
             $emailSubject = "New issue: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
-			if ($MonitorAlertsTo) {SendReport $mailMessage $EmailCreds $config $emailPriority $emailSubject $MonitorAlertsTo}
+			if ($MonitorAlertsTo -and $emailEnabled) {SendReport $mailMessage $EmailCreds $config $emailPriority $emailSubject $MonitorAlertsTo}
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
             $evtMessage = $evtMessage.Replace("<b>", "")
             $evtMessage = $evtMessage.Replace("</b>", "")
@@ -275,7 +278,7 @@ foreach ($item in $reportClosed) {
     $mailWithLastAction += "$($lastMessage)<br/><br/>"
     $emailSubject = "Closed: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
     Write-Log "Sending email to $($MonitorAlertsTo)"
-    if ($MonitorAlertsTo) {SendReport $mailWithLastAction $EmailCreds $config "Normal" $emailSubject $MonitorAlertsTo}
+    if ($MonitorAlertsTo -and $emailEnabled) {SendReport $mailWithLastAction $EmailCreds $config "Normal" $emailSubject $MonitorAlertsTo}
     $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
     $evtMessage = $evtMessage.Replace("<b>", "")
     $evtMessage = $evtMessage.Replace("</b>", "")
