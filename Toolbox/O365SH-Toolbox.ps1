@@ -1374,15 +1374,15 @@ $rptSectionThreeThree += "</div></div>`n"
 $divThree += $rptSectionThreeThree
 
 #Build Div4
-if ($null -ne $fileIPURLsNotes) { if (Test-Path $($fileIPURLsNotes)) { $rptURLTable = "Download URL notes from <a href='$($fileIPURLsNotes)' target=_blank>here</a><br />" } }
-if ($null -ne $fileIPURLsNotesAll) { if (Test-Path $($fileIPURLsNotesAll)) { $rptURLTable = "Download combined URLs and notes from <a href='$($fileIPURLsNotesAll)' target=_blank>here</a><br />" } }
+$rptURLTable=""
+if ($null -ne $fileIPURLsNotes) { if (Test-Path $($fileIPURLsNotes)) { $rptURLTable += "Download URL notes from <a href='$($fileIPURLsNotes)' target=_blank>here</a><br />" } }
+if ($null -ne $fileIPURLsNotesAll) { if (Test-Path $($fileIPURLsNotesAll)) { $rptURLTable += "Download combined URLs and notes from <a href='$($fileIPURLsNotesAll)' target=_blank>here</a><br />" } }
 if ($null -ne $fileCustomNotes) {
     if (Test-Path $($fileCustomNotes)) {
-        $rptURLTable = "Download custom URLs and notes from <a href='$($fileCustomNotes)' target=_blank>here</a><br />";
+        $rptURLTable += "Download custom URLs and notes from <a href='$($fileCustomNotes)' target=_blank>here</a><br />";
         $customURLs = Import-Csv $fileCustomNotes
     }
 }
-
 
 $rptSectionFourOne = $rptURLTable
 $rptSectionFourOne += "<div class='section'><div class='header'>Optimize URLs</div>`n"
