@@ -291,7 +291,7 @@ function Get-htmlMessage ($msgText) {
     $htmlMessage = $htmlMessage -replace "Root Cause:", "<b>Root Cause</b>:"
     $htmlMessage = $htmlMessage -replace "Next Steps:", "<b>Next Steps</b>:"
     $htmlMessage = $htmlMessage -replace "Next Update:", "<b>Next Update</b>:"
-    $htmlMessage = $htmlMessage -replace "This is the final update for the event.", "<b><u>This is the final update for the event.</u></b>:"
+    $htmlMessage = $htmlMessage -replace "This is the final update for the event.", "<b><u>This is the final update for the event.</u></b>"
     $htmlMessage = $htmlMessage -replace "`n", "<br/>"
 
     return $htmlMessage

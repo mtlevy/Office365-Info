@@ -239,6 +239,8 @@ $rptsAllUsage = @(
 $rptsUserDetails = @(
     'getTeamsDeviceUsageUserDetail';
     'getTeamsUserActivityUserDetail';
+    'getEmailActivityCounts';
+    'getEmailActivityUserCounts';
     'getEmailActivityUserDetail';
     'getEmailAppUsageUserDetail';
     'getMailboxUsageDetail';

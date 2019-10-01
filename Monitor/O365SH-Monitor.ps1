@@ -88,6 +88,10 @@ $config = LoadConfig $configXML
 [string]$emailClosedBgd = "WhiteSmoke"
 [string]$pathWorking=$config.WorkingPath
 
+[boolean]$networkCNAMECheck = $true
+[string[]]$networkAlertsTo = "jonathan.christie@home.com"
+
+
 #Configure local event log
 if ($config.UseEventlog -like 'true') {
     [boolean]$UseEventLog = $true
@@ -290,6 +294,40 @@ foreach ($item in $reportClosed) {
 if ($allMessages.count -gt 0) {
     $currentIncidents | Export-Csv "$($knownIssues)" -Encoding UTF8 -NoTypeInformation
 }
+
+#Check DNS entries while we're here
+#Define the filename and location to store URL cname results
+$filePath = CheckDirectory $filePath
+$cnameKnownCSV="$($filepath)\knownCnames.csv"
+
+#define the URLs which should be monitored
+$dnsMonitor = ("outlook.office.com", "outlook.office365.com", "sharepoint.com")
+$cnameKnown= Import-Csv "$cnameKnownCSV"
+$addDateTime=get-date -f "dd-MMM-yy HH:mm"
+$alert=""
+foreach ($entry in $dnsmonitor) {
+    $cnames=@(Resolve-DnsName $($entry) -DnsOnly | Where-Object querytype -like 'CNAME')
+    $known=$cnameknown | Where-Object {$_.monitor -like $entry}
+    $unknownNH=$cnames | where-object {($_.namehost -notin $known.namehost)}
+    foreach ($alias in $unknownNH) {
+        #field to check is 'namehost'
+        $nameHost=$alias.NameHost
+        #get domain (characters after second last '.')
+        $nh=@($namehost.split("."))
+        $aliasDomain="$($nh[-2]).$($nh[-1])"
+        #if not in known add to known and add to alert email
+        Write-Log "Adding $($nameHost) to CSV"
+        $newLine= "{0},{1},{2},{3}" -f $entry, $nameHost, $aliasDomain, $addDateTime
+        $newline | Add-Content $cnameKnownCSV
+        $alert+="New name host found {0} for url {1}`r`n" -f $nameHost, $entry
+    }
+}
+#if alert email, then send
+if ($emailEnabled) {
+	$emailSubject="New CNAME records resolved"
+	SendReport $alert $EmailCreds $config "High" $emailSubject $networkAlertsTo}
+
+
 
 $swScript.Stop()
 $evtMessage = "Script runtime $($swScript.Elapsed.Minutes)m:$($swScript.Elapsed.Seconds)s:$($swScript.Elapsed.Milliseconds)ms on $env:COMPUTERNAME`r`n"
