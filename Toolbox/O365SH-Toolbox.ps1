@@ -110,6 +110,11 @@ else { [boolean]$UseEventLog = $false }
 [string]$pathIPURLs = $config.IPURLsPath
 [string]$pathWorking = $config.WorkingPath
 
+[string]$cnameFilename = $config.CNAMEFilename
+[string[]]$cnameURLs = $config.CNAMEUrls.split(",")
+$cnameURLs = $cnameURLs.Replace('"', '')
+$cnameURLs = $cnameURLs.Trim()
+
 [string[]]$emailIPURLAlerts = $config.IPURLsAlertsTo
 [string]$fileIPURLsNotes = "$($config.IPURLsNotesFilename)-$($rptProfile).csv"
 [string]$fileIPURLsNotesAll = "$($config.IPURLsNotesFilename)All-$($rptProfile).csv"
@@ -162,6 +167,8 @@ $evtMessage = "Log Path: $($pathLogs)"
 Write-Log $evtMessage
 $evtMessage = "HTML Output: $($pathHTML)"
 Write-Log $evtMessage
+
+if ($config.CNAMEEnabled -like 'true') { [boolean]$cnameEnabled = $true } else { [boolean]$cnameEnabled = $false }
 
 #Create event logs if set
 if ($UseEventLog) {
@@ -251,6 +258,7 @@ function BuildHTML {
         [Parameter(Mandatory = $true)] $contentThree,
         [Parameter(Mandatory = $true)] $contentFour,
         [Parameter(Mandatory = $true)] $contentFive,
+        [Parameter(Mandatory = $true)] $contentLast,
         [Parameter(Mandatory = $true)] $swStopWatch,
         [Parameter(Mandatory = $true)] $HTMLOutput
     )
@@ -273,7 +281,6 @@ function BuildHTML {
 "@
 
     $htmlBody = @"
-
 <body>
     <p>Page refreshed: <span id="datetime"></span><span>&nbsp;&nbsp;Data refresh: $(Get-Date -f 'dd-MMM-yyyy HH:mm:ss')</span></p>
 	<div class="tab">
@@ -281,6 +288,15 @@ function BuildHTML {
     <button class="tablinks" onclick="openTab(event,'Licences')">Licences</button>
     <button class="tablinks" onclick="openTab(event,'IPsandURLs')">IPs and URLs</button>
     <button class="tablinks" onclick="openTab(event,'URLs')">URLs</button>
+"@
+
+    if ($cnameenabled) {
+        $htmlBody += @"
+    <button class="tablinks" onclick="openTab(event,'CNAMEs')">CNAMEs</button>
+"@
+    }
+
+    $htmlBody += @"
     <button class="tablinks" onclick="openTab(event,'Logs')">Logs</button>
 </div>
 
@@ -300,12 +316,21 @@ function BuildHTML {
 <div id="URLs" class="tabcontent">
     $($contentFour)
 </div>
+"@
 
-<div id="Logs" class="tabcontent">
+    if ($cnameenabled) {
+        $htmlBody += @"
+<div id="CNAMEs" class="tabcontent">
     $($contentFive)
 </div>
-
 "@
+    }
+    $htmlBody += @"
+<div id="Logs" class="tabcontent">
+    $($contentLast)
+</div>
+"@
+
     $htmlFooter = @"
 <script>
 var dt = new Date();
@@ -895,7 +920,7 @@ catch {
 
 if ($uriError -and $emaiLEnabled) {
     $emailSubject = "Error(s) retrieving URL(s)"
-    SendReport $uriError $EmailCreds $config "High" $emailSubject $emailDashAlertsTo
+    SendEmail $uriError $EmailCreds $config "High" $emailSubject $emailDashAlertsTo
 }
 
 $rptO365Info += "<br/>You can add some general information in here if needed.<br />"
@@ -1013,7 +1038,7 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
         #Send email to users on IP/URL change
         $emailSubject = "IPs and URLs: New version $($version.latest)"
         $emailMessage = "new version of Office 365 Worldwide Commercial service instance endpoints"
-        SendReport $emailMessage $EmailCreds $config "Normal" $emailSubject $emailIPURLAlerts
+        SendEmail $emailMessage $EmailCreds $config "Normal" $emailSubject $emailIPURLAlerts
     }
     # write the new version number to the version file
     @($clientRequestId, $version.latest) | Out-File $versionpath
@@ -1575,13 +1600,53 @@ $rptSectionFourFour += "</div></div>`n"
 
 $divFour += $rptSectionFourFour
 
-#Build Div5
-$rptSectionFiveOne = "<div class='section'><div class='header'>Logs</div>`n"
-$rptSectionFiveOne += "<div class='content'>`n"
-$rptSectionFiveOne += $rptO365Info
-$rptSectionFiveOne += "</div></div>`n"
+$rptSectionFiveOne = ""
+if ($cnameenabled) {
+    $cnameKnownCSV = "$($pathWorking)\$cnameFilename-$($rptProfile).csv"
+    $cnames = Import-Csv $cnameKnownCSV
 
+    #Build Div5
+    $rptSectionFiveOne = "<div class='section'><div class='header'>CNAMEs</div>`r`n"
+    $rptSectionFiveOne += "<div class='content'>`r`n"
+    #Get CNAMEs
+    #For each unique monitor
+    foreach ($url in $cnameURLs) {
+	    $rptCNAMEInfo += "<div class='section' style='width:800px'>`r`n"
+        $rptCNAMEInfo += "<div class='header'>$($url)</div>`r`n"
+        $rptCNAMEInfo += "<div class='tableInc-header'>`r`n"
+        $rptCNAMEInfo += "<div class='tableInc-header-l' style='width:600px'>CNAME Host</div>`r`n"
+        $rptCNAMEInfo += "<div class='tableInc-header-l'>&nbsp</div>`r`n"
+        $rptCNAMEInfo += "<div class='tableInc-header-l' style='width:150px'>Domain</div>`r`n"
+        $rptCNAMEInfo += "<div class='tableInc-header-l'>&nbsp</div>`r`n"
+        $rptCNAMEInfo += "<div class='tableInc-header-dt'>First Discovered</div></div>`r`n"
+        $cnameslist = $cnames | Where-Object { $_.monitor -like $url } | Sort-Object addeddate
+        foreach ($cname in  $cnameslist) {
+            $rptCNAMEInfo += "<div class='tableInc-row'>`r`n"
+            $rptCNAMEInfo += "<div class='tableInc-cell-l' style='width:600px'>$($cname.namehost)</div>"
+			$rptCNAMEInfo += "<div class='tableInc-cell-l'>&nbsp</div>`r`n"
+			$rptCNAMEInfo += "<div class='tableInc-cell-l' style='width:150px'>$($cname.domain)</div>`r`n"
+			$rptCNAMEInfo += "<div class='tableInc-cell-l'>&nbsp</div>`r`n"
+			$rptCNAMEInfo += "<div class='tableInc-cell-dt'>$($cname.addedDate)</div></div>`r`n"
+        }
+		$rptCNAMEInfo += "<div><br/></div></div>`r`n"
+        #$rptCNAMEInfo += "<div><br/></div>`r`n"
+    }
+    $rptCNAMEInfo += "</div>`r`n"
+    #get name host and added date
+
+
+    $rptSectionFiveOne += $rptCNAMEInfo
+    $rptSectionFiveOne += "</div></div>`n"
+}
 $divFive = $rptSectionFiveOne
+
+#Build Last
+$rptSectionLastOne = "<div class='section'><div class='header'>Logs</div>`n"
+$rptSectionLastOne += "<div class='content'>`n"
+$rptSectionLastOne += $rptO365Info
+$rptSectionLastOne += "</div></div>`n"
+
+$divLast = $rptSectionLastOne
 
 $rptHTMLName = $HTMLFile.Replace(" ", "")
 $rptTitle = $rptTenantName + " " + $rptName
@@ -1590,7 +1655,7 @@ $evtMessage = "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] Tenant: $($rptProfile) - Ge
 $evtLogMessage += $evtMessage
 Write-Verbose $evtMessage
 
-BuildHTML $rptTitle $divOne $divTwo $divThree $divFour $divFive  $swScript.Elapsed $rptHTMLName
+BuildHTML $rptTitle $divOne $divTwo $divThree $divFour $divFive $divLast $swScript.Elapsed $rptHTMLName
 #Check if .css file exists in HTML file destination
 if (!(Test-Path "$($pathHTML)\$($cssfile)")) {
     Write-Log "Copying O365Health.css to directory $($pathHTML)"

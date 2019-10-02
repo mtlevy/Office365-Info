@@ -495,7 +495,7 @@ catch {
 
 if ($emailEnabled -and $uriError) {
     $emailSubject = "Error(s) retrieving URL(s)"
-    SendReport $uriError $EmailCreds $config "High" $emailSubject $emailDashAlertsTo
+    SendEmail $uriError $EmailCreds $config "High" $emailSubject $emailDashAlertsTo
 }
 
 $rptO365Info += "<br/>"

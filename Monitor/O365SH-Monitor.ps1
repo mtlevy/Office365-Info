@@ -30,7 +30,7 @@
     Email:   jonathan.christie (at) boilerhouseit.com
     Date:    02 Feb 2019
     PSVer:   2.0/3.0/4.0/5.0
-    Version: 2.0.4
+    Version: 2.0.6
     Updated: Single page, monitor only for SysOps
     UpdNote:
 
@@ -86,10 +86,14 @@ $config = LoadConfig $configXML
 [boolean]$checksource = $false
 [string[]]$MonitorAlertsTo = $config.MonitorAlertsTo
 [string]$emailClosedBgd = "WhiteSmoke"
-[string]$pathWorking=$config.WorkingPath
+[string]$pathWorking = $config.WorkingPath
 
-[boolean]$networkCNAMECheck = $true
-[string[]]$networkAlertsTo = "jonathan.christie@home.com"
+[string[]]$cnameAlertsTo = $config.CNAMEAlertsTo
+[string]$cnameFilename = $config.CNAMEFilename
+[string[]]$cnameURLs = $config.CNAMEUrls.split(",")
+$cnameURLs = $cnameURLs.Replace('"', '')
+$cnameURLs = $cnameURLs.Trim()
+
 
 
 #Configure local event log
@@ -105,6 +109,7 @@ if ($config.UseEventlog -like 'true') {
 else { [boolean]$UseEventLog = $false }
 
 if ($config.EmailEnabled -like 'true') { [boolean]$emailEnabled = $true } else { [boolean]$emailEnabled = $false }
+if ($config.CNAMEEnabled -like 'true') { [boolean]$cnameEnabled = $true } else { [boolean]$cnameEnabled = $false }
 
 # Get Email credentials
 # Check for a username. No username, no need for credentials (internal mail host?)
@@ -186,9 +191,6 @@ $authHeader = @{
 
 if (Test-Path "$($knownIssues)") { $knownIssuesList = Import-Csv "$($knownIssues)" }
 
-
-
-
 #	Returns the messages about the service over a certain time range.
 [uri]$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
 
@@ -218,7 +220,7 @@ $newIncidents = @($currentIncidents | Where-Object { ($_.id -notin $knownIssuesL
 #If not logged, create an entry and send an email
 
 if ($newIncidents.count -ge 1) {
-	Write-Log "New incidents detected: $($newIncidents.count)"
+    Write-Log "New incidents detected: $($newIncidents.count)"
     foreach ($item in $newIncidents) {
         #Check event log. If no entry (ID) then write entry
         $evtFind = Get-EventLog -LogName $evtLogname -Source $evtSource -Message "*: $($item.ID)*: $($rptProfile)*" -ErrorAction SilentlyContinue
@@ -237,7 +239,7 @@ if ($newIncidents.count -ge 1) {
             $mailMessage += "$($item.ImpactDescription)<br/><br/>"
             $emailPriority = Get-Severity "email" $item.severity
             $emailSubject = "New issue: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
-			if ($MonitorAlertsTo -and $emailEnabled) {SendReport $mailMessage $EmailCreds $config $emailPriority $emailSubject $MonitorAlertsTo}
+            if ($MonitorAlertsTo -and $emailEnabled) { SendEmail $mailMessage $EmailCreds $config $emailPriority $emailSubject $MonitorAlertsTo }
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
             $evtMessage = $evtMessage.Replace("<b>", "")
             $evtMessage = $evtMessage.Replace("</b>", "")
@@ -282,7 +284,7 @@ foreach ($item in $reportClosed) {
     $mailWithLastAction += "$($lastMessage)<br/><br/>"
     $emailSubject = "Closed: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
     Write-Log "Sending email to $($MonitorAlertsTo)"
-    if ($MonitorAlertsTo -and $emailEnabled) {SendReport $mailWithLastAction $EmailCreds $config "Normal" $emailSubject $MonitorAlertsTo}
+    if ($MonitorAlertsTo -and $emailEnabled) { SendEmail $mailWithLastAction $EmailCreds $config "Normal" $emailSubject $MonitorAlertsTo }
     $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
     $evtMessage = $evtMessage.Replace("<b>", "")
     $evtMessage = $evtMessage.Replace("</b>", "")
@@ -296,37 +298,47 @@ if ($allMessages.count -gt 0) {
 }
 
 #Check DNS entries while we're here
-#Define the filename and location to store URL cname results
-$filePath = CheckDirectory $filePath
-$cnameKnownCSV="$($filepath)\knownCnames.csv"
+if ($cnameEnabled) {
+    #Define the filename and location to store URL cname results
+    $cnameKnownCSV = "$($pathWorking)\$cnameFilename-$($rptProfile).csv"
+    if (!(Test-Path $cnameKnownCSV)) {
+        $headers = "monitor,namehost,domain,addedDate"
+        $headers | Add-Content $cnameKnownCSV -Encoding UTF8
+    }
 
-#define the URLs which should be monitored
-$dnsMonitor = ("outlook.office.com", "outlook.office365.com", "sharepoint.com")
-$cnameKnown= Import-Csv "$cnameKnownCSV"
-$addDateTime=get-date -f "dd-MMM-yy HH:mm"
-$alert=""
-foreach ($entry in $dnsmonitor) {
-    $cnames=@(Resolve-DnsName $($entry) -DnsOnly | Where-Object querytype -like 'CNAME')
-    $known=$cnameknown | Where-Object {$_.monitor -like $entry}
-    $unknownNH=$cnames | where-object {($_.namehost -notin $known.namehost)}
-    foreach ($alias in $unknownNH) {
-        #field to check is 'namehost'
-        $nameHost=$alias.NameHost
-        #get domain (characters after second last '.')
-        $nh=@($namehost.split("."))
-        $aliasDomain="$($nh[-2]).$($nh[-1])"
-        #if not in known add to known and add to alert email
-        Write-Log "Adding $($nameHost) to CSV"
-        $newLine= "{0},{1},{2},{3}" -f $entry, $nameHost, $aliasDomain, $addDateTime
-        $newline | Add-Content $cnameKnownCSV
-        $alert+="New name host found {0} for url {1}`r`n" -f $nameHost, $entry
+    #define the URLs which should be monitored
+    $cnameKnown = Import-Csv "$($cnameKnownCSV)"
+    $addDateTime = get-date -f "dd-MMM-yy HH:mm"
+    $alert = ""
+    foreach ($entry in $cnameURLs) {
+        try { $cnames = @(Resolve-DnsName $($entry) -DnsOnly | Where-Object querytype -like 'CNAME') }
+        catch { $alert += "<b>Cannot resolve CNAMES for $($entry)</b><br/>$($error[0].exception)"; break; }
+        $known = $cnameknown | Where-Object { $_.monitor -like $entry }
+        $unknownNH = $cnames | where-object { ($_.namehost -notin $known.namehost) }
+        foreach ($alias in $unknownNH) {
+            #field to check is 'namehost'
+            $nameHost = $alias.NameHost
+            #get domain (characters after second last '.')
+            $nh = @($namehost.split("."))
+            $aliasDomain = "$($nh[-2]).$($nh[-1])"
+            #if not in known add to known and add to alert email
+            Write-Log "Adding $($nameHost) to CSV"
+            $newLine = "{0},{1},{2},{3}" -f $entry, $nameHost, $aliasDomain, $addDateTime
+            $newline | Add-Content $cnameKnownCSV
+            $alert += "<b>{0}</b>: New name host found CNAME <b>{1}</b><br/>" -f $entry, $nameHost
+            $newDomains += @($aliasDomain)
+        }
+    }
+    #if alert email, then send
+    if ($alert -ne "") {
+        $newDomains = $newDomains | Select-Object -Unique
+        $alert += "<br/>Check the following domains can be reached for resolution <b>$($newdomains -join(', '))</b><br/>"
+        if ($emailEnabled) {
+            $emailSubject = "New CNAME records resolved"
+            SendEmail $alert $EmailCreds $config "High" $emailSubject $cnameAlertsTo $cnameKnownCSV
+        }
     }
 }
-#if alert email, then send
-if ($emailEnabled) {
-	$emailSubject="New CNAME records resolved"
-	SendReport $alert $EmailCreds $config "High" $emailSubject $networkAlertsTo}
-
 
 
 $swScript.Stop()

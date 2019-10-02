@@ -20,7 +20,7 @@
     Email:   jonathan.christie (at) boilerhouseit.com
     Date:    02 Feb 2019
     PSVer:   2.0/3.0/4.0/5.0
-    Version: 1.0.1
+    Version: 1.0.6
     Updated:
     UpdNote:
 
@@ -34,87 +34,92 @@
 
 [CmdletBinding()]
 param (
-    [Parameter(Mandatory = $true)] [String]$configXML = ""
+  [Parameter(Mandatory = $true)] [String]$configXML = ""
 )
 
 Write-Verbose "Changing Directory to $PSScriptRoot"
 Set-Location $PSScriptRoot
 $configXML = Resolve-Path $configXML
 if (Test-Path $configXML) {
-    #Resolve the full path the configuration file
-    $configXMLFile = Split-Path $configXML -Leaf
-    #Get existing configuration file contents
-    $xmlExisting = [xml](Get-Content -Path "$($configXML)")
-    #Assign the config to variables. We dont need to but this will allow for checking in future for null values and building a profile via question/input
-    $appSettings = [PSCustomObject]@{
-        TenantName         = $xmlExisting.Settings.Tenant.Name
-        TenantShortName    = $xmlExisting.Settings.Tenant.ShortName
-        TenantDescription  = $xmlExisting.Settings.Tenant.Description
+  #Resolve the full path the configuration file
+  $configXMLFile = Split-Path $configXML -Leaf
+  #Get existing configuration file contents
+  $xmlExisting = [xml](Get-Content -Path "$($configXML)")
+  #Assign the config to variables. We dont need to but this will allow for checking in future for null values and building a profile via question/input
+  $appSettings = [PSCustomObject]@{
+    TenantName          = $xmlExisting.Settings.Tenant.Name
+    TenantShortName     = $xmlExisting.Settings.Tenant.ShortName
+    TenantDescription   = $xmlExisting.Settings.Tenant.Description
 
-        TenantID           = $xmlExisting.Settings.Azure.TenantID
-        AppID              = $xmlExisting.Settings.Azure.AppID
-        AppSecret          = $xmlExisting.Settings.Azure.AppSecret
+    TenantID            = $xmlExisting.Settings.Azure.TenantID
+    AppID               = $xmlExisting.Settings.Azure.AppID
+    AppSecret           = $xmlExisting.Settings.Azure.AppSecret
 
-        LogPath            = $xmlExisting.Settings.Output.LogPath
-        HTMLPath           = $xmlExisting.Settings.Output.HTMLPath
-		WorkingPath        = $xmlExisting.Settings.Output.WorkingPath
-        UseEventLog        = $xmlExisting.Settings.Output.UseEventLog
-        EventLog           = $xmlExisting.Settings.Output.EventLog
-		HostURL            = $xmlExisting.Settings.Output.HostURL
+    LogPath             = $xmlExisting.Settings.Output.LogPath
+    HTMLPath            = $xmlExisting.Settings.Output.HTMLPath
+    WorkingPath         = $xmlExisting.Settings.Output.WorkingPath
+    UseEventLog         = $xmlExisting.Settings.Output.UseEventLog
+    EventLog            = $xmlExisting.Settings.Output.EventLog
+    HostURL             = $xmlExisting.Settings.Output.HostURL
 
-        EmailEnabled       = $xmlExisting.Settings.Email.Enabled
-        EmailHost          = $xmlExisting.Settings.Email.SMTPServer
-        EmailPort          = $xmlExisting.Settings.Email.Port
-        EmailUseSSL        = $xmlExisting.Settings.Email.UseSSL
-        EmailFrom          = $xmlExisting.Settings.Email.From
-        EmailUser          = $xmlExisting.Settings.Email.Username
-        EmailPassword      = $xmlExisting.Settings.Email.PasswordFile
-        EmailKey           = $xmlExisting.Settings.Email.AESKeyFile
+    EmailEnabled        = $xmlExisting.Settings.Email.Enabled
+    EmailHost           = $xmlExisting.Settings.Email.SMTPServer
+    EmailPort           = $xmlExisting.Settings.Email.Port
+    EmailUseSSL         = $xmlExisting.Settings.Email.UseSSL
+    EmailFrom           = $xmlExisting.Settings.Email.From
+    EmailUser           = $xmlExisting.Settings.Email.Username
+    EmailPassword       = $xmlExisting.Settings.Email.PasswordFile
+    EmailKey            = $xmlExisting.Settings.Email.AESKeyFile
 
-        MonitorAlertsTo    = [string[]]$xmlExisting.Settings.Monitor.alertsTo
-        MonitorEvtSource   = $xmlExisting.Settings.Monitor.EventSource
+    MonitorAlertsTo     = [string[]]$xmlExisting.Settings.Monitor.alertsTo
+    MonitorEvtSource    = $xmlExisting.Settings.Monitor.EventSource
 
-        WallReportName     = $xmlExisting.Settings.WallDashboard.Name
-        WallHTML           = $xmlExisting.Settings.WallDashboard.HTMLFilename
-        WallDashCards      = $xmlExisting.Settings.WallDashboard.DashCards
-        WallPageRefresh    = $xmlExisting.Settings.WallDashboard.Refresh
-        WallEventSource    = $xmlExisting.Settings.WallDashboard.EventSource
+    WallReportName      = $xmlExisting.Settings.WallDashboard.Name
+    WallHTML            = $xmlExisting.Settings.WallDashboard.HTMLFilename
+    WallDashCards       = $xmlExisting.Settings.WallDashboard.DashCards
+    WallPageRefresh     = $xmlExisting.Settings.WallDashboard.Refresh
+    WallEventSource     = $xmlExisting.Settings.WallDashboard.EventSource
 
-        DashboardName      = $xmlExisting.Settings.Dashboard.Name
-        DashboardHTML      = $xmlExisting.Settings.Dashboard.HTMLFilename
-        DashboardCards     = $xmlExisting.Settings.Dashboard.DashCards
-        DashboardRefresh   = $xmlExisting.Settings.Dashboard.Refresh
-        DashboardAlertsTo  = $xmlExisting.Settings.Dashboard.AlertsTo
-        DashboardEvtSource = $xmlExisting.Settings.Dashboard.EventSource
-        DashboardLogo      = $xmlExisting.Settings.Dashboard.Logo
-        DashboardAddLink   = $xmlExisting.Settings.Dashboard.AddLink
-        DashboardHistory   = $xmlExisting.Settings.Dashboard.History
+    DashboardName       = $xmlExisting.Settings.Dashboard.Name
+    DashboardHTML       = $xmlExisting.Settings.Dashboard.HTMLFilename
+    DashboardCards      = $xmlExisting.Settings.Dashboard.DashCards
+    DashboardRefresh    = $xmlExisting.Settings.Dashboard.Refresh
+    DashboardAlertsTo   = $xmlExisting.Settings.Dashboard.AlertsTo
+    DashboardEvtSource  = $xmlExisting.Settings.Dashboard.EventSource
+    DashboardLogo       = $xmlExisting.Settings.Dashboard.Logo
+    DashboardAddLink    = $xmlExisting.Settings.Dashboard.AddLink
+    DashboardHistory    = $xmlExisting.Settings.Dashboard.History
 
-        UsageReportsPath   = $xmlExisting.Settings.UsageReports.Path
-        UsageEventSource   = $xmlExisting.Settings.UsageReports.EventSource
+    UsageReportsPath    = $xmlExisting.Settings.UsageReports.Path
+    UsageEventSource    = $xmlExisting.Settings.UsageReports.EventSource
 
-        DiagnosticsName    = $xmlExisting.Settings.Diagnostics.Name
-		DiagnosticsHTML    = $xmlExisting.Settings.Diagnostics.HTMLFilename
-		DiagnosticsNotes   = ($xmlExisting.Settings.Diagnostics.Notes).InnerXML
-		DiagnosticsWeb     = $xmlExisting.Settings.Diagnostics.Web
-		DiagnosticsPorts   = $xmlExisting.Settings.Diagnostics.Ports
-		DiagnosticsURLs    = $xmlExisting.Settings.Diagnostics.URLs
-		DiagnosticsVerbose = $xmlExisting.Settings.Diagnostics.Verbose
-        DiagnosticsRefresh = $xmlExisting.Settings.Diagnostics.Refresh
+    DiagnosticsName     = $xmlExisting.Settings.Diagnostics.Name
+    DiagnosticsHTML     = $xmlExisting.Settings.Diagnostics.HTMLFilename
+    DiagnosticsNotes    = ($xmlExisting.Settings.Diagnostics.Notes).InnerXML
+    DiagnosticsWeb      = $xmlExisting.Settings.Diagnostics.Web
+    DiagnosticsPorts    = $xmlExisting.Settings.Diagnostics.Ports
+    DiagnosticsURLs     = $xmlExisting.Settings.Diagnostics.URLs
+    DiagnosticsVerbose  = $xmlExisting.Settings.Diagnostics.Verbose
+    DiagnosticsRefresh  = $xmlExisting.Settings.Diagnostics.Refresh
 
-        MaxFeedItems       = $xmlExisting.Settings.IPURLs.MaxFeedItems
-        IPURLsPath          = $xmlExisting.Settings.IPURLs.Path
-        IPURLsAlertsTo      = $xmlExisting.Settings.IPURLs.AlertsTo
-        IPURLsNotesFilename = $xmlExisting.Settings.IPURLs.NotesFilename
-        CustomNotesFilename = $xmlExisting.Settings.IPURLs.CustomNotesFilename
+    MaxFeedItems        = $xmlExisting.Settings.IPURLs.MaxFeedItems
+    IPURLsPath          = $xmlExisting.Settings.IPURLs.Path
+    IPURLsAlertsTo      = $xmlExisting.Settings.IPURLs.AlertsTo
+    IPURLsNotesFilename = $xmlExisting.Settings.IPURLs.NotesFilename
+    CustomNotesFilename = $xmlExisting.Settings.IPURLs.CustomNotesFilename
 
-        UseProxy           = $xmlExisting.Settings.Proxy.UseProxy
-        ProxyHost          = $xmlExisting.Settings.Proxy.ProxyHost
-        ProxyIgnoreSSL     = $xmlExisting.Settings.Proxy.IgnoreSSL
-    }
+    CnameEnabled        = $xmlExisting.Settings.CNAME.Enabled
+    CnameFilename       = $xmlExisting.Settings.CNAME.Filename
+    CnameAlertsTo       = $xmlExisting.Settings.CNAME.AlertsTo
+    CnameURLs           = $xmlExisting.Settings.CNAME.URLs
 
-    #set output file
-    $xmlNewConfig = @"
+    UseProxy            = $xmlExisting.Settings.Proxy.UseProxy
+    ProxyHost           = $xmlExisting.Settings.Proxy.ProxyHost
+    ProxyIgnoreSSL      = $xmlExisting.Settings.Proxy.IgnoreSSL
+  }
+
+  #set output file
+  $xmlNewConfig = @"
 <?xml version="1.0"?>
 <Settings>
   <Tenant>
@@ -221,6 +226,15 @@ if (Test-Path $configXML) {
     <!-- Custom CSV file to hold additional URLs. System will append short tenant name when loading -->
     <CustomNotesFilename>$($appSettings.CustomNotesFilename)</CustomNotesFilename>
   </IPURLs>
+  <CNAME>
+    <!-- CNAME checking enabled -->
+    <Enabled>$($appSettings.CnameEnabled)</Enabled>
+    <Filename>$($appSettings.CnameFilename)</Filename>
+    <!-- Where to send change/error detection to. Comma separated quoted list "john@home.com","bob@vader.net" -->
+    <AlertsTo>$($appSettings.CnameAlertsTo)</AlertsTo>
+    <!-- URLs to check CNAMEs against. Comma separated quoted list "outlook.office.com","outlook.office365.com" -->
+    <URLs>$($appSettings.CnameURLs)</URLs>
+  </CNAME>
   <Proxy>
     <!-- Proxy settings if required-->
     <!-- Use proxy values: true/false-->
@@ -232,7 +246,8 @@ if (Test-Path $configXML) {
   </Proxy>
 </Settings>
 "@
-
-    $xmlNewConfig | Set-Content -Path "$($configXMLFile).new"
-    #$xmlNewConfig | ConvertTo-Json | Set-Content -Path "New-$($configXMLFile).json"
+	$datetime=get-date -Format "yyyyMMddHHmm"
+  Copy-Item $configXMLFile "$($configXMLFile)-$($datetime).bak"
+  $xmlNewConfig | Set-Content -Path "$($configXMLFile)"
+  #$xmlNewConfig | ConvertTo-Json | Set-Content -Path "New-$($configXMLFile).json"
 }
