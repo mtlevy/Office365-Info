@@ -938,6 +938,8 @@ $pathIP6 = $pathIPURLs + "\O365_endpoints_ip6-$($rptProfile).csv"
 $pathIPurl = $pathIPURLs + "\O365_endpoints_urls-$($rptProfile).csv"
 $pathIPChanges = $pathIPURLs + "\O365_IPChanges-$($rptProfile).csv"
 $pathIPChangeIDX = $pathIPURLs + "\O365_IPChangeIDX-$($rptProfile).csv"
+$pathEndpointSetsIDX = $pathIPURLs + "\O365_EndpointSetsIDX-$($rptProfile).csv"
+
 $fileData = "O365_endpoints_data-$($rptProfile).txt"
 $pathData = $pathIPURLs + "\" + $fileData
 $currentData = $null
@@ -948,6 +950,7 @@ if (test-path $pathIP4) { $flatIp4s = Import-Csv $pathIP4 } else { $fileMissing 
 if (test-path $pathIP6) { $flatIp6s = Import-Csv $pathIP6 } else { $fileMissing = $true }
 if (test-path $pathIPChanges) { $flatChanges = Import-Csv $pathIPChanges } else { $fileMissing = $true }
 if (test-path $pathIPChangeIDX) { $flatChangesIDX = Import-Csv $pathIPChangeIDX } else { $fileMissing = $true }
+if (Test-Path $pathEndpointSetsIDX) { $EndPointSetsIDX = Import-Csv $pathEndpointSetsIDX } else { $fileMissing = $true }
 
 
 
@@ -1110,6 +1113,8 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
         $ip6CustomObjects
     }
     $flatIp6s | Export-Csv $pathIP6 -Encoding UTF8 -NoTypeInformation
+    $endpointSets | Select-Object id, servicearea, serviceareadisplayname | Export-Csv $pathEndpointSetsIDX -Encoding UTF8 -NoTypeInformation
+    $EndPointSetsIDX = $endpointSets | Select-Object id, servicearea, serviceareadisplayname
 }
 else {
     $ipurlSummary += "Office 365 worldwide commercial service instance endpoints are up-to-date. <br />`r`n"
@@ -1117,40 +1122,90 @@ else {
     $ipurlSummary += "Data available from <a href='https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges' target=_blank>https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges</a><br/>`r`n"
 }
 
-$changesLast = $changesLast = $flatChangesIDX | Sort-Object { [int]::parse($_.id) } -Descending | Select-Object -First 20
-$changesHTML = $null
-$changesHTML = "<div class='tableInc'>`n"
-$changesHTML += "<div class='tableInc-header'>`n`t<div class='tableInc-header-l'>ID</div>`n`t<div class='tableInc-header-l'>EndpointSetID</div>`n`t<div class='tableInc-header-l'>Disposition</div>`n`t<div class='tableInc-header-l'>Version</div>`n`t"
-$changesHTML += "<div class='tableInc-header-l'>Impact</div>`n`t<div class='tableInc-header-l'>Current</div>`n`t<div class='tableInc-header-l'>Previous</div>`n`t<div class='tableInc-header-l'>Add</div>`n`t<div class='tableInc-header-l'>Remove</div>`n</div>`n"
-foreach ($entry in $changesLast) {
-    $addEntry, $remEntry = @()
-    $addED, $addIP, $addURL = $null
-    $remIP, $remURL = $null
 
-    $changesHTML += "<div class='tableInc-row'>`n`t"
-    $changesHTML += "<div class='tableInc-cell-l'>$($entry.ID)</div>`n`t"
-    $changesHTML += "<div class='tableInc-cell-l'>$($entry.endpointSetId)</div>`n`t"
-    $changesHTML += "<div class='tableInc-cell-l'>$($entry.disposition)</div>`n`t"
-    $changesHTML += "<div class='tableInc-cell-l'>$($entry.version)</div>`n`t"
-    $changesHTML += "<div class='tableInc-cell-l'>$($entry.impact)</div>`n`t"
-    $changesHTML += "<div class='tableInc-cell-l'>$($entry.current)</div>`n`t"
-    $changesHTML += "<div class='tableInc-cell-l'>$($entry.previous)</div>`n`t"
-    $addEntry = @($flatChanges | where-object { $_.id -eq $entry.id -and $_.action -eq 'Add' })
-    if ($addentry.count -gt 0) {
-        if ($addEntry.effectivedate -ne "") { $addED = "Effective Date: $($addEntry.effectivedate)<br/>" }
-        if ($addEntry.ips -ne "") { $addIP = "Add IPs: $($addEntry.ips)<br/>" }
-        if ($addEntry.urls -ne "") { $addURL = "Add URLs: $($addEntry.urls)" }
+$changesHTML = $null
+$changesLast5 = $flatchangesIDX | Select-Object version, @{label = "VersionDate"; Expression = { [datetime]::parseexact($_.version, "yyyyMMddHH", $null) } } -Unique | Sort-Object versiondate -Descending | Select-Object -First 5
+$ipHistoryHTML = ""
+$ipHistoryCnt = 0
+foreach ($change in $changesLast5) {
+    $ipHistoryCnt++
+    $changesLast = $flatChangesIDX | Where-Object { $_.version -In $change.version }
+    $inputID = "collapsible$($ipHistoryCnt)"
+    $ipHistoryHTML += "<div class='wrap-collabsible'>`r`n"
+    $ipHistoryHTML += "<input id='$($InputID)' class='toggle' type='checkbox'"
+    if ($ipHistoryCnt -le 2) { $ipHistoryHTML += " checked>" } else { $ipHistoryHTML += ">" }
+    $ipHistoryHTML += "<label for='$($inputID)' class='lbl-toggle'>Version: $(get-date $change.VersionDate -Format 'dd-MMM-yyyy') : $($changeslast.count) item(s)</label>`r`n"
+    $ipHistoryHTML += "<div class='collapsible-content'><div class='content-inner'>`r`n"
+    $ipHistoryHTML += "<div class='tableInc'>`r`n"
+    $ipHistoryHTML += "<div class='tableInc-header'>`r`n"
+    $ipHistoryHTML += "<div class='tableInc-header-l'>Service Area</div>`r`n"
+    $ipHistoryHTML += "<div class='tableInc-header-l'>Disposition</div>`r`n<div class='tableInc-header-l'>Impact</div>`r`n"
+    $ipHistoryHTML += "<div class='tableInc-header-l' style='max-width:250px'>Add</div>`r`n<div class='tableInc-header-l' style='max-width:250px'>Remove</div>`r`n"
+    $ipHistoryHTML += "<div class='tableInc-header-l'>Current</div>`r`n`<div class='tableInc-header-l'>Previous</div>`r`n"
+    $ipHistoryHTML += "</div>`r`n"
+
+    $ipHistory = ""
+    foreach ($item in $changesLast) {
+        $entry = @()
+        $addED, $addIP, $addURL = $null
+        $remIP, $remURL = $null
+        $itemEP, $itemSA, $itemCat, $itemRqd, $itemTCP, $itemUDP, $itemNotes = ""
+        $ipHistory += "<div class='tableInc-row'>"
+        $serviceArea = ($EndPointSetsIDX | Where-Object { $item.endpointsetid -eq $_.id }).ServiceArea
+        $ipHistory += "<div class='tableInc-cell-l'>$($serviceArea)</div>`n`t"
+        $ipHistory += "<div class='tableInc-cell-l'>$($item.disposition)</div>`n`t"
+        switch ($item.impact) {
+            "RemovedIpOrUrl" { $desc = "Removed IP or URL" }
+            "AddedIP" { $desc = "Added IP" }
+            "AddedUrl" { $desc = "Added URL" }
+            "RemovedDuplicateIpOrUrl" { $desc = "Removed Duplicate IP or URL" }
+        }
+        $ipHistory += "<div class='tableInc-cell-l'>$($desc)</div>`n`t"
+        #Get IP and URL changes
+        $entry = @($flatChanges | where-object { $_.id -eq $item.id })
+        if ($entry.action -like 'Add') {
+            if ($entry.effectivedate -ne "") { $addED = "<b>Effective Date:</b> <font color='green'><b>$($entry.effectivedate)</b></font><br/>" }
+            if ($entry.ips -ne "") { $addIP = "<b>Add IPs:</b> $($entry.ips)<br/>" }
+            if ($entry.urls -ne "") { $addURL = "<b>Add URLs:</b> $($entry.urls)" }
+        }
+        $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($addED)$($addIP)$($addURL)</div>`n`t"
+        if ($entry.action -like 'Remove') {
+            if ($entry.ips -ne "") { $remIP = "<b>Remove IPs:</b> $($entry.ips)<br/>" }
+            if ($entry.urls -ne "") { $remURL = "<b>Remove URLs:</b> $($entry.urls)" }
+        }
+        $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($remIP)$($remURL)</div>`n`t"
+        $itemCur = ($item.current -replace '@{' -replace '}').Split(";") | ConvertFrom-StringData
+        if ($item.Current) {
+            if ($null -ne $itemCur.expressroute) { $itemEP = "<b>Express Route:</b> $($itemCur.expressroute)<br/>" }
+            if ($null -ne $itemCur.serviceArea) { $itemSA = "<b>Service Area:</b> $($itemCur.serviceArea)<br/>" }
+            if ($null -ne $itemCur.category) { $itemCat = "<b>Category:</b> $($itemCur.category)<br/>" }
+            if ($null -ne $itemCur.required) { $itemRqd = "<b>Required:</b> $($itemCur.required)<br/>" }
+            if ($null -ne $itemCur.tcpPorts) { $itemTCP = "<b>TCP Ports:</b> $($itemCur.tcpPorts)<br/>" }
+            if ($null -ne $itemCur.udpPorts) { $itemUDP = "<b>UDP Ports:</b> $($itemCur.udpPorts)<br/>" }
+            if ($null -ne $itemCur.notes) { $itemNotes = "<b>Notes:</b> $($itemCur.Notes)<br/>" }
+        }
+        $ipHistory += "<div class='tableInc-cell-l'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</div>`n`t"
+        $itemEP, $itemSA, $itemCat, $itemRqd, $itemTCP, $itemUDP, $itemNotes = ""
+        $itemPre = ($item.Previous -replace '@{' -replace '}').Split(";") | ConvertFrom-StringData
+        if ($item.Previous) {
+            if ($null -ne $itemPre.expressroute) { $itemEP = "<b>Express Route:</b> $($itemPre.expressroute)<br/>" }
+            if ($null -ne $itemPre.serviceArea) { $itemSA = "<b>Service Area:</b> $($itemPre.serviceArea)<br/>" }
+            if ($null -ne $itemPre.category) { $itemCat = "<b>Category:</b> $($itemPre.category)<br/>" }
+            if ($null -ne $itemPre.required) { $itemRqd = "<b>Required:</b> $($itemPre.required)<br/>" }
+            if ($null -ne $itemPre.tcpPorts) { $itemTCP = "<b>TCP Ports:</b> $($itemPre.tcpPorts)<br/>" }
+            if ($null -ne $itemPre.udpPorts) { $itemUDP = "<b>UDP Ports:</b> $($itemPre.udpPorts)<br/>" }
+            if ($null -ne $itemPre.notes) { $itemNotes = "<b>Notes:</b> $($itemPre.Notes)<br/>" }
+        }
+        $ipHistory += "<div class='tableInc-cell-l'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</div>`n`t"
+        $ipHistory += "<div class='tableInc-cell-l'>$($itemPrev)</div>`n`t"
+        $ipHistory += "</div>`n"
     }
-    $changesHTML += "<div class='tableInc-cell-l'>$($addED)$($addIP)$($addURL)</div>`n`t"
-    $remEntry = @($flatChanges | where-object { $_.id -eq $entry.id -and $_.action -eq 'Remove' })
-    if ($remEntry.count -gt 0) {
-        if ($remEntry.ips -ne "") { $remIP = "Remove IPs: $($remEntry.ips)<br/>" }
-        if ($remEntry.urls -ne "") { $remURL = "Remove URLs: $($remEntry.urls)" }
-    }
-    $changesHTML += "<div class='tableInc-cell-l'>$($remIP)$($remURL)</div>`n`t"
-    $changesHTML += "</div>`n"
+
+    $ipHistoryHTML += $ipHistory
+    $ipHistoryHTML += "</div></div></div></div>`r`n"
 }
-$changesHTML += "</div>`n"
+$changesHTML = $ipHistoryHTML
+$changesHTML += "`r`n</div>"
 
 if (test-path $fileIPURLsNotes) {
     $notesCustom = import-csv $fileIPURLsNotes
@@ -1611,7 +1666,7 @@ if ($cnameenabled) {
     #Get CNAMEs
     #For each unique monitor
     foreach ($url in $cnameURLs) {
-	    $rptCNAMEInfo += "<div class='section' style='width:800px'>`r`n"
+        $rptCNAMEInfo += "<div class='section' style='width:800px'>`r`n"
         $rptCNAMEInfo += "<div class='header'>$($url)</div>`r`n"
         $rptCNAMEInfo += "<div class='tableInc-header'>`r`n"
         $rptCNAMEInfo += "<div class='tableInc-header-l' style='width:600px'>CNAME Host</div>`r`n"
@@ -1623,12 +1678,12 @@ if ($cnameenabled) {
         foreach ($cname in  $cnameslist) {
             $rptCNAMEInfo += "<div class='tableInc-row'>`r`n"
             $rptCNAMEInfo += "<div class='tableInc-cell-l' style='width:600px'>$($cname.namehost)</div>"
-			$rptCNAMEInfo += "<div class='tableInc-cell-l'>&nbsp</div>`r`n"
-			$rptCNAMEInfo += "<div class='tableInc-cell-l' style='width:150px'>$($cname.domain)</div>`r`n"
-			$rptCNAMEInfo += "<div class='tableInc-cell-l'>&nbsp</div>`r`n"
-			$rptCNAMEInfo += "<div class='tableInc-cell-dt'>$($cname.addedDate)</div></div>`r`n"
+            $rptCNAMEInfo += "<div class='tableInc-cell-l'>&nbsp</div>`r`n"
+            $rptCNAMEInfo += "<div class='tableInc-cell-l' style='width:150px'>$($cname.domain)</div>`r`n"
+            $rptCNAMEInfo += "<div class='tableInc-cell-l'>&nbsp</div>`r`n"
+            $rptCNAMEInfo += "<div class='tableInc-cell-dt'>$($cname.addedDate)</div></div>`r`n"
         }
-		$rptCNAMEInfo += "<div><br/></div></div>`r`n"
+        $rptCNAMEInfo += "<div><br/></div></div>`r`n"
         #$rptCNAMEInfo += "<div><br/></div>`r`n"
     }
     $rptCNAMEInfo += "</div>`r`n"
