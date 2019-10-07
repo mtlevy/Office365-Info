@@ -299,36 +299,60 @@ if ($allMessages.count -gt 0) {
 
 #Check DNS entries while we're here
 if ($cnameEnabled) {
+    [array]$exportNH=@()
     #Define the filename and location to store URL cname results
     $cnameKnownCSV = "$($pathWorking)\$cnameFilename-$($rptProfile).csv"
     if (!(Test-Path $cnameKnownCSV)) {
-        $headers = "monitor,namehost,domain,addedDate"
+        $headers = "monitor,namehost,domain,addedDate,lastDate"
         $headers | Add-Content $cnameKnownCSV -Encoding UTF8
     }
 
     #define the URLs which should be monitored
+    #Fetch the list of previously known CNAMES
     $cnameKnown = Import-Csv "$($cnameKnownCSV)"
+    if ($cnameKnown.count -ge 1) {
+        #check if CSV has the lastDate column. if not, add it in
+        if (!(($cnameKnown | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty name) -contains 'lastdate')) {
+            $cnameKnown | Add-Member -MemberType NoteProperty -Name lastDate -Value $null}
+        }
     $addDateTime = get-date -f "dd-MMM-yy HH:mm"
     $alert = ""
-    foreach ($entry in $cnameURLs) {
+	#for each entry in the monitored urls
+	foreach ($entry in $cnameURLs) {
+        [array]$newDomains=@()
         try { $cnames = @(Resolve-DnsName $($entry) -DnsOnly | Where-Object querytype -like 'CNAME') }
         catch { $alert += "<b>Cannot resolve CNAMES for $($entry)</b><br/>$($error[0].exception)"; break; }
-        $known = $cnameknown | Where-Object { $_.monitor -like $entry }
-        $unknownNH = $cnames | where-object { ($_.namehost -notin $known.namehost) }
+		#From the list own previous responses, get matching monitor records
+        #update the lastDate for names which have been found
+		$updateNH = $cnameknown | where-object { ($_.namehost -in $cnames.namehost) -and ($_.monitor -like $entry) }
+		foreach ($knownNH in $updateNH) {
+			$knownNH.lastDate = $addDateTime
+		}
+		$exportNH+=$updateNH
+		#identify the new cnames returned
+        $unknownNH = $cnames | where-object { ($_.namehost -notin $cnameknown.namehost) }
         foreach ($alias in $unknownNH) {
-            #field to check is 'namehost'
-            $nameHost = $alias.NameHost
-            #get domain (characters after second last '.')
-            $nh = @($namehost.split("."))
-            $aliasDomain = "$($nh[-2]).$($nh[-1])"
-            #if not in known add to known and add to alert email
+            $nh=@($alias.nameHost.split("."))
+            $aliasDomain = $nh[-2]+"."+$nh[-1]
+			$addNew = New-Object PSObject
+			$addNew | Add-Member -MemberType NoteProperty -Name monitor -Value $entry
+			$addNew | Add-Member -MemberType NoteProperty -Name nameHost -Value $alias.NameHost
+			$addNew | Add-Member -MemberType NoteProperty -Name domain -Value $aliasDomain
+			$addNew | Add-Member -MemberType NoteProperty -Name addedDate -Value $addDateTime
+			$addNew | Add-Member -MemberType NoteProperty -Name lastdate -Value $addDateTime
+
             Write-Log "Adding $($nameHost) to CSV"
-            $newLine = "{0},{1},{2},{3}" -f $entry, $nameHost, $aliasDomain, $addDateTime
-            $newline | Add-Content $cnameKnownCSV
-            $alert += "<b>{0}</b>: New name host found CNAME <b>{1}</b><br/>" -f $entry, $nameHost
-            $newDomains += @($aliasDomain)
+            $alert += "<b>{0}</b>: New name host found CNAME <b>{1}</b><br/>" -f $entry, $alias.nameHost
+            $newDomains += @($addNew)
         }
+		$exportNH+=$newDomains
     }
+	#export the lot of them to the original file
+    #Add the items originally
+    $notfound=$cnameknown | Where-Object {$exportNH -notcontains $_}
+    $exportNH += $notfound
+	$exportNH | Sort-Object addedDate, lastDate | Export-Csv -Path "$($cnameKnownCSV)" -NoTypeInformation -Encoding UTF8
+
     #if alert email, then send
     if ($alert -ne "") {
         $newDomains = $newDomains | Select-Object -Unique

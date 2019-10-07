@@ -119,10 +119,11 @@ $cnameURLs = $cnameURLs.Trim()
 [string]$fileIPURLsNotes = "$($config.IPURLsNotesFilename)-$($rptProfile).csv"
 [string]$fileIPURLsNotesAll = "$($config.IPURLsNotesFilename)All-$($rptProfile).csv"
 [string]$fileCustomNotes = "$($config.CustomNotesFilename)-$($rptProfile).csv"
-
+[int]$IPURLHistory = $config.IPURLHistory
 [string]$proxyHost = $config.ProxyHost
 [array]$customURLs = @()
 
+if ($IPURLHistory -le 1) { $IPURLHistory = 6 }
 #Check diagnostics and save as boolean
 if ($config.DiagnosticsWeb -like 'true') { [boolean]$diagWeb = $true } else { [boolean]$diagWeb = $false }
 if ($config.DiagnosticsPorts -like 'true') { [boolean]$diagPorts = $true } else { [boolean]$diagPorts = $false }
@@ -1124,7 +1125,7 @@ else {
 
 
 $changesHTML = $null
-$changesLast5 = $flatchangesIDX | Select-Object version, @{label = "VersionDate"; Expression = { [datetime]::parseexact($_.version, "yyyyMMddHH", $null) } } -Unique | Sort-Object versiondate -Descending | Select-Object -First 12
+$changesLast5 = $flatchangesIDX | Select-Object version, @{label = "VersionDate"; Expression = { [datetime]::parseexact($_.version, "yyyyMMddHH", $null) } } -Unique | Sort-Object versiondate -Descending | Select-Object -First $($IPURLHistory)
 $ipHistoryHTML = ""
 $ipHistoryCnt = 0
 foreach ($change in $changesLast5) {
@@ -1162,10 +1163,11 @@ foreach ($change in $changesLast5) {
         $entry = @()
         $addED, $addIP, $addURL = $null
         $remIP, $remURL = $null
-        $entry = @($flatChanges | where-object { $_.id -eq $item.id -and $_.action -like 'Add'})
+        $entry = @($flatChanges | where-object { $_.id -eq $item.id -and $_.action -like 'Add' })
         if ($null -ne $entry.effectivedate) {
             if ((get-date $entry.effectivedate) -gt (get-date)) { $colour = "<font color='red'>" } else { $colour = "<font color='green'>" }
-                $addED = "<b>Effective Date:</b> $($colour)<b>$($entry.effectivedate)</b></font><br/>"}
+            $addED = "<b>Effective Date:</b> $($colour)<b>$($entry.effectivedate)</b></font><br/>"
+        }
         if (!([string]::IsNullOrEmpty($entry.IPs))) { $addIP = "<b>Add IPs:</b> $($entry.ips)<br/>" }
         if (!([string]::IsNullOrEmpty($entry.urls))) { $addURL = "<b>Add URLs:</b> $($entry.urls)" }
         $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($addED)$($addIP)$($addURL)</div>`n`t"
@@ -1173,7 +1175,7 @@ foreach ($change in $changesLast5) {
         $entry = @()
         $addED, $addIP, $addURL = $null
         $remIP, $remURL = $null
-        $entry = @($flatChanges | where-object { $_.id -eq $item.id -and $_.action -like 'Remove'})
+        $entry = @($flatChanges | where-object { $_.id -eq $item.id -and $_.action -like 'Remove' })
         if (!([string]::IsNullOrEmpty($entry.ips))) { $remIP = "<b>Remove IPs:</b> $($entry.ips)<br/>" }
         if (!([string]::IsNullOrEmpty($entry.urls))) { $remURL = "<b>Remove URLs:</b> $($entry.urls)" }
         $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($remIP)$($remURL)</div>`n`t"
@@ -1659,6 +1661,8 @@ $rptSectionFourFour += "</div></div>`n"
 
 $divFour += $rptSectionFourFour
 
+
+#CNAME checks where possible
 $rptSectionFiveOne = ""
 if ($cnameenabled) {
     $cnameKnownCSV = "$($pathWorking)\$cnameFilename-$($rptProfile).csv"
@@ -1677,7 +1681,8 @@ if ($cnameenabled) {
         $rptCNAMEInfo += "<div class='tableInc-header-l'>&nbsp</div>`r`n"
         $rptCNAMEInfo += "<div class='tableInc-header-l' style='width:150px'>Domain</div>`r`n"
         $rptCNAMEInfo += "<div class='tableInc-header-l'>&nbsp</div>`r`n"
-        $rptCNAMEInfo += "<div class='tableInc-header-dt'>First Discovered</div></div>`r`n"
+        $rptCNAMEInfo += "<div class='tableInc-header-dt'>First Discovered</div>`r`n"
+        $rptCNAMEInfo += "<div class='tableInc-header-dt'>Last Seen</div></div>`r`n"
         $cnameslist = $cnames | Where-Object { $_.monitor -like $url } | Sort-Object addeddate
         foreach ($cname in  $cnameslist) {
             $rptCNAMEInfo += "<div class='tableInc-row'>`r`n"
@@ -1685,7 +1690,9 @@ if ($cnameenabled) {
             $rptCNAMEInfo += "<div class='tableInc-cell-l'>&nbsp</div>`r`n"
             $rptCNAMEInfo += "<div class='tableInc-cell-l' style='width:150px'>$($cname.domain)</div>`r`n"
             $rptCNAMEInfo += "<div class='tableInc-cell-l'>&nbsp</div>`r`n"
-            $rptCNAMEInfo += "<div class='tableInc-cell-dt'>$($cname.addedDate)</div></div>`r`n"
+            $rptCNAMEInfo += "<div class='tableInc-cell-dt'>$($cname.addedDate)</div>`r`n"
+            if ($cname.lastdate) {if ((get-date $cname.lastdate) -lt ((get-date).adddays(-2))) {$fontcolour="<font color='red'>"} else {$fontcolour="<font color='green'>"}}
+            $rptCNAMEInfo += "<div class='tableInc-cell-dt'>$($fontcolour)$($cname.lastDate)</font></div></div>`r`n"
         }
         $rptCNAMEInfo += "<div><br/></div></div>`r`n"
         #$rptCNAMEInfo += "<div><br/></div>`r`n"

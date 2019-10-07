@@ -155,6 +155,7 @@ function LoadConfig {
         IPURLsAlertsTo      = $configFile.Settings.IPURLs.AlertsTo
         IPURLsNotesFilename = $configFile.Settings.IPURLs.NotesFilename
         CustomNotesFilename = $configFile.Settings.IPURLs.CustomNotesFilename
+        IPURLHistory        = $configFile.Settings.IPURLs.History
     
         CnameEnabled        = $configFile.Settings.CNAME.Enabled
         CnameFilename       = $configFile.Settings.CNAME.Filename

@@ -107,6 +107,7 @@ if (Test-Path $configXML) {
     IPURLsAlertsTo      = $xmlExisting.Settings.IPURLs.AlertsTo
     IPURLsNotesFilename = $xmlExisting.Settings.IPURLs.NotesFilename
     CustomNotesFilename = $xmlExisting.Settings.IPURLs.CustomNotesFilename
+    IPURLHistory        = $xmlExisting.Settings.IPURLs.History
 
     CnameEnabled        = $xmlExisting.Settings.CNAME.Enabled
     CnameFilename       = $xmlExisting.Settings.CNAME.Filename
@@ -225,6 +226,8 @@ if (Test-Path $configXML) {
     <NotesFilename>$($appSettings.IPURLsNotesFilename)</NotesFilename>
     <!-- Custom CSV file to hold additional URLs. System will append short tenant name when loading -->
     <CustomNotesFilename>$($appSettings.CustomNotesFilename)</CustomNotesFilename>
+    <!-- Maximum number of items to return if feed provides more -->
+    <History>$($appSettings.IPURLHistory)</History>
   </IPURLs>
   <CNAME>
     <!-- CNAME checking enabled -->
