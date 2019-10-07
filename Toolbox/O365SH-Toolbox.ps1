@@ -1124,7 +1124,7 @@ else {
 
 
 $changesHTML = $null
-$changesLast5 = $flatchangesIDX | Select-Object version, @{label = "VersionDate"; Expression = { [datetime]::parseexact($_.version, "yyyyMMddHH", $null) } } -Unique | Sort-Object versiondate -Descending | Select-Object -First 5
+$changesLast5 = $flatchangesIDX | Select-Object version, @{label = "VersionDate"; Expression = { [datetime]::parseexact($_.version, "yyyyMMddHH", $null) } } -Unique | Sort-Object versiondate -Descending | Select-Object -First 12
 $ipHistoryHTML = ""
 $ipHistoryCnt = 0
 foreach ($change in $changesLast5) {
@@ -1141,18 +1141,14 @@ foreach ($change in $changesLast5) {
     $ipHistoryHTML += "<div class='tableInc-header-l'>Service Area</div>`r`n"
     $ipHistoryHTML += "<div class='tableInc-header-l'>Disposition</div>`r`n<div class='tableInc-header-l'>Impact</div>`r`n"
     $ipHistoryHTML += "<div class='tableInc-header-l' style='max-width:250px'>Add</div>`r`n<div class='tableInc-header-l' style='max-width:250px'>Remove</div>`r`n"
-    $ipHistoryHTML += "<div class='tableInc-header-l'>Current</div>`r`n`<div class='tableInc-header-l'>Previous</div>`r`n"
+    $ipHistoryHTML += "<div class='tableInc-header-l' style='max-width:150px'>Current</div>`r`n`<div class='tableInc-header-l' style='max-width:150px'>Previous</div>`r`n"
     $ipHistoryHTML += "</div>`r`n"
 
     $ipHistory = ""
     foreach ($item in $changesLast) {
-        $entry = @()
-        $addED, $addIP, $addURL = $null
-        $remIP, $remURL = $null
-        $itemEP, $itemSA, $itemCat, $itemRqd, $itemTCP, $itemUDP, $itemNotes = ""
         $ipHistory += "<div class='tableInc-row'>"
         $serviceArea = ($EndPointSetsIDX | Where-Object { $item.endpointsetid -eq $_.id }).ServiceArea
-        $ipHistory += "<div class='tableInc-cell-l'>$($serviceArea)</div>`n`t"
+        $ipHistory += "<div class='tableInc-cell-l'>[$($item.endpointsetid)] $($serviceArea)</div>`n`t"
         $ipHistory += "<div class='tableInc-cell-l'>$($item.disposition)</div>`n`t"
         switch ($item.impact) {
             "RemovedIpOrUrl" { $desc = "Removed IP or URL" }
@@ -1161,19 +1157,27 @@ foreach ($change in $changesLast5) {
             "RemovedDuplicateIpOrUrl" { $desc = "Removed Duplicate IP or URL" }
         }
         $ipHistory += "<div class='tableInc-cell-l'>$($desc)</div>`n`t"
+        
         #Get IP and URL changes
-        $entry = @($flatChanges | where-object { $_.id -eq $item.id })
-        if ($entry.action -like 'Add') {
-            if ($entry.effectivedate -ne "") { $addED = "<b>Effective Date:</b> <font color='green'><b>$($entry.effectivedate)</b></font><br/>" }
-            if ($entry.ips -ne "") { $addIP = "<b>Add IPs:</b> $($entry.ips)<br/>" }
-            if ($entry.urls -ne "") { $addURL = "<b>Add URLs:</b> $($entry.urls)" }
-        }
+        $entry = @()
+        $addED, $addIP, $addURL = $null
+        $remIP, $remURL = $null
+        $entry = @($flatChanges | where-object { $_.id -eq $item.id -and $_.action -like 'Add'})
+        if ($null -ne $entry.effectivedate) {
+            if ((get-date $entry.effectivedate) -gt (get-date)) { $colour = "<font color='red'>" } else { $colour = "<font color='green'>" }
+                $addED = "<b>Effective Date:</b> $($colour)<b>$($entry.effectivedate)</b></font><br/>"}
+        if (!([string]::IsNullOrEmpty($entry.IPs))) { $addIP = "<b>Add IPs:</b> $($entry.ips)<br/>" }
+        if (!([string]::IsNullOrEmpty($entry.urls))) { $addURL = "<b>Add URLs:</b> $($entry.urls)" }
         $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($addED)$($addIP)$($addURL)</div>`n`t"
-        if ($entry.action -like 'Remove') {
-            if ($entry.ips -ne "") { $remIP = "<b>Remove IPs:</b> $($entry.ips)<br/>" }
-            if ($entry.urls -ne "") { $remURL = "<b>Remove URLs:</b> $($entry.urls)" }
-        }
+
+        $entry = @()
+        $addED, $addIP, $addURL = $null
+        $remIP, $remURL = $null
+        $entry = @($flatChanges | where-object { $_.id -eq $item.id -and $_.action -like 'Remove'})
+        if (!([string]::IsNullOrEmpty($entry.ips))) { $remIP = "<b>Remove IPs:</b> $($entry.ips)<br/>" }
+        if (!([string]::IsNullOrEmpty($entry.urls))) { $remURL = "<b>Remove URLs:</b> $($entry.urls)" }
         $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($remIP)$($remURL)</div>`n`t"
+        $itemEP, $itemSA, $itemCat, $itemRqd, $itemTCP, $itemUDP, $itemNotes = ""
         $itemCur = ($item.current -replace '@{' -replace '}').Split(";") | ConvertFrom-StringData
         if ($item.Current) {
             if ($null -ne $itemCur.expressroute) { $itemEP = "<b>Express Route:</b> $($itemCur.expressroute)<br/>" }
@@ -1184,7 +1188,8 @@ foreach ($change in $changesLast5) {
             if ($null -ne $itemCur.udpPorts) { $itemUDP = "<b>UDP Ports:</b> $($itemCur.udpPorts)<br/>" }
             if ($null -ne $itemCur.notes) { $itemNotes = "<b>Notes:</b> $($itemCur.Notes)<br/>" }
         }
-        $ipHistory += "<div class='tableInc-cell-l'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</div>`n`t"
+        $ipHistory += "<div class='tableInc-cell-l' style='max-width:150px'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</div>`n`t"
+
         $itemEP, $itemSA, $itemCat, $itemRqd, $itemTCP, $itemUDP, $itemNotes = ""
         $itemPre = ($item.Previous -replace '@{' -replace '}').Split(";") | ConvertFrom-StringData
         if ($item.Previous) {
@@ -1196,13 +1201,12 @@ foreach ($change in $changesLast5) {
             if ($null -ne $itemPre.udpPorts) { $itemUDP = "<b>UDP Ports:</b> $($itemPre.udpPorts)<br/>" }
             if ($null -ne $itemPre.notes) { $itemNotes = "<b>Notes:</b> $($itemPre.Notes)<br/>" }
         }
-        $ipHistory += "<div class='tableInc-cell-l'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</div>`n`t"
-        $ipHistory += "<div class='tableInc-cell-l'>$($itemPrev)</div>`n`t"
+        $ipHistory += "<div class='tableInc-cell-l' style='max-width:150px'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</div>`n`t"
         $ipHistory += "</div>`n"
     }
 
     $ipHistoryHTML += $ipHistory
-    $ipHistoryHTML += "</div></div></div></div>`r`n"
+    $ipHistoryHTML += "</div></div></div></div><br/>`r`n"
 }
 $changesHTML = $ipHistoryHTML
 $changesHTML += "`r`n</div>"
