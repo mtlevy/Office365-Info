@@ -113,7 +113,9 @@ if (Test-Path $configXML) {
     CnameFilename       = $xmlExisting.Settings.CNAME.Filename
     CnameAlertsTo       = $xmlExisting.Settings.CNAME.AlertsTo
     CnameURLs           = $xmlExisting.Settings.CNAME.URLs
-
+    CnameResolvers      = [string[]]$xmlExisting.Settings.CNAME.Resolvers
+	CnameResolverDesc   = [string[]]$xmlExisting.Settings.CNAME.ResolverDesc
+    
     UseProxy            = $xmlExisting.Settings.Proxy.UseProxy
     ProxyHost           = $xmlExisting.Settings.Proxy.ProxyHost
     ProxyIgnoreSSL      = $xmlExisting.Settings.Proxy.IgnoreSSL
@@ -232,11 +234,16 @@ if (Test-Path $configXML) {
   <CNAME>
     <!-- CNAME checking enabled -->
     <Enabled>$($appSettings.CnameEnabled)</Enabled>
+    <!-- Filename to pre-pend to IP lookups ie 'CNAMEs' -->
     <Filename>$($appSettings.CnameFilename)</Filename>
     <!-- Where to send change/error detection to. Comma separated quoted list "john@home.com","bob@vader.net" -->
     <AlertsTo>$($appSettings.CnameAlertsTo)</AlertsTo>
     <!-- URLs to check CNAMEs against. Comma separated quoted list "outlook.office.com","outlook.office365.com" -->
     <URLs>$($appSettings.CnameURLs)</URLs>
+    <!-- List of resolvers to test CNAMES ie "dns1.mydomain.com","8.8.8.8" -->
+    <Resolvers>$($appSettings.CnameResolvers)</Resolvers>
+    <!-- List of descriptions matching the above resolvers ie "Internal DNS","Google DNS" -->
+    <ResolverDesc>$($appSettings.CnameResolverDesc)</ResolverDesc>
   </CNAME>
   <Proxy>
     <!-- Proxy settings if required-->

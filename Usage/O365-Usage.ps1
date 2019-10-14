@@ -258,7 +258,7 @@ $rptsUserDetails = @(
     'getYammerGroupsActivityDetail'
 )
 
-$Period = 'D7'
+$Period = $ReportTimeSpan
 $evtMessage = $null
 $evtLogAll = $null
 $i = 0

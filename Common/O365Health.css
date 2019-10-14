@@ -50,6 +50,11 @@ p.warning {
   color: orange;
 }
 
+p.ok {
+    display: inline;
+    color: green;
+}
+
 p.info {
   display: inline;
   color: blue;

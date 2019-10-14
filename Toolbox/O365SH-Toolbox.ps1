@@ -114,6 +114,13 @@ else { [boolean]$UseEventLog = $false }
 [string[]]$cnameURLs = $config.CNAMEUrls.split(",")
 $cnameURLs = $cnameURLs.Replace('"', '')
 $cnameURLs = $cnameURLs.Trim()
+[string[]]$cnameResolvers = $config.CNAMEResolvers.split(",")
+$cnameResolvers = $cnameResolvers.Replace('"', '')
+$cnameResolvers = $cnameResolvers.Trim()
+[string[]]$cnameResolverDesc = $config.CNAMEResolverDesc.split(",")
+$cnameResolverDesc = $cnameResolverDesc.Replace('"', '')
+$cnameResolverDesc = $cnameResolverDesc.Trim()
+
 
 [string[]]$emailIPURLAlerts = $config.IPURLsAlertsTo
 [string]$fileIPURLsNotes = "$($config.IPURLsNotesFilename)-$($rptProfile).csv"
@@ -1665,8 +1672,16 @@ $divFour += $rptSectionFourFour
 #CNAME checks where possible
 $rptSectionFiveOne = ""
 if ($cnameenabled) {
-    $cnameKnownCSV = "$($pathWorking)\$cnameFilename-$($rptProfile).csv"
-    $cnames = Import-Csv $cnameKnownCSV
+	[array]$CNAMEResults=$null
+	[array]$cnames=$null
+
+	#Import the DNS results being output by the monitor script
+	foreach ($dns in $cnameresolvers) {
+		$dnsResults=Import-Csv "$($pathWorking)\$cnameFilename-$($DNS)-$($rptProfile).csv"
+		$CNAMEResults+=$dnsResults
+	}
+
+    $cnames = $CNameResults
 
     #Build Div5
     $rptSectionFiveOne = "<div class='section'><div class='header'>CNAMEs</div>`r`n"
@@ -1674,25 +1689,37 @@ if ($cnameenabled) {
     #Get CNAMEs
     #For each unique monitor
     foreach ($url in $cnameURLs) {
-        $rptCNAMEInfo += "<div class='section' style='width:800px'>`r`n"
+        $rptCNAMEInfo += "<div class='section' style='width:1200px'>`r`n"
         $rptCNAMEInfo += "<div class='header'>$($url)</div>`r`n"
         $rptCNAMEInfo += "<div class='tableInc-header'>`r`n"
         $rptCNAMEInfo += "<div class='tableInc-header-l' style='width:600px'>CNAME Host</div>`r`n"
         $rptCNAMEInfo += "<div class='tableInc-header-l'>&nbsp</div>`r`n"
         $rptCNAMEInfo += "<div class='tableInc-header-l' style='width:150px'>Domain</div>`r`n"
         $rptCNAMEInfo += "<div class='tableInc-header-l'>&nbsp</div>`r`n"
-        $rptCNAMEInfo += "<div class='tableInc-header-dt'>First Discovered</div>`r`n"
-        $rptCNAMEInfo += "<div class='tableInc-header-dt'>Last Seen</div></div>`r`n"
-        $cnameslist = $cnames | Where-Object { $_.monitor -like $url } | Sort-Object addeddate
+		#Now build headers for each of the resolving servers
+		foreach ($dns in $cnameresolvers) {
+			$dnsServerDesc = $cnameresolverdesc[[array]::indexof($cnameResolvers, $DNS)]
+			$rptCNAMEInfo += "<div class='tableInc-header-dt'>$($dnsServerDesc)<br/>$($dns)<br/>First Seen</div>`r`n"
+			$rptCNAMEInfo += "<div class='tableInc-header-dt'>$($dnsServerDesc)<br/>$($dns)<br/>Last Seen</div>"
+		}
+		$rptCNAMEInfo+="</div>`r`n"
+        $cnameslist = $cnames | Where-Object { $_.monitor -like $url } | Select-Object -Unique namehost, domain
         foreach ($cname in  $cnameslist) {
             $rptCNAMEInfo += "<div class='tableInc-row'>`r`n"
             $rptCNAMEInfo += "<div class='tableInc-cell-l' style='width:600px'>$($cname.namehost)</div>"
             $rptCNAMEInfo += "<div class='tableInc-cell-l'>&nbsp</div>`r`n"
             $rptCNAMEInfo += "<div class='tableInc-cell-l' style='width:150px'>$($cname.domain)</div>`r`n"
             $rptCNAMEInfo += "<div class='tableInc-cell-l'>&nbsp</div>`r`n"
-            $rptCNAMEInfo += "<div class='tableInc-cell-dt'>$($cname.addedDate)</div>`r`n"
-            if ($cname.lastdate) {if ((get-date $cname.lastdate) -lt ((get-date).adddays(-2))) {$fontcolour="<font color='red'>"} else {$fontcolour="<font color='green'>"}}
-            $rptCNAMEInfo += "<div class='tableInc-cell-dt'>$($fontcolour)$($cname.lastDate)</font></div></div>`r`n"
+			foreach ($dns in $cnameresolvers) {
+				$spotted=$cnames | Where-Object {$_.resolver -like $dns -and $_.monitor -like $url -and $_.namehost -like $cname.namehost }
+	            $rptCNAMEInfo += "<div class='tableInc-cell-dt'>$(get-date $spotted.addedDate -Format 'dd-MMM-yy HH:mm')</div>`r`n"
+				if ($spotted.lastdate) {
+					if ((get-date $spotted.lastdate) -lt ((get-date).addhours(-12))) {$fontcolour="<p class='error'>"}
+					elseif ((get-date $spotted.lastdate) -lt ((get-date).addhours(-4))) {$fontcolour="<p class='warning'>"}
+					else {$fontcolour="<p class='ok'>"}}
+				$rptCNAMEInfo += "<div class='tableInc-cell-dt'>$($fontcolour)$(get-date $spotted.lastDate -Format 'dd-MMM-yy HH:mm')</p></div>"
+				}
+			$rptCNAMEInfo+="</div>`r`n"
         }
         $rptCNAMEInfo += "<div><br/></div></div>`r`n"
         #$rptCNAMEInfo += "<div><br/></div>`r`n"

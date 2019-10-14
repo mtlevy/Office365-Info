@@ -158,9 +158,11 @@ function LoadConfig {
         IPURLHistory        = $configFile.Settings.IPURLs.History
     
         CnameEnabled        = $configFile.Settings.CNAME.Enabled
-        CnameFilename       = $configFile.Settings.CNAME.Filename
+		CnameFilename       = $configFile.Settings.CNAME.Filename
         CnameAlertsTo       = $configFile.Settings.CNAME.AlertsTo
 		CnameURLs           = $configFile.Settings.CNAME.URLs
+        CnameResolvers      = [string[]]$configFile.Settings.CNAME.Resolvers
+        CnameResolverDesc   = [string[]]$configFile.Settings.CNAME.ResolverDesc
 
         UseProxy            = $configFile.Settings.Proxy.UseProxy
         ProxyHost           = $configFile.Settings.Proxy.ProxyHost

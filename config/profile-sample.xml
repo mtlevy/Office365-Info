@@ -103,7 +103,23 @@
     <NotesFilename></NotesFilename>
     <!-- Custom CSV file to hold additional URLs. System will append short tenant name when loading -->
     <CustomNotesFilename></CustomNotesFilename>
+    <!-- Maximum number of items to return if feed provides more -->
+    <History></History>
   </IPURLs>
+  <CNAME>
+    <!-- CNAME checking enabled -->
+    <Enabled></Enabled>
+    <!-- Filename to pre-pend to IP lookups ie 'CNAMEs' -->
+    <Filename></Filename>
+    <!-- Where to send change/error detection to. Comma separated quoted list "john@home.com","bob@vader.net" -->
+    <AlertsTo></AlertsTo>
+    <!-- URLs to check CNAMEs against. Comma separated quoted list "outlook.office.com","outlook.office365.com" -->
+    <URLs></URLs>
+    <!-- List of resolvers to test CNAMES ie "dns1.mydomain.com","8.8.8.8" -->
+    <Resolvers></Resolvers>
+    <!-- List of descriptions matching the above resolvers ie "Internal DNS","Google DNS" -->
+    <ResolverDesc></ResolverDesc>
+  </CNAME>
   <Proxy>
     <!-- Proxy settings if required-->
     <!-- Use proxy values: true/false-->
