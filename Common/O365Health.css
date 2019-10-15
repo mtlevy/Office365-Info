@@ -673,6 +673,18 @@ div.dash-inner {
     max-width: 120px;
 }
 
+
+p.recentCname {
+    display: inline;
+}
+
+
+p.newCname {
+    display: inline;
+    color: white;
+    background: #72a555;
+}
+
 span {
     width: 100%;
 }

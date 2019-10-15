@@ -1715,7 +1715,10 @@ if ($cnameenabled) {
             $rptCNAMEInfo += "<div class='tableCname-cell-dom'>$($cname.domain)</div>`r`n"
             foreach ($dns in $cnameresolvers) {
                 $spotted = $cnames | Where-Object { $_.resolver -like $dns -and $_.monitor -like $url -and $_.namehost -like $cname.namehost }
-                $rptCNAMEInfo += "<div class='tableCname-cell-dtf'>$(get-date $spotted.addedDate -Format 'dd-MMM-yy HH:mm')</div>`r`n"
+                    if ((get-date $spotted.addedDate) -lt ((get-date).addhours(-48))) { $fontcolour = "<p>" }
+                    elseif ((get-date $spotted.addedDate) -lt ((get-date).addhours(-24))) { $fontcolour = "<p class='recentCname'>" }
+                    else { $fontcolour = "<p class='newCname'>" }
+                $rptCNAMEInfo += "<div class='tableCname-cell-dtf'>$($fontcolour)$(get-date $spotted.addedDate -Format 'dd-MMM-yy HH:mm')</p></div>`r`n"
                 if ($spotted.lastdate) {
                     if ((get-date $spotted.lastdate) -lt ((get-date).addhours(-12))) { $fontcolour = "<p class='error'>" }
                     elseif ((get-date $spotted.lastdate) -lt ((get-date).addhours(-4))) { $fontcolour = "<p class='warning'>" }
