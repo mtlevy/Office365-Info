@@ -110,6 +110,7 @@ if (Test-Path $configXML) {
     IPURLHistory        = $xmlExisting.Settings.IPURLs.History
 
     CnameEnabled        = $xmlExisting.Settings.CNAME.Enabled
+    CnameNotes          = ($xmlExisting.Settings.CNAME.Notes).InnerXML
     CnameFilename       = $xmlExisting.Settings.CNAME.Filename
     CnameAlertsTo       = $xmlExisting.Settings.CNAME.AlertsTo
     CnameURLs           = $xmlExisting.Settings.CNAME.URLs
@@ -234,6 +235,8 @@ if (Test-Path $configXML) {
   <CNAME>
     <!-- CNAME checking enabled -->
     <Enabled>$($appSettings.CnameEnabled)</Enabled>
+    <!-- Text to add to Information section. Will be converted to HTML so can include HTML tags-->
+    <Notes>$($appSettings.CnameNotes)</Notes>
     <!-- Filename to pre-pend to IP lookups ie 'CNAMEs' -->
     <Filename>$($appSettings.CnameFilename)</Filename>
     <!-- Where to send change/error detection to. Comma separated quoted list "john@home.com","bob@vader.net" -->

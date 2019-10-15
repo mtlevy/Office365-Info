@@ -25,8 +25,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)] [String]$configXML = "..\config\profile-test.xml",
-    [Parameter(Mandatory = $false)] [ValidateSet("D7","D30","D90","D180")][String]$ReportTimeSpan = "D7",
-    [Parameter(Mandatory = $false)] [ValidateSet("All","UserDetail")][String]$ReportType = "UserDetail"
+    [Parameter(Mandatory = $false)] [ValidateSet("D7", "D30", "D90", "D180")][String]$ReportTimeSpan = "D7",
+    [Parameter(Mandatory = $false)] [ValidateSet("All", "UserDetail")][String]$ReportType = "UserDetail"
 )
 
 $swScript = [system.diagnostics.stopwatch]::StartNew()
@@ -262,10 +262,9 @@ $Period = $ReportTimeSpan
 $evtMessage = $null
 $evtLogAll = $null
 $i = 0
-switch ($ReportType)
-{
-	"All" {$UsageReports=$rptsAllUsage}
-	"UserDetail" {$UsageReports=$rptsUserDetails}
+switch ($ReportType) {
+    "All" { $UsageReports = $rptsAllUsage }
+    "UserDetail" { $UsageReports = $rptsUserDetails }
 }
 
 

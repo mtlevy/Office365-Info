@@ -158,6 +158,7 @@ function LoadConfig {
         IPURLHistory        = $configFile.Settings.IPURLs.History
     
         CnameEnabled        = $configFile.Settings.CNAME.Enabled
+        CnameNotes          = ($configfile.Settings.CNAME.Notes).InnerXML
 		CnameFilename       = $configFile.Settings.CNAME.Filename
         CnameAlertsTo       = $configFile.Settings.CNAME.AlertsTo
 		CnameURLs           = $configFile.Settings.CNAME.URLs
