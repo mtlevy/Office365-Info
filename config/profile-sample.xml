@@ -93,9 +93,27 @@
     <!-- Refresh interval in minutes-->
     <Refresh></Refresh>
   </Diagnostics>
+  <RSSFeeds>
+    <!-- Microsoft 365 RSS Feed settings-->
+    <F1>
+      <Enabled>true</Enabled>
+      <Name>Microsoft 365 Roadmap</Name>
+      <Feed>https://www.microsoft.com/en-gb/microsoft-365/RoadmapFeatureRSS</Feed>
+      <URL>https://www.microsoft.com/en-gb/microsoft-365/roadmap</URL>
+      <!-- Maximum number of items to return if feed provides more -->
+      <Items>30</Items>
+    </F1>
+    <!-- Azure Updates RSS Feed settings-->
+    <F2>
+      <Enabled>true</Enabled>
+      <Name>Azure Updates</Name>
+      <Feed>https://azurecomcdn.azureedge.net/en-gb/updates/feed/</Feed>
+      <URL>https://azure.microsoft.com/en-gb/updates/</URL>
+      <!-- Maximum number of items to return if feed provides more -->
+      <Items>30</Items>
+    </F2>
+  </RSSFeeds>
   <IPURLs>
-    <!-- Maximum number of items to return if feed provides more -->
-    <MaxFeedItems>30</MaxFeedItems>
     <Path></Path>
     <!-- Where to send updates to IP and URLs to. Comma separated quoted list "john@home.com","bob@vader.net"-->
     <AlertsTo></AlertsTo>

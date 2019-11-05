@@ -102,7 +102,19 @@ if (Test-Path $configXML) {
     DiagnosticsVerbose  = $xmlExisting.Settings.Diagnostics.Verbose
     DiagnosticsRefresh  = $xmlExisting.Settings.Diagnostics.Refresh
 
-    MaxFeedItems        = $xmlExisting.Settings.IPURLs.MaxFeedItems
+    RSS1Enabled         = $xmlExisting.Settings.RSSFeeds.F1.Enabled
+    RSS1Name            = $xmlExisting.Settings.RSSFeeds.F1.Name
+    RSS1Feed            = $xmlExisting.Settings.RSSFeeds.F1.Feed
+    RSS1URL             = $xmlExisting.Settings.RSSFeeds.F1.URL
+    RSS1Items           = $xmlExisting.Settings.RSSFeeds.F1.Items
+
+    RSS2Enabled         = $xmlExisting.Settings.RSSFeeds.F2.Enabled
+    RSS2Name            = $xmlExisting.Settings.RSSFeeds.F2.Name
+    RSS2Feed            = $xmlExisting.Settings.RSSFeeds.F2.Feed
+    RSS2URL             = $xmlExisting.Settings.RSSFeeds.F2.URL
+    RSS2Items           = $xmlExisting.Settings.RSSFeeds.F2.Items
+
+
     IPURLsPath          = $xmlExisting.Settings.IPURLs.Path
     IPURLsAlertsTo      = $xmlExisting.Settings.IPURLs.AlertsTo
     IPURLsNotesFilename = $xmlExisting.Settings.IPURLs.NotesFilename
@@ -115,7 +127,7 @@ if (Test-Path $configXML) {
     CnameAlertsTo       = $xmlExisting.Settings.CNAME.AlertsTo
     CnameURLs           = $xmlExisting.Settings.CNAME.URLs
     CnameResolvers      = [string[]]$xmlExisting.Settings.CNAME.Resolvers
-	CnameResolverDesc   = [string[]]$xmlExisting.Settings.CNAME.ResolverDesc
+    CnameResolverDesc   = [string[]]$xmlExisting.Settings.CNAME.ResolverDesc
     
     UseProxy            = $xmlExisting.Settings.Proxy.UseProxy
     ProxyHost           = $xmlExisting.Settings.Proxy.ProxyHost
@@ -219,9 +231,27 @@ if (Test-Path $configXML) {
     <!-- Refresh interval in minutes-->
     <Refresh>$($appSettings.DiagnosticsRefresh)</Refresh>
   </Diagnostics>
+  <RSSFeeds>
+    <!-- Microsoft 365 RSS Feed settings-->
+    <F1>
+      <Enabled>$($appSettings.RSS1Enabled)</Enabled>
+      <Name>$($appSettings.RSS1Name)</Name>
+      <Feed>$($appSettings.RSS1Feed)</Feed>
+      <URL>$($appSettings.RSS1URL)</URL>
+      <!-- Maximum number of items to return if feed provides more -->
+      <Items>$($appSettings.RSS1Items)</Items>
+    </F1>
+    <!-- Azure Updates RSS Feed settings-->
+    <F2>
+      <Enabled>$($appSettings.RSS2Enabled)</Enabled>
+      <Name>$($appSettings.RSS2Name)</Name>
+      <Feed>$($appSettings.RSS2Feed)</Feed>
+      <URL>$($appSettings.RSS2URL)</URL>
+      <!-- Maximum number of items to return if feed provides more -->
+      <Items>$($appSettings.RSS2Items)</Items>
+    </F2>
+  </RSSFeeds>
   <IPURLs>
-    <!-- Maximum number of items to return if feed provides more -->
-    <MaxFeedItems>$($appSettings.MaxFeedItems)</MaxFeedItems>
     <Path>$($appSettings.IPURLsPath)</Path>
     <!-- Where to send updates to IP and URLs to. Comma separated quoted list "john@home.com","bob@vader.net"-->
     <AlertsTo>$($appSettings.IPURLsAlertsTo)</AlertsTo>

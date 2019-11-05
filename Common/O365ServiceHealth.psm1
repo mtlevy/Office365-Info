@@ -6,8 +6,8 @@ function saveCredentials {
         [Parameter(Mandatory = $true)] [string]$KeyPath,
         [Parameter(Mandatory = $true)] [string]$CredsPath
     ) 
-	#keypath is path and file name ie c:\credentials\user-tenant.key
-	#credspath is path and file to password ie c:\credentials\user-tenant.pwd
+    #keypath is path and file name ie c:\credentials\user-tenant.key
+    #credspath is path and file to password ie c:\credentials\user-tenant.pwd
     $AESKey = $null
     #Build a key if needed
     if ($CreateKey) {
@@ -149,8 +149,18 @@ function LoadConfig {
         DiagnosticsVerbose  = $configfile.Settings.Diagnostics.Verbose
         DiagnosticsRefresh  = $configfile.Settings.Diagnostics.Refresh
 
+        RSS1Enabled         = $configfile.Settings.RSSFeeds.F1.Enabled
+        RSS1Name            = $configfile.Settings.RSSFeeds.F1.Name
+        RSS1Feed            = $configfile.Settings.RSSFeeds.F1.Feed
+        RSS1URL             = $configfile.Settings.RSSFeeds.F1.URL
+        RSS1Items           = $configfile.Settings.RSSFeeds.F1.Items
 
-        MaxFeedItems        = $configFile.Settings.IPURLs.MaxFeedItems
+        RSS2Enabled         = $configfile.Settings.RSSFeeds.F2.Enabled
+        RSS2Name            = $configfile.Settings.RSSFeeds.F2.Name
+        RSS2Feed            = $configfile.Settings.RSSFeeds.F2.Feed
+        RSS2URL             = $configfile.Settings.RSSFeeds.F2.URL
+        RSS2Items           = $configfile.Settings.RSSFeeds.F2.Items
+
         IPURLsPath          = $configFile.Settings.IPURLs.Path
         IPURLsAlertsTo      = $configFile.Settings.IPURLs.AlertsTo
         IPURLsNotesFilename = $configFile.Settings.IPURLs.NotesFilename
@@ -159,9 +169,9 @@ function LoadConfig {
     
         CnameEnabled        = $configFile.Settings.CNAME.Enabled
         CnameNotes          = ($configfile.Settings.CNAME.Notes).InnerXML
-		CnameFilename       = $configFile.Settings.CNAME.Filename
+        CnameFilename       = $configFile.Settings.CNAME.Filename
         CnameAlertsTo       = $configFile.Settings.CNAME.AlertsTo
-		CnameURLs           = $configFile.Settings.CNAME.URLs
+        CnameURLs           = $configFile.Settings.CNAME.URLs
         CnameResolvers      = [string[]]$configFile.Settings.CNAME.Resolvers
         CnameResolverDesc   = [string[]]$configFile.Settings.CNAME.ResolverDesc
 
@@ -352,7 +362,7 @@ function SendEmail {
         [Parameter(Mandatory = $false)] [string]$strPriority = "Normal",
         [Parameter(Mandatory = $false)] $subject,
         [Parameter(Mandatory = $false)] [string[]]$emailTo,
-        [Parameter(Mandatory = $false)] $attachment=""
+        [Parameter(Mandatory = $false)] $attachment = ""
     ) 
 
     [string]$strSubject = $null
@@ -379,14 +389,14 @@ function SendEmail {
     $strHTMLBody = $strHeader + $strBody + $strSig + $strFooter
     [array]$strTo = $emailTo.Split(",")
     $strTo = $strTo.replace('"', '')
-    if ($null -eq $config.EmailFrom) { break;}
-	#Splat the parameters
-	$params=@{}
-	$params+=@{to=$strTo; subject=$strSubject; body=$strHTMLBody; BodyAsHTML=$true; priority=$strPriority; from=$config.emailfrom; smtpServer=$config.EmailHost; port=$config.emailport}
-	If ($credemail -notlike '') {$params+=@{Credential=$credEmail}}
-	If ($config.EmailUseSSL -eq 'True') {$params+=@{UseSSL=$true}}
-	if ($attachment -ne "") {$params+=@{attachments=$attachment}}
-	Send-MailMessage @params
+    if ($null -eq $config.EmailFrom) { break; }
+    #Splat the parameters
+    $params = @{ }
+    $params += @{to = $strTo; subject = $strSubject; body = $strHTMLBody; BodyAsHTML = $true; priority = $strPriority; from = $config.emailfrom; smtpServer = $config.EmailHost; port = $config.emailport }
+    If ($credemail -notlike '') { $params += @{Credential = $credEmail } }
+    If ($config.EmailUseSSL -eq 'True') { $params += @{UseSSL = $true } }
+    if ($attachment -ne "") { $params += @{attachments = $attachment } }
+    Send-MailMessage @params
 }
 
 function cardBuilder {
@@ -491,7 +501,8 @@ function Get-IncidentInHTML {
     $subMessages = $item | Select-Object -ExpandProperty Messages
     $subMessages = $subMessages | Sort-Object publishedtime -Descending
     $pubWindow = (New-TimeSpan -Start (Get-Date $submessages[0].publishedtime) -End $(Get-Date)).TotalHours
-    if ($pubWindow -le 18 -or $RebuildDocs) {
+    $updWindow = (New-TimeSpan -Start (Get-Date $item.LastUpdatedTime) -End $(Get-Date)).TotalHours
+    if ($pubWindow -le 18 -or $RebuildDocs -or $updWindow -le 72) {
         #Article was updated in the last 2 hours. Lets update it Or force rebuild of docs
         foreach ($message in $subMessages) {
             $htmlBuild = Get-htmlMessage $message.messagetext
@@ -528,7 +539,8 @@ function Get-AdvisoryInHTML {
     $subMessages = $item | Select-Object -ExpandProperty Messages
     $subMessages = $subMessages | Sort-Object publishedtime -Descending
     $pubWindow = (New-TimeSpan -Start (Get-Date $submessages[0].publishedtime) -End $(Get-Date)).TotalHours
-    if ($pubWindow -le 2 -or $RebuildDocs) {
+    $updWindow = (New-TimeSpan -Start (Get-Date $item.LastUpdatedTime) -End $(Get-Date)).TotalHours
+    if ($pubWindow -le 18 -or $RebuildDocs -or $updWindow -le 72) {
         #Article has been updated in the last 2 hours, or force a rebuild of documents
         foreach ($message in $subMessages) {
             $htmlBuild = $message.messagetext

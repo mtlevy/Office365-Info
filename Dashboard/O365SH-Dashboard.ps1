@@ -126,7 +126,22 @@ $prefDashCards = $prefDashCards.Trim()
 
 [string]$proxyHost = $config.ProxyHost
 
-[int]$maxFeedItems = $config.MaxFeedItems
+if ($config.RSS1Enabled -like 'true') {
+    [boolean]$rss1Enabled = $true
+}
+[string]$rss1Name = $config.RSS1Name
+[string]$rss1Feed = $config.RSS1Feed
+[string]$rss1URL = $config.RSS1URL
+[int]$rss1Items = $config.RSS1Items
+
+if ($config.RSS2Enabled -like 'true') {
+    [boolean]$rss2Enabled = $true
+}
+[string]$rss2Name = $config.RSS2Name
+[string]$rss2Feed = $config.RSS2Feed
+[string]$rss2URL = $config.RSS2URL
+[int]$rss2Items = $config.RSS2Items
+
 
 [boolean]$rptOutage = $false
 
@@ -283,7 +298,7 @@ function BuildHTML {
     <button class="tablinks" onclick="openTab(event,'Features')">Features</button>
     <button class="tablinks" onclick="openTab(event,'Incidents')">Incidents</button>
     <button class="tablinks" onclick="openTab(event,'Advisories')">Advisories</button>
-    <button class="tablinks" onclick="openTab(event,'Roadmap')">Office 365 Roadmap</button>
+    <button class="tablinks" onclick="openTab(event,'Roadmap')">Roadmaps</button>
     <button class="tablinks" onclick="openTab(event,'Log')">Log</button>
 </div>
 
@@ -361,11 +376,6 @@ document.getElementById("defaultOpen").click();
 [uri]$uriHistoricalStatus = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/HistoricalStatus"
 #	Returns the messages about the service over a certain time range.
 [uri]$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
-#   Return the messages on the RSS feed for the O365 roadmap
-[uri]$uriO365Roadmap = "https://www.microsoft.com/en-gb/microsoft-365/RoadmapFeatureRSS"
-[uri]$uriM365RoadMap = "https://www.microsoft.com/en-gb/microsoft-365/roadmap"
-#   Return the messages on the RRS feed for Azure Updates
-[uri]$uriAzureUpdates = "https://azurecomcdn.azureedge.net/en-gb/updates/feed/"
 
 #Fetch the information from Office 365 Service Health API
 #Get Services: Get the list of subscribed services
@@ -453,44 +463,48 @@ catch {
     $uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
 }
 
-try {
-    if ($proxyServer) {
-        $Roadmap = @((Invoke-WebRequest -Uri $uriO365Roadmap -Proxy $proxyHost -ProxyUseDefaultCredentials).content)
+if ($rss1Enabled) {
+    try {
+        if ($proxyServer) {
+            $rss1Data = @((Invoke-WebRequest -Uri $rss1Feed -Proxy $proxyHost -ProxyUseDefaultCredentials).content)
+        }
+        else {
+            $rss1Data = @((Invoke-WebRequest -Uri $rss1Feed).content)
+        }
+        if ($null -eq $rss1Data -or $rss1Data.Count -eq 0) {
+            $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No $($rss1Name) RSS Feed information - verify proxy and network connectivity</p><br/>"
+        }
+        else {
+            $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>RSS feed items retrieved for $($rss1Name).</p><br/>"
+        }
     }
-    else {
-        $Roadmap = @((Invoke-WebRequest -Uri $uriO365Roadmap).content)
+    catch {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No $($rss1Name) RSS Feed information - verify proxy and network connectivity</p><br/>"
+        $uriError += "Error connecting to $($rss1URL)<br/><br/>`r`n"
+        $uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
     }
-    if ($null -eq $Roadmap -or $Roadmap.Count -eq 0) {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Office 365 RSS Feed information - verify proxy and network connectivity</p><br/>"
-    }
-    else {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Office 365 Roadmap RSS feed items retrieved.</p><br/>"
-    }
-}
-catch {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Office 365 RSS Feed information - verify proxy and network connectivity</p><br/>"
-    $uriError += "Error connecting to $($uriO365Roadmap)<br/><br/>`r`n"
-    $uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
 }
 
-try {
-    if ($proxyServer) {
-        $AzureUpdates = @((Invoke-WebRequest -Uri $uriAzureUpdates -Proxy $proxyHost -ProxyUseDefaultCredentials).content)
+if ($rss2Enabled) {
+    try {
+        if ($proxyServer) {
+            $rss2Data = @((Invoke-WebRequest -Uri $rss2Feed -Proxy $proxyHost -ProxyUseDefaultCredentials).content)
+        }
+        else {
+            $rss2Data = @((Invoke-WebRequest -Uri $rss2Feed).content)
+        }
+        if ($null -eq $rss2Data -or $rss2Data.Count -eq 0) {
+            $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No $($rss2Name) RSS Feed information - verify proxy and network connectivity</p><br/>"
+        }
+        else {
+            $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>RSS feed items retrieved for $($rss2Name).</p><br/>"
+        }
     }
-    else {
-        $AzureUpdates = @((Invoke-WebRequest -Uri $uriAzureUpdates).content)
+    catch {
+        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No $($rss2Name) RSS Feed information - verify proxy and network connectivity</p><br/>"
+        $uriError += "Error connecting to $($uriAzureUpdates)<br/><br/>`r`n"
+        $uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
     }
-    if ($null -eq $AzureUpdates -or $AzureUpdates.Count -eq 0) {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Azure Updates RSS Feed information - verify proxy and network connectivity</p><br/>"
-    }
-    else {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Azure Updates RSS feed items retrieved.</p><br/>"
-    }
-}
-catch {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Azure Updates RSS Feed information - verify proxy and network connectivity</p><br/>"
-    #$uriError += "Error connecting to $($uriAzureUpdates)<br/><br/>`r`n"
-    #$uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
 }
 
 if ($emailEnabled -and $uriError) {
@@ -950,132 +964,137 @@ $rptSectionFourThree += $rptMessagesTable
 $rptSectionFourThree += "</div></div>`n"
 $divFour += $rptSectionFourThree
 
-#Tab 5 - Office 365 RSS Feed
-$rptSectionFiveOne = "<div class='section'><div class='header'>Microsoft 365 Roadmap</div>`n"
-$rptSectionFiveOne += "<div class='content'>`n"
-$rptSectionFiveOne += "Last $($maxFeedItems) items. Full roadmap can be viewed here: <a href='$($uriM365Roadmap)' target=_blank>$($uriM365Roadmap)</a><br/>`r`n"
-$Roadmap = $Roadmap.replace("ï»¿", "")
-[xml]$content = $Roadmap
-$feed = $content.rss.channel
-$feedMessages = @{ }
-$feedMessages = foreach ($msg in $feed.Item) {
-    $description = $msg.description
-    $description = $description -replace ("`n", '<br>')
-    $description = $description -replace ([char]226, "'")
-    $description = $description -replace ([char]128, "")
-    $description = $description -replace ([char]153, "")
-    $description = $description -replace ([char]162, "")
-    $description = $description -replace ([char]194, "")
-    $description = $description -replace ([char]195, "")
-    $description = $description -replace ([char]8217, "'")
-    $description = $description -replace ([char]8220, '"')
-    $description = $description -replace ([char]8221, '"')
-    $description = $description -replace ('\[', '<b><i>')
-    $description = $description -replace ('\]', '</i></b>')
+#Tab 5 - First RSS Feed
+$rptSectionFiveOne = "<!-- First RSS Feed goes here-->"
+if ($rss1Enabled) {
+    $rptSectionFiveOne += "<div class='section'><div class='header'>$($rss1Name)</div>`n"
+    $rptSectionFiveOne += "<div class='content'>`n"
+    $rptSectionFiveOne += "Last $($rss1Items) items. Full roadmap can be viewed here: <a href='$($rss1URL)' target=_blank>$($rss1URL)</a><br/>`r`n"
+    $rss1Data = $rss1Data.replace("ï»¿", "")
+    [xml]$content = $rss1Data
+    $feed = $content.rss.channel
+    $feedMessages = @{ }
+    $feedMessages = foreach ($msg in $feed.Item) {
+        $description = $msg.description
+        $description = $description -replace ("`n", '<br>')
+        $description = $description -replace ([char]226, "'")
+        $description = $description -replace ([char]128, "")
+        $description = $description -replace ([char]153, "")
+        $description = $description -replace ([char]162, "")
+        $description = $description -replace ([char]194, "")
+        $description = $description -replace ([char]195, "")
+        $description = $description -replace ([char]8217, "'")
+        $description = $description -replace ([char]8220, '"')
+        $description = $description -replace ([char]8221, '"')
+        $description = $description -replace ('\[', '<b><i>')
+        $description = $description -replace ('\]', '</i></b>')
 
-    [PSCustomObject]@{
-        'LastUpdated' = [datetime]$msg.updated
-        'Published'   = [datetime]$msg.pubDate
-        'Description' = $description
-        'Title'       = $msg.Title
-        'Category'    = $msg.Category
-        'Link'        = $msg.link
-    }
-}
-
-$feedMessages = $feedmessages | Sort-Object published -Descending | Select-Object -First $maxFeedItems
-
-if ($feedMessages.count -ge 1) {
-    $rptFeedTable += "<div class='tableFeed'>`n"
-    $rptFeedTable += "<div class='tableFeed-title'>Microsoft 365 RoadMap</div>`n"
-    $rptFeedTable += "<div class='tableFeed-header'>`n`t<div class='tableFeed-header-c'>Tags</div>`n`t<div class='tableFeed-header-c'>Title</div>`n`t<div class='tableFeed-header-c'>Published</div>`n`t<div class='tableFeed-header-c'>Last Updated</div>`n</div>`n"
-    foreach ($item in $feedMessages) {
-        if ($item.LastUpdated) { $LastUpdated = $(Get-Date $item.LastUpdated -f 'dd-MMM-yyyy HH:mm') } else { $StartTime = "" }
-        if ($item.Published) { $Published = $(Get-Date $item.Published -f 'dd-MMM-yyyy HH:mm') } else { $EndTime = "" }
-        $link = $item.Link
-        #Build link to detailed message
-        #$link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
-        if ($item.link) {
-            $ID = "<a href=$($item.link) target=_blank>$($item.Title)</a>"
+        [PSCustomObject]@{
+            'LastUpdated' = [datetime]$msg.updated
+            'Published'   = [datetime]$msg.pubDate
+            'Description' = $description
+            'Title'       = $msg.Title
+            'Category'    = $msg.Category
+            'Link'        = $msg.link
         }
-        else { $ID = "$($item.Title)" }
-        $rptFeedTable += "<div class='tableFeed-row'>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-cat'>$($item.Category -join ', ')</div>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-desc'><p><div class='tableFeed-cell-title'>$($ID)</div></p>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-desc'>$($item.description)</div></div>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($Published)</div>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($LastUpdated)</div>`n`t"
-        $rptFeedTable += "</div>`n"
     }
-    #Close tablefeed
-    $rptFeedTable += "</div>"
+
+    $feedMessages = $feedmessages | Sort-Object published -Descending | Select-Object -First $rss1Items
+
+    if ($feedMessages.count -ge 1) {
+        $rptFeedTable += "<div class='tableFeed'>`n"
+        $rptFeedTable += "<div class='tableFeed-title'>$($rss1Name)</div>`n"
+        $rptFeedTable += "<div class='tableFeed-header'>`n`t<div class='tableFeed-header-c'>Tags</div>`n`t<div class='tableFeed-header-c'>Title</div>`n`t<div class='tableFeed-header-c'>Published</div>`n`t<div class='tableFeed-header-c'>Last Updated</div>`n</div>`n"
+        foreach ($item in $feedMessages) {
+            if ($item.LastUpdated) { $LastUpdated = $(Get-Date $item.LastUpdated -f 'dd-MMM-yyyy HH:mm') } else { $StartTime = "" }
+            if ($item.Published) { $Published = $(Get-Date $item.Published -f 'dd-MMM-yyyy HH:mm') } else { $EndTime = "" }
+            $link = $item.Link
+            #Build link to detailed message
+            #$link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
+            if ($item.link) {
+                $ID = "<a href=$($item.link) target=_blank>$($item.Title)</a>"
+            }
+            else { $ID = "$($item.Title)" }
+            $rptFeedTable += "<div class='tableFeed-row'>`n`t"
+            $rptFeedTable += "<div class='tableFeed-cell-cat'>$($item.Category -join ', ')</div>`n`t"
+            $rptFeedTable += "<div class='tableFeed-cell-desc'><p><div class='tableFeed-cell-title'>$($ID)</div></p>`n`t"
+            $rptFeedTable += "<div class='tableFeed-cell-desc'>$($item.description)</div></div>`n`t"
+            $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($Published)</div>`n`t"
+            $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($LastUpdated)</div>`n`t"
+            $rptFeedTable += "</div>`n"
+        }
+        #Close tablefeed
+        $rptFeedTable += "</div>"
+    }
+    $rptSectionFiveOne += $rptFeedTable
+    $rptSectionFiveOne += "</div></div>`n"
 }
-$rptSectionFiveOne += $rptFeedTable
-$rptSectionFiveOne += "</div></div>`n"
 
 $divFive = $rptSectionFiveOne
 
-$rptSectionFiveTwo = "<div class='section'><div class='header'>Azure Updates</div>`n"
-$rptSectionFiveTwo += "<div class='content'>`n"
+$rptSectionFiveTwo = "<!-- Second RSS Feed goes here-->"
+if ($rss2Enabled) {
+    $rptSectionFiveTwo += "<div class='section'><div class='header'>$($rss2Name)</div>`n"
+    $rptSectionFiveTwo += "<div class='content'>`n"
 
-#Azure Updates URI: https://azurecomcdn.azureedge.net/en-gb/updates/feed/
-$rptSectionFiveTwo += "Last 20 items. Full roadmap can be viewed here: <a href='https://azure.microsoft.com/en-gb/updates/' target=_blank>https://azure.microsoft.com/en-gb/updates/</a><br/>`r`n"
-$AzureUpdates = $AzureUpdates.replace("ï»¿", "")
-[xml]$content = $AzureUpdates
-$feed = $content.rss.channel
-$feedMessages = @{ }
-$feedMessages = foreach ($msg in $feed.Item) {
-    $description = $msg.description
-    $description = $description -replace ("`n", '<br>')
-    $description = $description -replace ([char]226, "'")
-    $description = $description -replace ([char]128, "")
-    $description = $description -replace ([char]153, "")
-    $description = $description -replace ([char]162, "")
-    $description = $description -replace ([char]194, "")
-    $description = $description -replace ([char]195, "")
-    $description = $description -replace ([char]8217, "'")
-    $description = $description -replace ([char]8220, '"')
-    $description = $description -replace ([char]8221, '"')
-    $description = $description -replace ('\[', '<b><i>')
-    $description = $description -replace ('\]', '</i></b>')
+    $rptSectionFiveTwo += "Last $($rss2Items) items. Full roadmap can be viewed here: <a href='$($rss2URL)' target=_blank>$($rss2URL)</a><br/>`r`n"
+    $rss2Data = $rss2Data.replace("ï»¿", "")
+    [xml]$content = $rss2Data
+    $feed = $content.rss.channel
+    $feedMessages = @{ }
+    $feedMessages = foreach ($msg in $feed.Item) {
+        $description = $msg.description
+        $description = $description -replace ("`n", '<br>')
+        $description = $description -replace ([char]226, "'")
+        $description = $description -replace ([char]128, "")
+        $description = $description -replace ([char]153, "")
+        $description = $description -replace ([char]162, "")
+        $description = $description -replace ([char]194, "")
+        $description = $description -replace ([char]195, "")
+        $description = $description -replace ([char]8217, "'")
+        $description = $description -replace ([char]8220, '"')
+        $description = $description -replace ([char]8221, '"')
+        $description = $description -replace ('\[', '<b><i>')
+        $description = $description -replace ('\]', '</i></b>')
 
-    [PSCustomObject]@{
-        'Published'   = [datetime]$msg.pubDate
-        'Description' = $description
-        'Title'       = $msg.Title
-        'Category'    = $msg.Category
-        'Link'        = $msg.link
-    }
-}
-
-$feedMessages = $feedmessages | Sort-Object published -Descending | Select-Object -First $maxFeedItems
-$rptFeedTable = $null
-if ($feedMessages.count -ge 1) {
-    $rptFeedTable += "<div class='tableFeed'>`n"
-    $rptFeedTable += "<div class='tableFeed-title'>Azure Updates</div>`n"
-    $rptFeedTable += "<div class='tableFeed-header'>`n`t<div class='tableFeed-header-c'>Tags</div>`n`t<div class='tableFeed-header-c'>Title</div>`n`t<div class='tableFeed-header-c'>Published</div>`n`t</div>`n"
-    foreach ($item in $feedMessages) {
-        if ($item.Published) { $Published = $(Get-Date $item.Published -f 'dd-MMM-yyyy HH:mm') } else { $EndTime = "" }
-        $link = $item.Link
-        #Build link to detailed message
-        #$link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
-        if ($item.link) {
-            $ID = "<a href=$($item.link) target=_blank>$($item.Title)</a>"
+        [PSCustomObject]@{
+            'Published'   = [datetime]$msg.pubDate
+            'Description' = $description
+            'Title'       = $msg.Title
+            'Category'    = $msg.Category
+            'Link'        = $msg.link
         }
-        else { $ID = "$($item.Title)" }
-        $rptFeedTable += "<div class='tableFeed-row'>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-cat'>$($item.Category -join ' | ')</div>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-desc'><p><div class='tableFeed-cell-title'>$($ID)</div></p>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-desc'>$($item.description)</div></div>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($Published)</div>`n`t"
-        $rptFeedTable += "</div>`n"
     }
-    #Close tablefeed
-    $rptFeedTable += "</div>"
-}
 
-$rptSectionFiveTwo += $rptFeedTable
-$rptSectionFiveTwo += "</div></div>`n"
+    $feedMessages = $feedmessages | Sort-Object published -Descending | Select-Object -First $rss2Items
+    $rptFeedTable = $null
+    if ($feedMessages.count -ge 1) {
+        $rptFeedTable += "<div class='tableFeed'>`n"
+        $rptFeedTable += "<div class='tableFeed-title'>$($rss2Name)</div>`n"
+        $rptFeedTable += "<div class='tableFeed-header'>`n`t<div class='tableFeed-header-c'>Tags</div>`n`t<div class='tableFeed-header-c'>Title</div>`n`t<div class='tableFeed-header-c'>Published</div>`n`t</div>`n"
+        foreach ($item in $feedMessages) {
+            if ($item.Published) { $Published = $(Get-Date $item.Published -f 'dd-MMM-yyyy HH:mm') } else { $EndTime = "" }
+            $link = $item.Link
+            #Build link to detailed message
+            #$link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
+            if ($item.link) {
+                $ID = "<a href=$($item.link) target=_blank>$($item.Title)</a>"
+            }
+            else { $ID = "$($item.Title)" }
+            $rptFeedTable += "<div class='tableFeed-row'>`n`t"
+            $rptFeedTable += "<div class='tableFeed-cell-cat'>$($item.Category -join ' | ')</div>`n`t"
+            $rptFeedTable += "<div class='tableFeed-cell-desc'><p><div class='tableFeed-cell-title'>$($ID)</div></p>`n`t"
+            $rptFeedTable += "<div class='tableFeed-cell-desc'>$($item.description)</div></div>`n`t"
+            $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($Published)</div>`n`t"
+            $rptFeedTable += "</div>`n"
+        }
+        #Close tablefeed
+        $rptFeedTable += "</div>"
+    }
+
+    $rptSectionFiveTwo += $rptFeedTable
+    $rptSectionFiveTwo += "</div></div>`n"
+}
 $divFive += $rptSectionFiveTwo
 
 $rptSectionFiveThree = "<div class='section'><div class='header'>Useful Blogs</div>`n"

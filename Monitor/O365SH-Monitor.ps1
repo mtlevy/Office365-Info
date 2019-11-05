@@ -101,6 +101,10 @@ $cnameResolvers = $cnameResolvers.Trim()
 $cnameResolverDesc = $cnameResolverDesc.Replace('"', '')
 $cnameResolverDesc = $cnameResolverDesc.Trim()
 
+    if ($cnameresolvers[0] -eq "") {
+        $cnameResolvers = @(Get-DnsClientServerAddress | Sort-Object interfaceindex | Select-Object -ExpandProperty serveraddresses | Where-Object { $_ -like '*.*' } | Select-Object -First 1)
+        $cnameResolverDesc = @("Default")
+    }
 
 
 #Configure local event log

@@ -117,10 +117,17 @@ $cnameURLs = $cnameURLs.Trim()
 [string[]]$cnameResolvers = $config.CNAMEResolvers.split(",")
 $cnameResolvers = $cnameResolvers.Replace('"', '')
 $cnameResolvers = $cnameResolvers.Trim()
+
 [string[]]$cnameResolverDesc = $config.CNAMEResolverDesc.split(",")
 $cnameResolverDesc = $cnameResolverDesc.Replace('"', '')
 $cnameResolverDesc = $cnameResolverDesc.Trim()
 [string]$cnameNotes = $config.CnameNotes
+
+    if ($cnameresolvers[0] -eq "") {
+        $cnameResolvers = @(Get-DnsClientServerAddress | Sort-Object interfaceindex | Select-Object -ExpandProperty serveraddresses | Where-Object { $_ -like '*.*' } | Select-Object -First 1)
+        $cnameResolverDesc = @("Default")
+    }
+
 
 
 [string[]]$emailIPURLAlerts = $config.IPURLsAlertsTo
