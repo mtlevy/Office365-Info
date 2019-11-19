@@ -93,104 +93,89 @@ else { [boolean]$UseEventLog = $false }
 [string]$tenantID = $config.TenantID
 [string]$appID = $config.AppID
 [string]$clientSecret = $config.AppSecret
+[string]$emailEnabled = $config.EmailEnabled
 [string]$SMTPUser = $config.EmailUser
 [string]$SMTPPassword = $config.EmailPassword
 [string]$SMTPKey = $config.EmailKey
 
-[string]$addLink = $config.DashboardAddLink
-[string]$rptName = $config.DashboardName
-[int]$pageRefresh = $config.DashboardRefresh
-[int]$IncidentDays = $config.DashboardHistory
-#Dashboard cards
-[string[]]$dashCards = $config.DashboardCards.split(",")
-$dashCards = $dashCards.Replace('"', '')
-$dashCards = $dashCards.Trim()
-
-#Prefered cards for features
-[string[]]$prefDashCards = $config.WallDashCards.split(",")
-$prefDashCards = $prefDashCards.Replace('"', '')
-$prefDashCards = $prefDashCards.Trim()
+[string]$HTMLFile = $config.DiagnosticsHTML
+[string]$rptName = $config.DiagnosticsName
+[int]$pageRefresh = $config.DiagnosticsRefresh
 
 [string]$rptProfile = $config.TenantShortName
 [string]$rptTenantName = $config.TenantName
 
 [string]$pathLogs = $config.LogPath
 [string]$pathHTML = $config.HTMLPath
-[string]$HTMLFile = $config.DashboardHTML
-[string]$emailDashAlertsTo = $config.DashboardAlertsTo
-[string]$pathIPURLs = $config.IPURLPath
+[string]$pathIPURLs = $config.IPURLsPath
+[string]$pathWorking = $config.WorkingPath
 
-[string[]]$emailIPURLAlerts = $config.IPURLAlertsTo
+[string]$cnameFilename = $config.CNAMEFilename
+[string[]]$cnameURLs = $config.CNAMEUrls.split(",")
+$cnameURLs = $cnameURLs.Replace('"', '')
+$cnameURLs = $cnameURLs.Trim()
+[string[]]$cnameResolvers = $config.CNAMEResolvers.split(",")
+$cnameResolvers = $cnameResolvers.Replace('"', '')
+$cnameResolvers = $cnameResolvers.Trim()
 
+[string[]]$cnameResolverDesc = $config.CNAMEResolverDesc.split(",")
+$cnameResolverDesc = $cnameResolverDesc.Replace('"', '')
+$cnameResolverDesc = $cnameResolverDesc.Trim()
+[string]$cnameNotes = $config.CnameNotes
+
+if ($cnameresolvers[0] -eq "") {
+    $cnameResolvers = @(Get-DnsClientServerAddress | Sort-Object interfaceindex | Select-Object -ExpandProperty serveraddresses | Where-Object { $_ -like '*.*' } | Select-Object -First 1)
+    $cnameResolverDesc = @("Default")
+}
+
+
+
+[string[]]$emailIPURLAlerts = $config.IPURLsAlertsTo
+[string]$fileIPURLsNotes = "$($config.IPURLsNotesFilename)-$($rptProfile).csv"
+[string]$fileIPURLsNotesAll = "$($config.IPURLsNotesFilename)All-$($rptProfile).csv"
+[string]$fileCustomNotes = "$($config.CustomNotesFilename)-$($rptProfile).csv"
+[int]$IPURLHistory = $config.IPURLHistory
 [string]$proxyHost = $config.ProxyHost
+[array]$customURLs = @()
 
+if ($IPURLHistory -le 1) { $IPURLHistory = 6 }
 #Check diagnostics and save as boolean
 if ($config.DiagnosticsWeb -like 'true') { [boolean]$diagWeb = $true } else { [boolean]$diagWeb = $false }
 if ($config.DiagnosticsPorts -like 'true') { [boolean]$diagPorts = $true } else { [boolean]$diagPorts = $false }
 if ($config.DiagnosticsURLs -like 'true') { [boolean]$diagURLs = $true } else { [boolean]$diagURLs = $false }
 if ($config.DiagnosticsVerbose -like 'true') { [boolean]$diagVerbose = $true } else { [boolean]$diagVerbose = $false }
+if ($config.EmailEnabled -like 'true') { [boolean]$emailEnabled = $true } else { [boolean]$emailEnabled = $false }
+
 [string]$diagNotes = $config.DiagnosticsNotes
 
-[int]$maxFeedItems = $config.MaxFeedItems
 
 [boolean]$rptOutage = $false
+[boolean]$fileMissing = $false
 
 [string]$cssfile = ".\O365Health.css"
 
 # Get Email credentials
 # Check for a username. No username, no need for credentials (internal mail host?)
 [PSCredential]$emailCreds = $null
-if ($smtpuser -notlike '') {
+if ($emailEnabled -and $smtpuser -notlike '') {
     #Email credentials have been specified, so build the credentials.
     #See readme on how to build credentials files
     $EmailCreds = getCreds $SMTPUser $SMTPPassword $SMTPKey
 }
 
 
-#If no path has been specified, use the current script location
-if (!$pathLogs) {
-    $pathLogs = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
-}
-if (!$pathIPURLs) {
-    $pathIPURLs = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
-}
-
-
-#Check and trim the report path
-$pathLogs = $pathLogs.TrimEnd("\")
-$pathHTML = $pathHTML.TrimEnd("\")
-$pathIPURLs = $pathIPURLs.TrimEnd("\")
-
-#Build and Check output directories
-#Base for logs
-if (!(Test-Path $($pathLogs))) {
-    New-Item -ItemType Directory -Path $pathLogs
-}
-#HTML directory for output main page
-if (!(Test-Path $($pathHTML))) {
-    New-Item -ItemType Directory -Path "$($pathHTML)"
-}
-#Document directory for messages and article documents
-$pathHTMLDocs = "$($pathHTML)\Docs"
-if (!(Test-Path $($pathHTMLDocs))) {
-    New-Item -ItemType Directory -Path "$($pathHTMLDocs)"
-}
-#IP and URL file storage
-if (!(Test-Path $($pathIPURLs))) {
-    New-Item -ItemType Directory -Path $pathIPURLs
-}
-
-if ([system.IO.path]::IsPathRooted($pathLogs) -eq $false) {
-    #its not an absolute path. Find the absolute path
-    $pathLogs = Resolve-Path $pathLogs
-}
+#Check the various file paths, set default, create and make absolute reference if necessary
+$pathLogs = CheckDirectory $pathLogs
+$pathHTML = CheckDirectory $pathHTML
+$pathIPURLs = CheckDirectory $pathIPURLs
+$pathWorking = CheckDirectory $pathWorking
 
 # setup the logfile
 # If logfile exists, the set flag to keep logfile
-$script:DailyLogFile = "$($pathLogs)\O365Dashboard-$($rptprofile)-$(Get-Date -format yyMMdd).log"
-$script:LogFile = "$($pathLogs)\tmpO365Dashboard-$($rptprofile)-$(Get-Date -format yyMMddHHmmss).log"
+$script:DailyLogFile = "$($pathLogs)\O365Toolbox-$($rptprofile)-$(Get-Date -format yyMMdd).log"
+$script:LogFile = "$($pathLogs)\tmpO365Toolbox-$($rptprofile)-$(Get-Date -format yyMMddHHmmss).log"
 $script:LogInitialized = $false
-$script:FileHeader = "*** Application Information ***"
+$script:FileHeader = "*** Toolbox Information ***"
 
 $evtMessage = "Config File: $($configXML)"
 Write-Log $evtMessage
@@ -198,6 +183,8 @@ $evtMessage = "Log Path: $($pathLogs)"
 Write-Log $evtMessage
 $evtMessage = "HTML Output: $($pathHTML)"
 Write-Log $evtMessage
+
+if ($config.CNAMEEnabled -like 'true') { [boolean]$cnameEnabled = $true } else { [boolean]$cnameEnabled = $false }
 
 #Create event logs if set
 if ($UseEventLog) {
@@ -228,17 +215,20 @@ ConnectAzureAD
 $authContext = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext" -ArgumentList $authority
 $clientCredential = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.ClientCredential" -ArgumentList $appId, $clientSecret
 $authenticationResult = ($authContext.AcquireTokenAsync($urlOrca, $clientCredential)).Result;
-$bearerToken = $authenticationResult.AccessToken
+# $bearerToken = $authenticationResult.AccessToken
 if ($null -eq $authenticationResult) {
     $evtMessage = "ERROR - No authentication result for Auzre AD App"
     Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 1 -EntryType Error
     Write-Log $evtMessage
 }
 
-$authHeader = @{
-    'Content-Type'  = 'application/json'
-    'Authorization' = "Bearer " + $bearerToken
-}
+# $authHeader = @{
+#     'Content-Type'  = 'application/json'
+#     'Authorization' = "Bearer " + $bearerToken
+# }
+#Now remove any system default proxy in order to test no-proxy paths.
+$defaultproxy = [System.Net.WebProxy]::GetDefaultProxy()
+[System.Net.GlobalProxySelection]::Select = [System.Net.GlobalProxySelection]::GetEmptyWebProxy()
 
 function EnsureAzureADModule() {
     # Query for installed Azure AD modules
@@ -284,9 +274,7 @@ function BuildHTML {
         [Parameter(Mandatory = $true)] $contentThree,
         [Parameter(Mandatory = $true)] $contentFour,
         [Parameter(Mandatory = $true)] $contentFive,
-        [Parameter(Mandatory = $true)] $contentSix,
-        [Parameter(Mandatory = $true)] $contentSeven,
-        [Parameter(Mandatory = $true)] $contentEight,
+        [Parameter(Mandatory = $true)] $contentLast,
         [Parameter(Mandatory = $true)] $swStopWatch,
         [Parameter(Mandatory = $true)] $HTMLOutput
     )
@@ -309,54 +297,56 @@ function BuildHTML {
 "@
 
     $htmlBody = @"
-
 <body>
     <p>Page refreshed: <span id="datetime"></span><span>&nbsp;&nbsp;Data refresh: $(Get-Date -f 'dd-MMM-yyyy HH:mm:ss')</span></p>
 	<div class="tab">
-    <button class="tablinks" onclick="openTab(event,'Overview')" id="defaultOpen">Overview</button>
-    <button class="tablinks" onclick="openTab(event,'Features')">Features</button>
-    <button class="tablinks" onclick="openTab(event,'Incidents')">Incidents</button>
-    <button class="tablinks" onclick="openTab(event,'Advisories')">Advisories</button>
+    <button class="tablinks" onclick="openTab(event,'Diagnostics')" id="defaultOpen">Diagnostics</button>
     <button class="tablinks" onclick="openTab(event,'Licences')">Licences</button>
-    <button class="tablinks" onclick="openTab(event,'Diagnostics')">Diagnostics</button>
     <button class="tablinks" onclick="openTab(event,'IPsandURLs')">IPs and URLs</button>
-    <button class="tablinks" onclick="openTab(event,'Roadmap')">Office 365 Roadmap</button>
+    <button class="tablinks" onclick="openTab(event,'URLs')">URLs</button>
+"@
+
+    if ($cnameenabled) {
+        $htmlBody += @"
+    <button class="tablinks" onclick="openTab(event,'CNAMEs')">CNAMEs</button>
+"@
+    }
+
+    $htmlBody += @"
+    <button class="tablinks" onclick="openTab(event,'Logs')">Logs</button>
 </div>
 
 <!-- Tab content -->
-<div id="Overview" class="tabcontent">
+<div id="Diagnostics" class="tabcontent">
     $($contentOne)
 </div>
 
-<div id="Features" class="tabcontent">
+<div id="Licences" class="tabcontent">
     $($contentTwo)
 </div>
 
-<div id="Incidents" class="tabcontent">
+<div id="IPsandURLs" class="tabcontent">
     $($contentThree)
 </div>
 
-<div id="Advisories" class="tabcontent">
+<div id="URLs" class="tabcontent">
     $($contentFour)
 </div>
+"@
 
-<div id="Licences" class="tabcontent">
+    if ($cnameenabled) {
+        $htmlBody += @"
+<div id="CNAMEs" class="tabcontent">
     $($contentFive)
 </div>
-
-<div id="Diagnostics" class="tabcontent">
-    $($contentSix)
-</div>
-
-<div id="IPsandURLs" class="tabcontent">
-    $($contentSeven)
-</div>
-
-<div id="Roadmap" class="tabcontent">
-    $($contentEight)
-</div>
-
 "@
+    }
+    $htmlBody += @"
+<div id="Logs" class="tabcontent">
+    $($contentLast)
+</div>
+"@
+
     $htmlFooter = @"
 <script>
 var dt = new Date();
@@ -394,6 +384,102 @@ $($scriptRuntime)
 
     $htmlReport = $htmlHeader + $addJava + $htmlBody + $htmlFooter
     $htmlReport | Out-File "$($pathHTML)\$($HTMLOutput)"
+}
+
+function ipURLChanges {
+    Param(
+        [Parameter(Mandatory = $true)] [array]$changesList,
+        [Parameter(Mandatory = $true)] [array]$changesIDX,
+        [Parameter(Mandatory = $true)] [array]$changesEPSIDX,
+        [Parameter(Mandatory = $true)] [array]$changesFlat,
+        [Parameter(Mandatory = $true)] [int]$expandCount
+    )
+
+    $ipHistoryHTML = ""
+    $ipHistoryCnt = 0
+    foreach ($change in $changesList) {
+        $ipHistoryCnt++
+        $changesLast = @($changesIDX | Where-Object { $_.version -In $change.version })
+        $inputID = "collapsible$($ipHistoryCnt)"
+        $ipHistoryHTML += "<div class='wrap-collabsible'>`r`n"
+        $ipHistoryHTML += "<input id='$($InputID)' class='toggle' type='checkbox'"
+        if ($ipHistoryCnt -le $expandCount) { $ipHistoryHTML += " checked>" } else { $ipHistoryHTML += ">" }
+        $ipHistoryHTML += "<label for='$($inputID)' class='lbl-toggle'>Version: $(Get-Date $change.VersionDate -Format 'dd-MMM-yyyy') : $($changeslast.count) item(s)</label>`r`n"
+        $ipHistoryHTML += "<div class='collapsible-content'><div class='content-inner'>`r`n"
+        $ipHistoryHTML += "<div class='tableInc'>`r`n"
+        $ipHistoryHTML += "<div class='tableInc-header'>`r`n"
+        $ipHistoryHTML += "<div class='tableInc-header-l'>Service Area</div>`r`n"
+        $ipHistoryHTML += "<div class='tableInc-header-l'>Disposition</div>`r`n<div class='tableInc-header-l'>Impact</div>`r`n"
+        $ipHistoryHTML += "<div class='tableInc-header-l' style='max-width:250px'>Add</div>`r`n<div class='tableInc-header-l' style='max-width:250px'>Remove</div>`r`n"
+        $ipHistoryHTML += "<div class='tableInc-header-l' style='max-width:150px'>Current</div>`r`n`<div class='tableInc-header-l' style='max-width:150px'>Previous</div>`r`n"
+        $ipHistoryHTML += "</div>`r`n"
+
+        $ipHistory = ""
+        foreach ($item in $changesLast) {
+            $ipHistory += "<div class='tableInc-row'>"
+            $serviceArea = ($changesEPSIDX | Where-Object { $item.endpointsetid -eq $_.id }).ServiceArea
+            $ipHistory += "<div class='tableInc-cell-l'>[$($item.endpointsetid)] $($serviceArea)</div>`n`t"
+            $ipHistory += "<div class='tableInc-cell-l'>$($item.disposition)</div>`n`t"
+            switch ($item.impact) {
+                "RemovedIpOrUrl" { $desc = "Removed IP or URL" }
+                "AddedIP" { $desc = "Added IP" }
+                "AddedUrl" { $desc = "Added URL" }
+                "RemovedDuplicateIpOrUrl" { $desc = "Removed Duplicate IP or URL" }
+            }
+            $ipHistory += "<div class='tableInc-cell-l'>$($desc)</div>`n`t"
+        
+            #Get IP and URL changes
+            $entry = @()
+            $addED, $addIP, $addURL = $null
+            $remIP, $remURL = $null
+            $entry = @($changesFlat | Where-Object { $_.id -eq $item.id -and $_.action -like 'Add' })
+            if ($null -ne $entry.effectivedate) {
+                if ((Get-Date $entry.effectivedate) -gt (Get-Date)) { $colour = "<font color='red'>" } else { $colour = "<font color='green'>" }
+                $addED = "<b>Effective Date:</b> $($colour)<b>$($entry.effectivedate)</b></font><br/>"
+            }
+            if (!([string]::IsNullOrEmpty($entry.IPs))) { $addIP = "<b>Add IPs:</b> $($entry.ips)<br/>" }
+            if (!([string]::IsNullOrEmpty($entry.urls))) { $addURL = "<b>Add URLs:</b> $($entry.urls)" }
+            $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($addED)$($addIP)$($addURL)</div>`n`t"
+
+            $entry = @()
+            $addED, $addIP, $addURL = $null
+            $remIP, $remURL = $null
+            $entry = @($changesFlat | Where-Object { $_.id -eq $item.id -and $_.action -like 'Remove' })
+            if (!([string]::IsNullOrEmpty($entry.ips))) { $remIP = "<b>Remove IPs:</b> $($entry.ips)<br/>" }
+            if (!([string]::IsNullOrEmpty($entry.urls))) { $remURL = "<b>Remove URLs:</b> $($entry.urls)" }
+            $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($remIP)$($remURL)</div>`n`t"
+            $itemEP, $itemSA, $itemCat, $itemRqd, $itemTCP, $itemUDP, $itemNotes = ""
+            $itemCur = ($item.current -replace '@{' -replace '}').Split(";") | ConvertFrom-StringData
+            if ($item.Current) {
+                if ($null -ne $itemCur.expressroute) { $itemEP = "<b>Express Route:</b> $($itemCur.expressroute)<br/>" }
+                if ($null -ne $itemCur.serviceArea) { $itemSA = "<b>Service Area:</b> $($itemCur.serviceArea)<br/>" }
+                if ($null -ne $itemCur.category) { $itemCat = "<b>Category:</b> $($itemCur.category)<br/>" }
+                if ($null -ne $itemCur.required) { $itemRqd = "<b>Required:</b> $($itemCur.required)<br/>" }
+                if ($null -ne $itemCur.tcpPorts) { $itemTCP = "<b>TCP Ports:</b> $($itemCur.tcpPorts)<br/>" }
+                if ($null -ne $itemCur.udpPorts) { $itemUDP = "<b>UDP Ports:</b> $($itemCur.udpPorts)<br/>" }
+                if ($null -ne $itemCur.notes) { $itemNotes = "<b>Notes:</b> $($itemCur.Notes)<br/>" }
+            }
+            $ipHistory += "<div class='tableInc-cell-l' style='max-width:150px'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</div>`n`t"
+
+            $itemEP, $itemSA, $itemCat, $itemRqd, $itemTCP, $itemUDP, $itemNotes = ""
+            $itemPre = ($item.Previous -replace '@{' -replace '}').Split(";") | ConvertFrom-StringData
+            if ($item.Previous) {
+                if ($null -ne $itemPre.expressroute) { $itemEP = "<b>Express Route:</b> $($itemPre.expressroute)<br/>" }
+                if ($null -ne $itemPre.serviceArea) { $itemSA = "<b>Service Area:</b> $($itemPre.serviceArea)<br/>" }
+                if ($null -ne $itemPre.category) { $itemCat = "<b>Category:</b> $($itemPre.category)<br/>" }
+                if ($null -ne $itemPre.required) { $itemRqd = "<b>Required:</b> $($itemPre.required)<br/>" }
+                if ($null -ne $itemPre.tcpPorts) { $itemTCP = "<b>TCP Ports:</b> $($itemPre.tcpPorts)<br/>" }
+                if ($null -ne $itemPre.udpPorts) { $itemUDP = "<b>UDP Ports:</b> $($itemPre.udpPorts)<br/>" }
+                if ($null -ne $itemPre.notes) { $itemNotes = "<b>Notes:</b> $($itemPre.Notes)<br/>" }
+            }
+            $ipHistory += "<div class='tableInc-cell-l' style='max-width:150px'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</div>`n`t"
+            $ipHistory += "</div>`n"
+        }
+
+        $ipHistoryHTML += $ipHistory
+        $ipHistoryHTML += "</div></div></div></div><br/>`r`n"
+    }
+    return $ipHistoryHTML
 }
 
 
@@ -536,7 +622,7 @@ function OnlineEndPoints {
         $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Seamless SSO Endpoints (TCP:443) DNS Resolution may fail from clients.</p><br/>"
         foreach ($url in $SeamlessSSOEndpoints) {
             try { [array]$ResourceAddresses = (Resolve-DnsName $url -ErrorAction stop -QuickTimeout).IP4Address }
-            catch { $ErrorMesage = $_; $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to resolve host URL $($url).</p><br/>"; Continue }
+            catch { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to resolve host URL $($url).</p><br/>"; Continue }
 		
             foreach ($ip4 in $ResourceAddresses) {
                 try {
@@ -902,19 +988,6 @@ $SkuNames = @{
 }
 
 
-#	Returns the list of subscribed services
-[uri]$uriServices = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Services"
-#	Returns the current status of the service.
-[uri]$uriCurrentStatus = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/CurrentStatus"
-#	Returns the historical status of the service, by day, over a certain time range.
-[uri]$uriHistoricalStatus = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/HistoricalStatus"
-#	Returns the messages about the service over a certain time range.
-[uri]$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
-#   Return the messages on the RSS feed for the O365 roadmap
-[uri]$uriO365Roadmap = "https://www.microsoft.com/en-gb/microsoft-365/RoadmapFeatureRSS"
-#   Return the messages on the RRS feed for Azure Updates
-[uri]$uriAzureUpdates = "https://azurecomcdn.azureedge.net/en-gb/updates/feed/"
-
 #Connect to Microsoft graph and grab the licence information
 # Construct URI
 [uri]$uriToken = "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token"
@@ -926,7 +999,8 @@ $body = @{
     grant_type    = "client_credentials"
 }
 # Get OAuth 2.0 Token
-$tokenRequest = Invoke-WebRequest -Method Post -Uri $uriToken -ContentType "application/x-www-form-urlencoded" -Body $body -UseBasicParsing
+if ($proxyServer) { $tokenRequest = Invoke-WebRequest -Method Post -Uri $uriToken -ContentType "application/x-www-form-urlencoded" -Body $body -UseBasicParsing -Proxy $proxyHost -ProxyUseDefaultCredentials }
+else { $tokenRequest = Invoke-WebRequest -Method Post -Uri $uriToken -ContentType "application/x-www-form-urlencoded" -Body $body -UseBasicParsing }
 # Access Token
 $token = ($tokenRequest.Content | ConvertFrom-Json).access_token
 #	Returns the tenant licence information
@@ -937,82 +1011,6 @@ $token = ($tokenRequest.Content | ConvertFrom-Json).access_token
 #Fetch the information from Office 365 Service Health API
 #Get Services: Get the list of subscribed services
 $uriError = ""
-try {
-    if ($proxyServer) {
-        [array]$allSubscribedMessages = @((Invoke-RestMethod -Uri $uriServices -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value)
-    }
-    else {
-        [array]$allSubscribedMessages = @((Invoke-RestMethod -Uri $uriServices -Headers $authHeader -Method Get).Value)
-    }
-    if ($null -eq $allSubscribedMessages -or $allSubscribedMessages.Count -eq 0) {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Subscribed services returned - verify proxy and network connectivity</p><br/>"
-    }
-    else {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allSubscribedMessages.count) subscribed services returned.</p><br/>"
-    }
-}
-catch {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Subscribed services returned - verify proxy and network connectivity</p><br/>"
-    $uriError += "Error connecting to $($uriservices)<br/><br/>`r`n"
-    $uriError += "Error details:<br/> $($Error[0] | Select-Object *)"
-}
-
-#Get Current Status: Get a real-time view of current and ongoing service incidents and maintenance events
-try {
-    if ($proxyServer) {
-        [array]$allCurrentStatusMessages = @((Invoke-RestMethod -Uri $uriCurrentStatus -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value)
-    }
-    else {
-        [array]$allCurrentStatusMessages = @((Invoke-RestMethod -Uri $uriCurrentStatus -Headers $authHeader -Method Get).Value)
-    }
-    if ($null -eq $allCurrentStatusMessages -or $allCurrentStatusMessages.Count -eq 0) {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Cannot retrieve the current status of services - verify proxy and network connectivity</p><br/>"
-    }
-    else {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allCurrentStatusMessages.count) services and status returned.</p><br/>"
-    }
-}
-catch {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Cannot retrieve the current status of services - verify proxy and network connectivity</p><br/>"
-}
-
-#Get Historical Status: Get a historical view of service health, including service incidents and maintenance events.
-try {
-    if ($proxyServer) {
-        [array]$allHistoricalStatusMessages = @((Invoke-RestMethod -Uri $uriHistoricalStatus -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value)
-    }
-    else {
-        [array]$allHistoricalStatusMessages = @((Invoke-RestMethod -Uri $uriHistoricalStatus -Headers $authHeader -Method Get).Value)
-    }
-    if ($null -eq $allHistoricalStatusMessages -or $allHistoricalStatusMessages.Count -eq 0) {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No historical service health messages retrieved - verify proxy and network connectivity</p><br/>"
-    }
-    else {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allHistoricalStatusMessages.count) historical service health messages returned.</p><br/>"
-    }
-}
-catch {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No historical service health messages retrieved - verify proxy and network connectivity</p><br/>"
-}
-
-#Get Messages: Find Incident, Planned Maintenance, and Message Center communications.
-try {
-    if ($proxyServer) {
-        [array]$allMessages = @((Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get -Proxy $proxyHost -ProxyUseDefaultCredentials).Value)
-    }
-    else {
-        [array]$allMessages = @((Invoke-RestMethod -Uri $uriMessages -Headers $authHeader -Method Get).Value)
-    }
-    if ($null -eq $allMessages -or $allMessages.Count -eq 0) {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No message center messages retrieved - verify proxy and network connectivity</p><br/>"
-    }
-    else {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allMessages.count) message center messages retrieved.</p><br/>"
-    }
-}
-catch {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No message center messages retrieved - verify proxy and network connectivity</p><br/>"
-}
 
 try {
     if ($proxyServer) {
@@ -1032,45 +1030,9 @@ catch {
     $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No licence information retrieved - verify proxy and network connectivity</p><br/>"
 }
 
-try {
-    if ($proxyServer) {
-        $Roadmap = @((Invoke-WebRequest -Uri $uriO365Roadmap -Proxy $proxyHost -ProxyUseDefaultCredentials).content)
-    }
-    else {
-        $Roadmap = @((Invoke-WebRequest -Uri $uriO365Roadmap).content)
-    }
-    if ($null -eq $Roadmap -or $Roadmap.Count -eq 0) {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Office 365 RSS Feed information - verify proxy and network connectivity</p><br/>"
-    }
-    else {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Office 365 Roadmap RSS feed items retrieved.</p><br/>"
-    }
-}
-catch {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Office 365 RSS Feed information - verify proxy and network connectivity</p><br/>"
-}
-
-try {
-    if ($proxyServer) {
-        $AzureUpdates = @((Invoke-WebRequest -Uri $uriAzureUpdates -Proxy $proxyHost -ProxyUseDefaultCredentials).content)
-    }
-    else {
-        $AzureUpdates = @((Invoke-WebRequest -Uri $uriAzureUpdates).content)
-    }
-    if ($null -eq $AzureUpdates -or $AzureUpdates.Count -eq 0) {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Azure Updates RSS Feed information - verify proxy and network connectivity</p><br/>"
-    }
-    else {
-        $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Azure Updates RSS feed items retrieved.</p><br/>"
-    }
-}
-catch {
-    $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No Azure Updates RSS Feed information - verify proxy and network connectivity</p><br/>"
-}
-
-if ($uriError) {
+if ($uriError -and $emaiLEnabled) {
     $emailSubject = "Error(s) retrieving URL(s)"
-    SendReport $uriError $EmailCreds $config "High" $emailSubject $emailDashAlertsTo
+    SendEmail $uriError $EmailCreds $config "High" $emailSubject $emailDashAlertsTo
 }
 
 $rptO365Info += "<br/>You can add some general information in here if needed.<br />"
@@ -1083,13 +1045,26 @@ if ($altLink) { $rptO365Info += "<a href='$($altLink)' target=_blank> here </a><
 #From docs.microsoft.com : https://docs.microsoft.com/en-us/Office365/Enterprise/office-365-ip-web-service
 [uri]$ws = "https://endpoints.office.com"
 $versionpath = $pathIPURLs + "\O365_endpoints_latestversion-$($rptProfile).txt"
-$pathIP4 = $pathIPURLs + "\O365_endpoints_ip4-$($rptProfile).txt"
-$pathIP6 = $pathIPURLs + "\O365_endpoints_ip6-$($rptProfile).txt"
-$pathIPurl = $pathIPURLs + "\O365_endpoints_urls-$($rptProfile).txt"
+$pathIP4 = $pathIPURLs + "\O365_endpoints_ip4-$($rptProfile).csv"
+$pathIP6 = $pathIPURLs + "\O365_endpoints_ip6-$($rptProfile).csv"
+$pathIPurl = $pathIPURLs + "\O365_endpoints_urls-$($rptProfile).csv"
+$pathIPChanges = $pathIPURLs + "\O365_IPChanges-$($rptProfile).csv"
+$pathIPChangeIDX = $pathIPURLs + "\O365_IPChangeIDX-$($rptProfile).csv"
+$pathEndpointSetsIDX = $pathIPURLs + "\O365_EndpointSetsIDX-$($rptProfile).csv"
+
 $fileData = "O365_endpoints_data-$($rptProfile).txt"
 $pathData = $pathIPURLs + "\" + $fileData
 $currentData = $null
-$currentData = Get-Content $pathData
+
+if (Test-Path $pathdata) { $currentData = Get-Content $pathData } else { $fileMissing = $true }
+if (Test-Path $pathIPurl) { $flatUrls = Import-Csv $pathIPurl } else { $fileMissing = $true }
+if (Test-Path $pathIP4) { $flatIp4s = Import-Csv $pathIP4 } else { $fileMissing = $true }
+if (Test-Path $pathIP6) { $flatIp6s = Import-Csv $pathIP6 } else { $fileMissing = $true }
+if (Test-Path $pathIPChanges) { $flatChanges = Import-Csv $pathIPChanges } else { $fileMissing = $true }
+if (Test-Path $pathIPChangeIDX) { $flatChangesIDX = Import-Csv $pathIPChangeIDX } else { $fileMissing = $true }
+if (Test-Path $pathEndpointSetsIDX) { $EndPointSetsIDX = Import-Csv $pathEndpointSetsIDX } else { $fileMissing = $true }
+
+
 
 # fetch client ID and version if version file exists; otherwise create new file and client ID
 if (Test-Path $versionpath) {
@@ -1105,33 +1080,105 @@ else {
 
 # call version method to check the latest version, and pull new data if version number is different
 [uri]$ipurlVersion = "$($ws)/version/Worldwide?clientRequestId=$($clientRequestId)"
-$version = Invoke-RestMethod -Uri ($ipurlVersion)
-if (($version.latest -gt $lastVersion) -or ($null -eq $currentData)) {
+if ($proxyServer) { $version = Invoke-RestMethod -Uri ($ipurlVersion) -Proxy $proxyhost -ProxyUseDefaultCredentials }
+else { $version = Invoke-RestMethod -Uri ($ipurlVersion) }
+if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileMissing) {
     $ipurlOutput += "New version of Office 365 worldwide commercial service instance endpoints detected<br />`r`n"
-    #Send email to users on IP/URL change
-    $emailSubject = "IPs and URLs: New version $($version.latest)"
-    $emailMessage = "new version of Office 365 Worldwide Commercial service instance endpoints"
-    SendReport $emailMessage $EmailCreds $config "Normal" $emailSubject $emailIPURLAlerts
+    #Build changes
+    [uri]$ipurlChanges = "$($ws)/changes/Worldwide/0000000000?ClientRequestId=$($clientRequestId)"
+    if ($proxyServer) { $changes = Invoke-RestMethod -Uri ($ipurlChanges) -Proxy $proxyhost -ProxyUseDefaultCredentials }
+    else { $changes = Invoke-RestMethod -Uri ($ipurlChanges) }
+    #Flatten the IP/URL Changes
+    [array]$allChanges = @()
+    $changes | ForEach-Object {
+        $change = New-Object PSCustomObject
+        $change | Add-Member -MemberType NoteProperty -Name ID -Value $_.ID
+        $change | Add-Member -MemberType NoteProperty -Name endpointSetId -Value $_.endpointSetId
+        $change | Add-Member -MemberType NoteProperty -Name disposition -Value $_.disposition
+        $change | Add-Member -MemberType NoteProperty -Name version -Value $_.version
+        $change | Add-Member -MemberType NoteProperty -Name impact -Value $_.impact
+        $change | Add-Member -MemberType NoteProperty -Name current -Value $_.current
+        $change | Add-Member -MemberType NoteProperty -Name previous -Value $_.previous
+        $change | Add-Member -MemberType NoteProperty -Name add -Value $_.add
+        $change | Add-Member -MemberType NoteProperty -Name remove -Value $_.remove
+        $allChanges += $change
+    }
+    #Index of changes
+    $flatChangesIDX = $changes | ForEach-Object {
+        $changeSet = $_
+        $idxCustomObjects = [PSCustomObject]@{
+            id            = $changeSet.id;
+            endpointSetId = $changeSet.endpointSetId;
+            Disposition   = $changeSet.disposition;
+            version       = $changeSet.version;
+            Impact        = $changeSet.Impact;
+            current       = $changeSet.current
+            previous      = $changeSet.previous
+        }
+        $idxCustomObjects
+    }
+    $flatChangesIDX | Export-Csv $pathIPChangeIDX -Encoding UTF8 -NoTypeInformation
 
+    #Adds
+    $flatAddChanges = $changes | Where-Object { $_.add -ne $null } | ForEach-Object {
+        $changeSet = $_
+        $addCustomObjects = [PSCustomObject]@{
+            id            = $changeSet.id;
+            action        = "Add";
+            effectiveDate = [datetime]::parseexact($($changeSet.add.effectiveDate), 'yyyyMMdd', $null).tostring('dd MMM yyyy');
+            ips           = $changeSet.add.ips -join ", ";
+            urls          = $changeSet.add.urls -join ", ";
+        }
+        $addCustomObjects
+    }
+    $flatAddChanges | Export-Csv $pathIPChanges -Encoding UTF8 -NoTypeInformation
+
+    #Removes
+    $flatRemoveChanges = $changes | Where-Object { $_.remove -ne $null } | ForEach-Object {
+        $changeSet = $_
+        $addCustomObjects = [PSCustomObject]@{
+            id            = $changeSet.id;
+            action        = "Remove";
+            effectiveDate = $null
+            ips           = $changeSet.remove.ips -join ", ";
+            urls          = $changeSet.remove.urls -join ", ";
+        }
+        $addCustomObjects
+    }
+    $flatRemoveChanges | Export-Csv $pathIPChanges -Encoding UTF8 -NoTypeInformation -Append
+    $flatChanges = [array]$flatAddChanges + $flatRemoveChanges
+
+    #If an updated version has been found, generate an email (prevents sending on new installs/clearing files)
+    if (($version.latest -gt $lastVersion -and $lastversion -notlike "0000000000" ) -and $emailEnabled) {
+        #Send email to users on IP/URL change
+        $emailSubject = "IPs and URLs: New version $($version.latest)"
+        $emailMessage = "new version of Office 365 Worldwide Commercial service instance endpoints"
+        SendEmail $emailMessage $EmailCreds $config "Normal" $emailSubject $emailIPURLAlerts
+    }
     # write the new version number to the version file
     @($clientRequestId, $version.latest) | Out-File $versionpath
     # invoke endpoints method to get the new data
     [uri]$ipurlEndpoint = "$($ws)/endpoints/Worldwide?clientRequestId=$($clientRequestId)"
-    $endpointSets = Invoke-RestMethod -Uri ($ipurlEndpoint)
+    if ($proxyserver) { $endpointSets = Invoke-RestMethod -Uri ($ipurlEndpoint) -Proxy $proxyHost -ProxyUseDefaultCredentials }
+    else { $endpointSets = Invoke-RestMethod -Uri ($ipurlEndpoint) }
     # filter results for Allow and Optimize endpoints, and transform these into custom objects with port and category
     # URL results
     $flatUrls = $endpointSets | ForEach-Object {
         $endpointSet = $_
         $urls = $(if ($endpointSet.urls.Count -gt 0) { $endpointSet.urls } else { @() })
         $urlCustomObjects = @()
-        if ($endpointSet.category -in ("Allow", "Optimize")) {
-            $urlCustomObjects = $urls | ForEach-Object {
-                [PSCustomObject]@{
-                    category = $endpointSet.category;
-                    url      = $_;
-                    tcpPorts = $endpointSet.tcpPorts;
-                    udpPorts = $endpointSet.udpPorts;
-                }
+        $urlCustomObjects = $urls | ForEach-Object {
+            [PSCustomObject]@{
+                id                     = $endpointSet.id;
+                serviceArea            = $endpointSet.ServiceArea;
+                serviceAreaDisplayName = $endpointSet.serviceAreaDisplayName;
+                category               = $endpointSet.category;
+                url                    = $_;
+                tcpPorts               = $endpointSet.tcpPorts;
+                udpPorts               = $endpointSet.udpPorts;
+                notes                  = $endpointSet.notes;
+                expressRoute           = $endpointSet.expressRoute;
+                required               = $endpointSet.required;
             }
         }
         $urlCustomObjects
@@ -1178,16 +1225,47 @@ if (($version.latest -gt $lastVersion) -or ($null -eq $currentData)) {
         $ip6CustomObjects
     }
     $flatIp6s | Export-Csv $pathIP6 -Encoding UTF8 -NoTypeInformation
+    $endpointSets | Select-Object id, servicearea, serviceareadisplayname | Export-Csv $pathEndpointSetsIDX -Encoding UTF8 -NoTypeInformation
+    $EndPointSetsIDX = $endpointSets | Select-Object id, servicearea, serviceareadisplayname
 }
 else {
     $ipurlSummary += "Office 365 worldwide commercial service instance endpoints are up-to-date. <br />`r`n"
     $ipurlSummary += "Importing previous results. <br />`r`n"
     $ipurlSummary += "Data available from <a href='https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges' target=_blank>https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges</a><br/>`r`n"
-    $flatUrls = Import-Csv $pathIPurl
-    $flatIp4s = Import-Csv $pathIP4
-    $flatIp6s = Import-Csv $pathIP6
+}
+
+
+$changesHTML = $null
+$changesHTML = "<p>Full history available <a href='IPURLChangeHistory.html' target=_blank> here </a></p>"
+$changesLast5 = $flatchangesIDX | Select-Object version, @{label = "VersionDate"; Expression = { [datetime]::parseexact($_.version, "yyyyMMddHH", $null) } } -Unique | Sort-Object versiondate -Descending | Select-Object -First $($IPURLHistory)
+$changesHTML += ipURLChanges $changesLast5 $flatchangesIDX $EndPointSetsIDX $flatChanges 2
+$changesHTML += "`r`n</div>"
+
+#Build history list of all changes
+$changesAllHTML = $null
+$changesAll = $flatchangesIDX | Select-Object version, @{label = "VersionDate"; Expression = { [datetime]::parseexact($_.version, "yyyyMMddHH", $null) } } -Unique | Sort-Object versiondate -Descending
+$changesAllHTML = ipURLChanges $changesAll $flatchangesIDX $EndPointSetsIDX $flatChanges 100
+ConvertTo-Html -CssUri o365health.css -Body $changesAllHTML -Title "IP and URL Change History" | Out-File -FilePath "$($pathHTML)\IPURLChangeHistory.html" -Encoding UTF8 -Force
+
+if (Test-Path $fileIPURLsNotes) {
+    $notesCustom = Import-Csv $fileIPURLsNotes
+    #match custom notes data to ID and url
+    foreach ($url in $flaturls) {
+        $notes = @($notesCustom | Where-Object { $_.ID -like $url.ID -and $_.url -like $url.url })
+        $url | Add-Member -MemberType NoteProperty -Name "AmendedURL" -Value $notes.AmendedURL
+        $url | Add-Member -MemberType NoteProperty -Name "DirectInternet" -Value $notes.DirectInternet
+        $url | Add-Member -MemberType NoteProperty -Name "ProxyAuth" -Value $notes.ProxyAuth
+        $url | Add-Member -MemberType NoteProperty -Name "SSLInspection" -Value $notes.SSLInspection
+        $url | Add-Member -MemberType NoteProperty -Name "DLP" -Value $notes.DLP
+        $url | Add-Member -MemberType NoteProperty -Name "Antivirus" -Value $notes.Antivirus
+        $url | Add-Member -MemberType NoteProperty -Name "OurNotes" -Value $notes.Notes
+    }
+    #Export a full list with additional information
+    $flaturls | Export-Csv $fileIPURLsNotesAll -NoTypeInformation -Encoding UTF8
 
 }
+
+
 # write output to screen
 # Clients arent going to want to view this, are they?
 $ipurlSummary += "<b>Client Request ID: " + $clientRequestId + "</b><br />`r`n"
@@ -1219,11 +1297,10 @@ $ipurlOutput += "All IPv6 networks, TCP/UDP Ports and classifications available 
 #URLs
 $ipurlOutput += "<b>URLs</b><br />`r`n"
 $ipurlOutput += "<b>Optimize (Direct connection):</b><br />`r`n"
-
 $flatAddressURLs = @($flatUrls | Where-Object { $_.category -like 'optimize' })
 $ipurlOutput += "$(($flatAddressURLs.url | Sort-Object -unique) -join ', ' | Out-String) <br /><br />`r`n"
 $ipurlOutput += "<b>Allow:</b><br />`r`n"
-$flatAddressURLs = @($flatUrls | Where-Object { $_.category -notlike 'Optimize' })
+$flatAddressURLs = @($flatUrls | Where-Object { $_.category -like 'Allow' })
 $ipurlOutput += "$(($flatAddressURLs.url | Sort-Object -unique) -join ', ' | Out-String) <br /><br />`r`n"
 $ipurlOutput += "All URLs, TCP/UDP Ports and classifications available to <a href='$(Split-Path $pathIPurl -leaf)' target=_blank>download here</a><br /><br />`r`n"
 $ipurlOutput += "Summary information available to <a href='$(Split-Path $pathdata -leaf)' target=_blank>download here</a><br /><br />`r`n"
@@ -1242,14 +1319,18 @@ Write-Output "IPv6 Firewall IP Address Ranges" | Out-File $pathData -Append
 Write-Output "" | Out-File $pathData -Append
 Write-Output "URLs for Proxy Server" | Out-File $pathData -Append
 ($flatUrls.url | Sort-Object -Unique) -join ", " | Out-File $pathData -Append
-Copy-Item $pathdata -Destination $pathHTML
-Copy-Item $pathIPurl -Destination $pathHTML
-Copy-Item $pathIP4 -Destination $pathHTML
-Copy-Item $pathIP6 -Destination $pathHTML
+
+if (Test-Path $pathdata) { Copy-Item $pathdata -Destination $pathHTML }
+if (Test-Path $pathIPurl) { Copy-Item $pathIPurl -Destination $pathHTML }
+if (Test-Path $pathIP4) { Copy-Item $pathIP4 -Destination $pathHTML }
+if (Test-Path $pathIP6) { Copy-Item $pathIP6 -Destination $pathHTML }
+if (Test-Path $fileIPURLsNotes) { Copy-Item $fileIPURLsNotes -Destination $pathHTML }
+if (Test-Path $fileIPURLsNotesAll) { Copy-Item $fileIPURLsNotesAll -Destination $pathHTML }
+if (Test-Path $fileCustomNotes) { Copy-Item $fileCustomNotes -Destination $pathHTML }
 
 $checkOptHTTP = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*80*' -and $_.category -match 'Optimize') }
 $checkOptHTTPs = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*443*' -and $_.category -match 'Optimize') }
-$checkAllowHTTP = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.category -match 'Allow') -and ($_.tcpPorts -like '*443*' -or $_.tcpPorts -like '*80*') }
+$checkAllowHTTP = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*80*' -and $_.category -match 'Allow') }
 $checkAllowHTTPs = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*443*' -and $_.category -match 'Allow') }
 
 function checkURL {
@@ -1266,7 +1347,7 @@ function checkURL {
         try {
             $intAttempts++
             #Proxy servers should not be used for optimized paths
-            if ($ProxyServer -and !($urlOptimized)) {
+            if ($ProxyServer) {
                 $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -Proxy $proxyHost -ProxyUseDefaultCredentials -UseBasicParsing -TimeoutSec 3
             }
             else {
@@ -1306,17 +1387,33 @@ function checkURL {
 if ($diagURLs) {
     # Microsoft Office 365 URL tests - check the Optimize HTTP connections
     $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting HTTP checks for 'Optimize' Sites (Invoke-WebRequest)</p><br/>"
+    $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Direct (Optimized route)</p><br/>"
     foreach ($entry in $checkOptHTTP) {
         $url = "http://$($entry.url)"
-        $rptIPURLs += checkURL $url $diagVerbose $proxyServer $proxyHost $true
+        $rptIPURLs += checkURL $url $diagVerbose $false $proxyHost $true
     } # End Foreach URL List
+    if ($proxyServer) {
+        $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>via Proxy (un-optimized route)</p><br/>"
+        foreach ($entry in $checkOptHTTP) {
+            $url = "http://$($entry.url)"
+            $rptIPURLs += checkURL $url $diagVerbose $proxyServer $proxyHost $true
+        } # End Foreach URL List
+    }
 
     # Microsoft Office 365 URL tests - check the Optimize HTTPs connections
     $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting HTTPs checks for 'Optimize' Sites (Invoke-WebRequest)</p><br/>"
+    $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Direct (Optimized route)</p><br/>"
     foreach ($entry in $checkOptHTTPs) {
         $url = "https://$($entry.url)"
-        $rptIPURLs += checkURL $url $diagVerbose $proxyServer $proxyHost $true
+        $rptIPURLs += checkURL $url $diagVerbose $false $proxyHost $true
     } # End Foreach URL List
+    if ($proxyserver) {
+        $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>via Proxy (un-optimized route)</p><br/>"
+        foreach ($entry in $checkOptHTTPs) {
+            $url = "https://$($entry.url)"
+            $rptIPURLs += checkURL $url $diagVerbose $proxyServer $proxyHost $true
+        } # End Foreach URL List
+    }
 
     # Microsoft Office 365 URL tests - check the Allow HTTP connections
     $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting HTTP checks for 'Allow' Sites (Invoke-WebRequest)</p><br/>"
@@ -1336,394 +1433,33 @@ if ($diagURLs) {
 
 #Start Building the Pages
 #Build Div1
-#Build Summary Dashboard
-# 6 cards
-$HistoryIncidents = $allMessages | Where-Object { ($_.EndTime -ne $null -and $_.messagetype -notlike 'MessageCenter') } | Sort-Object EndTime -Descending
-$rptSectionOneOne = "<div class='section'><div class='header'>Office 365 Dashboard Status</div>`n"
+$rptWebTests = OnlineEndPoints $diagWeb $diagPorts $diagURLs
+#$rptWebTests = ""
+
+$rptSectionOneOne = "<div class='section'><div class='header'>Office 365 Message Data</div>`n"
 $rptSectionOneOne += "<div class='content'>`n"
-$rptSectionOneOne += "<div class='dash-outer'><div class='dash-inner'>`n"
-foreach ($card in $dashCards) {
-    [array]$item = @()
-    [array]$hist = @()
-    [int]$advisories = 0
-    $item = $allCurrentStatusMessages | Where-Object { $_.WorkloadDisplayName -like $card }
-    $hist = $HistoryIncidents | Where-Object { $_.WorkloadDisplayName -like $card -and ($_.status -notlike 'False Positive') } | Sort-Object EndTime -Descending
-    $advisories = ($allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and $_.AffectedWorkloadDisplayNames -like $card) }).count
-    if ($hist.count -gt 0) {
-        $days = "{0:N0}" -f (New-TimeSpan -Start (Get-Date $hist[0].EndTime) -End $(Get-Date)).TotalDays
-    }
-    else {
-        $days = "&gt;30"
-    }
-    $cardClass = Get-StatusDisplay $($item.status) "Class"
-    $cardText = cardbuilder $($item.workloaddisplayname) $($Days) $($Hist.count) $advisories $cardClass
-    $rptSectionOneOne += "$cardText`n"
-}
-$rptSectionOneOne += "</div></div>`n" #Close inner and outer divs
-
-#Get Current Status and Issues for non operational services
-[array]$CurrentStatusBad = $allCurrentStatusMessages | Where-Object { $_.status -notlike 'ServiceOperational' }
-[array]$rptSummaryTable = @()
-$rptSummaryTable = "<br/><br/><div class='dash-outer'><div class='dash-inner'>`n"
-if ($CurrentStatusBad.count -ge 1) {
-    $rptSummaryTable += "<div class='tableWrkld'>`r`n"
-    $rptSummaryTable += "<div class='tableWrkld-title'>The following services are reporting service issues</div>`r`n"
-    $rptSummaryTable += "<div class='tableWrkld-header'>`n`t<div class='tableWrkld-header-r'>Systems</div>`n`t<div class='tableWrkld-header-c'>Status</div>`n`t<div class='tableWrkld-header-l'>Status at $(Get-Date -Format 'HH:mm')</div>`n</div>`n"
-    foreach ($item in $CurrentStatusBad) {
-        $statusIcon = Get-StatusDisplay $($item.status) "Icon"
-        $rptSummaryTable += "<div class='tableWrkld-row'>`n`t<div class='tableWrkld-cell-r'>$($item.WorkloadDisplayName)</div>`n`t<div class='tableWrkld-cell-c'>$StatusIcon</div>`n`t<div class='tableWrkld-cell-l'>$($item.StatusDisplayName)</div>`n</div>"
-    }
-}
-else {
-    $rptSummaryTable += "<div class='tableWrkld'>`r`n"
-    if ($authErrMsg) { $rptSummaryTable += "<div class='tableWrkld-title'>$authErrMsg</div>`r`n" }
-    else { $rptSummaryTable += "<div class='tableWrkld-title'>No current or recent issues to display</div>`r`n" }
-}
-#Close table Workld div
-$rptSummaryTable += "</div>`n"
-#Close div and content div
-$rptSummaryTable += "</div></div>`n"
-$rptSectionOneOne += $rptSummaryTable
-$rptSectionOneOne += "</div></div>`n" #Close content and section
-
+$rptSectionOneOne += "$($rptO365Info)"
+$rptSectionOneOne += "$($diagNotes)"
+$rptSectionOneOne += "</div></div>`n"
 $divOne = $rptSectionOneOne
 
-#Get current and recent incidents
-$rptSectionOneTwo = "<div class='section'><div class='header'>Active and Recent Incidents</div>`n"
+$rptSectionOneTwo = "<div class='section'><div class='header'>Diagnostics - Microsoft URLs</div>`n"
 $rptSectionOneTwo += "<div class='content'>`n"
+$rptSectionOneTwo += "$($rptIPURLs)"
+$rptSectionOneTwo += "</div></div>`n"
 
-[array]$CurrentMessagesOpen = @()
-[array]$rptActiveTable = @()
-$CurrentMessagesOpen = $allMessages | Where-Object { ($_.messagetype -notlike 'MessageCenter' -and $_.EndTime -eq $null) } | Sort-Object LastUpdatedTime -Descending
-$rptActiveTable += "<div class='tableInc'>`n"
-$rptActiveTable += "<div class='tableInc-title'>Active Messages</div>`n"
-if ($CurrentMessagesOpen.count -ge 1) {
-    foreach ($item in $CurrentMessagesOpen) {
-        $rptOutage = $true
-        $LastUpdated = $(Get-Date $item.lastupdatedtime -f 'dd-MMM-yyyy HH:mm')
-        $severity = $item.severity
-        switch ($severity) {
-            "SEV0" { $actionStyle = "style=border:none;font-weight:bold;color:red" }
-            "SEV1" { $actionStyle = "style=border:none;color:red" }
-            "SEV2" { $actionStyle = "style=border:none;color:blue" }
-            default { $actionStyle = "style=border:none;font-weight:bold;color:red" }
-        }
-        #Build
-        $link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
-        if ($link) {
-            $ID = "<a href=$($link) target=_blank>$($item.ImpactDescription)</a>"
-        }
-        else { $ID = "$($item.ImpactDescription)" }
-        $rptActiveTable += "<div class='tableInc-row'><div class='tableInc-cell-l'>$($item.WorkloadDisplayname)</div>`r`n<div class='tableInc-cell-r' $($actionStyle)>$($Severity)</div>`r`n<div class='tableInc-cell-r'>Last Update: $($LastUpdated)</div>`r`n<div class='tableInc-cell-l'>$($item.Status)</div>`r`n<div class='tableInc-cell-l'>$($ID)</div>`r`n</div>`r`n"
-    }
-}
-else {
-    $rptActiveTable += "<div class='tableInc-header'><span class='tableInc-header-c'>No open incidents to display</span></div>`n"
-}
-$rptActiveTable += "</div><br/>`n"
-
-#Show recently closed messages
-#create a timespan for recently closed messages - 3 to include weekends
-$recentDate = (Get-Date).AddDays(-$IncidentDays)
-[array]$RecentMessagesOpen = @()
-$RecentMessagesOpen = $allMessages | Where-Object { ($_.messagetype -notlike 'MessageCenter' -and $_.EndTime -ne $null -and ((Get-Date $_.EndTime) -ge (Get-Date $recentdate))) } | Sort-Object LastUpdatedTime -Descending
-if ($RecentMessagesOpen.count -ge 1) {
-    $rptActiveTable += "<div class='tableInc'>`n"
-    $rptActiveTable += "<div class='tableInc-title'>Incidents closed in the last $($incidentdays*24) hours (since $(Get-Date $recentDate -f 'dd-MMM-yyyy HH:mm'))</div>`n"
-    foreach ($item in $RecentMessagesOpen) {
-        $rptOutage = $true
-        $EndTime = $(Get-Date $item.EndTime -f 'dd-MMM-yyyy HH:mm')
-        $severity = $item.severity
-        switch ($severity) {
-            "SEV0" { $actionStyle = "style=border:none;font-weight:bold;color:red" }
-            "SEV1" { $actionStyle = "style=border:none;color:red" }
-            "SEV2" { $actionStyle = "style=border:none;color:blue" }
-            default { $actionStyle = "style=border:none;font-weight:bold;color:red" }
-        }
-        #Build
-        $link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
-        if ($link) {
-            $ID = "<a href=$($link) target=_blank>$($item.ImpactDescription)</a>"
-        }
-        else { $ID = "$($item.ImpactDescription)" }
-        $rptActiveTable += "<div class='tableInc-row'><div class='tableInc-cell-l'>$($item.WorkloadDisplayname)</div>`r`n<div class='tableInc-cell-r' $($actionStyle)>$($Severity)</div>`r`n<div class='tableInc-cell-r'>Closed: $($EndTime)</div>`r`n<div class='tableInc-cell-l'>$($item.Status)</div>`r`n<div class='tableInc-cell-l'>$($ID)</div>`r`n</div>`r`n"
-    }
-    $rptActiveTable += "</div>`n"
-}
-else {
-    $rptActiveTable += "<div class='tableInc'>`n"
-    $rptActiveTable += "<div class='tableInc-header'><span class='tableInc-header-c'>No recent incidents to display</span></div>`n"
-    $rptActiveTable += "</div>`n"
-}
-$rptSectionOneTwo += $rptActiveTable
-$rptSectionOneTwo += "</div></div>`r`n" #Close content and section
 $divOne += $rptSectionOneTwo
 
-#Get All workload status
-[array]$rptWorkloadStatusTable = @()
-$rptSectionOneThree = "<div class='section'><div class='header'>Workload Status</div>`n"
+$rptSectionOneThree = "<div class='section'><div class='header'>Diagnostics - Misc URL/Ports</div>`n"
 $rptSectionOneThree += "<div class='content'>`n"
-$allCurrentStatusMessages = $allCurrentStatusMessages | Sort-Object WorkloadDisplayname
-$rptWorkloadStatusTable = "<br/><div class='dash-outer'><div class='dash-inner'>`n"
-if ($allCurrentStatusMessages.count -ge 1) {
-    $rptWorkloadStatusTable += "<div class='tableWrkld'>`r`n"
-    $rptWorkloadStatusTable += "<div class='tableWrkld-title'>All workload status</div>`r`n"
-    $rptWorkloadStatusTable += "<div class='tableWrkld-header'>`n`t<div class='tableWrkld-header-r'>Systems</div>`n`t<div class='tableWrkld-header-c'>Status</div>`n`t<div class='tableWrkld-header-l'>Status at $(Get-Date -Format 'HH:mm')</div>`n</div>`n"
+$rptSectionOneThree += "$($rptWebTests)"
+$rptSectionOneThree += "</div></div>`n"
 
-    foreach ($item in $allCurrentStatusMessages) {
-        $statusIcon = Get-StatusDisplay $($item.status) "Icon"
-        $rptWorkloadStatusTable += "<div class='tableWrkld-row'>`n`t<div class='tableWrkld-cell-r'>$($item.WorkloadDisplayName)</div>`n`t<div class='tableWrkld-cell-c'>$StatusIcon</div>`n`t<div class='tableWrkld-cell-l'>$($item.StatusDisplayName)</div>`n</div>"
-    }
-}
-else {
-    $rptWorkloadStatusTable += "<div class='tableWrkld'>`r`n"
-    $rptWorkloadStatusTable += "<div class='tableWrkld-title'>No current or recent issues to display</div>`r`n"
-}
-$rptWorkloadStatusTable += "</div></div></div>`n"
-$rptSectionOneThree += $rptWorkloadStatusTable
-$rptSectionOneThree += "</div></div>`r`n" #Close content and section
 $divOne += $rptSectionOneThree
 
 #Build Div2
-[array]$listLineOne = @()
-[array]$listTheRest = @()
-foreach ($card in $prefDashCards) { $listLineOne += $allCurrentStatusMessages | Where-Object { $_.workloaddisplayname -like $card } }
-$listTheRest = $allCurrentStatusMessages | Where-Object { $_.workloaddisplayname -notin $listlineone.workloaddisplayname } | Sort-Object  status, workloaddisplayname
-$DashWorkloads = $listLineOne + $ListTheRest
-$rptFeatureDash = "<div class='container'>`n"
-foreach ($workload in $DashWorkloads) {
-    [array]$feature = @()
-    [string]$cardDetail = ""
-    [string]$cardClass = ""
-    [boolean]$blnUrgent = $false
-    [boolean]$blnErr = $false
-    [boolean]$blnWarn = $false
-    [boolean]$blnOK = $false
-    [int]$intFeatureCount = 0
-    foreach ($feature in $workload.FeatureStatus) {
-        $cardClass = Get-StatusDisplay $($feature.FeatureServiceStatus) 'Class'
-        #If any of the substatus values are not ok, log and set the main card value?
-        switch ($CardClass) {
-            "urgent" { $blnUrgent = $true }
-            "err" { $blnErr = $true }
-            "warn" { $blnWarn = $true }
-            default { $blnOK = $true }
-        }
-        $cardDetail += "<div class='feature-item-$($cardClass)'>$($feature.featuredisplayname)<span class='tooltiptext'>$($feature.FeatureServiceStatusDisplayName)</span></div>`r`n"
-        if (($feature.FeatureServiceStatusDisplayName).length -gt 29) { $intFeatureCount += 2 } else { $intFeatureCount++ }
-    }
-    if ($blnUrgent) { $cardClass = "err" }
-    elseif ($blnErr) { $cardClass = "err" }
-    elseif ($blnWarn) { $cardClass = "warn" }
-    else { $cardClass = "ok" }
-    $cardText = featurebuilder $($workload.workloaddisplayname) $cardDetail $cardClass $intFeatureCount
-    $rptFeatureDash += "$cardText`n"
-}
-$rptFeatureDash += "</div>`r`n<br/><br/>`r`n"
-$divTwo = ($rptFeatureDash)
-
-#Build Div3
-$rptSectionThreeOne = "<div class='section'><div class='header'>Office 365 Incident History</div>`n"
-$rptSectionThreeOne += "<div class='content'>`n"
-
-#Incident History
-#Get all closed (end date) messages of incidents
-[array]$HistoryIncidents = @()
-$rptHistoryTable = @()
-$item = $null
-$HistoryIncidents = $allMessages | Where-Object { ($_.EndTime -ne $null -and $_.messagetype -notlike 'MessageCenter') } | Sort-Object EndTime -Descending
-if ($HistoryIncidents.count -ge 1) {
-    $rptHistoryTable += "<div class='tableInc'>`n"
-    $rptHistoryTable += "<div class='tableInc-title'>Closed Incidents</div>`n"
-    $rptHistoryTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-c'>Feature</div>`n`t<div class='tableInc-header-c'>Status</div>`n`t<div class='tableInc-header-c'>Description</div>`n`t<div class='tableInc-header-c'>Start Time</div>`n`t<div class='tableInc-header-c'>End Time</div>`n`t<div class='tableInc-header-c'>Last Updated</div>`n</div>`n"
-    foreach ($item in $HistoryIncidents) {
-        if ($item.StartTime) { $StartTime = $(Get-Date $item.StartTime -f 'dd-MMM-yyyy HH:mm') } else { $StartTime = "" }
-        if ($item.EndTime) { $EndTime = $(Get-Date $item.EndTime -f 'dd-MMM-yyyy HH:mm') } else { $EndTime = "" }
-        if ($item.LastUpdatedTime) { $LastUpdated = $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') } else { $LastUpdated = "" }
-        $link = ""
-        #Build link to detailed message
-        $link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
-        if ($link) {
-            $ID = "<a href=$($link) target=_blank>$($item.ID) - $($item.ImpactDescription)</a>"
-        }
-        else { $ID = "$($item.ID) - $($item.ImpactDescription)" }
-        $rptHistoryTable += "<div class='tableInc-row'>`n`t"
-        $rptHistoryTable += "<div class='tableInc-cell-l'>$($item.WorkloadDisplayname -join '<br>')</div>`n`t"
-        $rptHistoryTable += "<div class='tableInc-cell-l'>$($item.Status)</div>`n`t"
-        $rptHistoryTable += "<div class='tableInc-cell-l'>$($ID)</div>`n`t"
-        $rptHistoryTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($StartTime)</div>`n`t"
-        $rptHistoryTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($EndTime)</div>`n`t"
-        $rptHistoryTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($LastUpdated)</div>`n"
-        $rptHistoryTable += "</div>`n"
-    }
-}
-else {
-    $rptHistoryTable = "<div class='tableInc'>`n"
-    $rptHistoryTable += "<div class='tableInc-title'>No Closed Incidents</div>`n"
-}
-$rptHistoryTable += "</div>`n"
-$rptSectionThreeOne += $rptHistoryTable
-$rptSectionThreeOne += "</div></div>`n"
-
-$divThree = $rptSectionThreeOne
-
-#Build Div4
-$rptSectionFourOne = "<div class='section'><div class='header'>Prevent / Fix Issues</div>`n"
-$rptSectionFourOne += "<div class='content'>`n"
-#Messages
-#Prevent or fix issues
-[array]$MessagesFix = @()
-[array]$rptMessagesFixTable = @()
-$MessagesFix = $allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and $_.category -like 'Prevent or Fix Issues') } | Sort-Object MilestoneDate -Descending
-if ($MessagesFix.count -ge 1) {
-    $rptMessagesFixTable += "<div class='tableInc'>`n"
-    $rptMessagesFixTable += "<div class='tableInc-title'>Closed Incidents</div>`n"
-    $rptMessagesFixTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-dt'>Feature</div>`n`t<div class='tableInc-header-dt'>Severity</div>`n`t<div class='tableInc-header-dt'>Action</div>`n`t<div class='tableInc-header-dt'>ID</div>`n`t<div class='tableInc-header-l'>Title</div>`n`t<div class='tableInc-header-dt'>Milestone</div>`n<div class='tableInc-header-dt'>Action Rqd By</div>`n</div>`n"
-    foreach ($item in $MessagesFix) {
-        if ($item.LastUpdatedTime) { $LastUpdated = $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') }
-        if ($item.MilestoneDate) { $MilestoneDate = $(Get-Date $item.MilestoneDate -f 'dd-MMM-yyyy HH:mm') }
-        $Workloads = @()
-        $Workloads = $item | Select-Object -ExpandProperty AffectedWorkloadDisplaynames
-        if (!($Workloads)) { $Workloads = "General" }
-        $workloads = $workloads -join "</br>"
-        $rptMessagesFixTable += "<div class='tableInc-row'>`n`t"
-        $rptMessagesFixTable += "<div class='tableInc-cell-dt'>$($Workloads)</div>`n`t"
-        $rptMessagesFixTable += "<div class='tableInc-cell-dt'>$($item.Severity)</div>`n`t"
-        $rptMessagesFixTable += "<div class='tableInc-cell-dt'>$($item.ActionType)</div>`n`t"
-        #Build advisory and get link
-        $link = Get-AdvisoryInHTML $item $RebuildDocs $pathHTMLDocs
-        $rptMessagesFixTable += "<div class='tableInc-cell-dt'>$($item.ID)</div>`n`t"
-        if ($link) { $rptMessagesFixTable += "<div class='tableInc-cell-l'><a href='$($link)' target='_blank'>$($item.title)</a></div>`n`t" }
-        else { $rptMessagesFixTable += "<div class='tableInc-cell-l'>$($item.title)</div>`n`t" }
-        $rptMessagesFixTable += "<div class='tableInc-cell-dt'>$($MilestoneDate)</div>`n`t"
-        if ($item.ActionRequiredByDate) {
-            $ActionRequiredByDate = $(Get-Date $item.ActionRequiredByDate -f 'dd-MMM-yyyy HH:mm')
-            $action = (New-TimeSpan -Start $(Get-Date) -End (Get-Date $item.ActionRequiredByDate)).TotalDays
-            switch ($action) {
-                { $_ -ge 0 -and $_ -lt 7 } { $actionStyle = "style=border:none;font-weight:bold;color:red" }
-                { $_ -ge 7 -and $_ -lt 14 } { $actionStyle = "style=border:none;color:red" }
-                { $_ -ge 14 -and $_ -lt 21 } { $actionStyle = "style=border:none;color:blue" }
-                default { $actionStyle = "style=border:none;" }
-            }
-        }
-        $rptMessagesFixTable += "<div class='tableInc-cell-dt'>$($ActionRequiredByDate)</div>`n"
-        $rptMessagesFixTable += "</div>`n"
-    }
-}
-else {
-    $rptMessagesFixTable = "<div class='tableInc'>`n"
-    $rptMessagesFixTable += "<div class='tableInc-title'>No 'Prevent/Fix Issues' Messages</div>`n"
-}
-$rptMessagesFixTable += "</div>`n"
-
-$rptSectionFourOne += $rptMessagesFixTable
-$rptSectionFourOne += "</div></div>`n"
-$divFour = $rptSectionFourOne
-
-$rptSectionFourTwo = "<div class='section'><div class='header'>Plan for Change</div>`n"
-$rptSectionFourTwo += "<div class='content'>`n"
-
-#Plan for change Message center messages
-[array]$MessagesPFC = @()
-[array]$rptMessagesPFCTable = @()
-[string]$addText = ""
-
-#Some PFC articles have no milestone.
-$rptMessagesPFCTable = "<div class='tableInc'>`n"
-
-$MessagesPFC = $allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and $_.category -like 'Plan for Change') }
-foreach ($item in $MessagesPFC) {
-    if (!($item.properties.name -contains 'MileStoneDate')) { $MilestoneDate = $item.EndTime }
-}
-$MessagesPFC = $MessagesPFC | Sort-Object MilestoneDate -Descending
-if ($MessagesPFC.count -ge 1) {
-    $rptMessagesPFCTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-dt'>Feature</div>`n`t<div class='tableInc-header-dt'>Severity</div>`n`t<div class='tableInc-header-dt'>Action</div>`n`t<div class='tableInc-header-dt'>ID</div>`n`t<div class='tableInc-header-l'>Title</div>`n`t<div class='tableInc-header-dt'>Milestone</div>`n<div class='tableInc-header-dt'>Action Rqd By</div>`n</div>`n"
-    foreach ($item in $MessagesPFC) {
-        $ActionRequiredByDate = $null
-        $MilestoneDate = $null
-        $LastUpdated = $null
-        $addText = ""
-        $pubWindow = $null
-        if ($item.MilestoneDate) { $MilestoneDate = $(Get-Date $item.MilestoneDate -f 'dd-MMM-yyyy HH:mm') }
-        else { $MilestoneDate = $(Get-Date $item.EndTime -f 'dd-MMM-yyyy HH:mm') }
-        if ($item.ActionRequiredByDate) { $ActionRequiredByDate = $(Get-Date $item.ActionRequiredByDate -f 'dd-MMM-yyyy HH:mm') }
-        $LastUpdated = $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')
-
-        #New text to alert that message is new (24hrs) or updated (7 days)
-        $pubWindow = (New-TimeSpan -Start (Get-Date $item.LastUpdatedTime) -End $(Get-Date)).TotalDays
-        if ($pubWindow -le 7) { $addtext = "*Updated*" }
-        $pubWindow = (New-TimeSpan -Start (Get-Date $item.StartTime)  -End $(Get-Date)).TotalHours
-        if ($pubWindow -le 48) { $addtext = "**New**" }
-
-        $Workloads = @()
-        $Workloads = $item | Select-Object -ExpandProperty AffectedWorkloadDisplaynames
-        if (!($Workloads)) { $Workloads = "General" }
-        $workloads = $workloads -join "</br>"
-        $rptMessagesPFCTable += "<div class='tableInc-row'>`n`t"
-        $rptMessagesPFCTable += "<div class='tableInc-cell-dt'>$($Workloads)</div>`n`t"
-        $rptMessagesPFCTable += "<div class='tableInc-cell-dt'>$($item.Severity)</div>`n`t"
-        $rptMessagesPFCTable += "<div class='tableInc-cell-dt'>$($item.ActionType)</div>`n`t"
-        $link = Get-AdvisoryInHTML $item $RebuildDocs $pathHTMLDocs
-        $rptMessagesPFCTable += "<div class='tableInc-cell-dt'>$($item.ID)&nbsp$($addText)</div>`n`t"
-        if ($link) { $rptMessagesPFCTable += "<div class='tableInc-cell-l'><a href='$($link)' target='_blank'>$($item.title)</a></div>`n`t" }
-        else { $rptMessagesPFCTable += "<div class='tableInc-cell-l'>$($item.title)</div>`n`t" }
-        $rptMessagesPFCTable += "<div class='tableInc-cell-dt'>$($MilestoneDate)</div>`n`t"
-        $rptMessagesPFCTable += "<div class='tableInc-cell-dt'>$($ActionRequiredByDate)</div>`n"
-        $rptMessagesPFCTable += "</div>`n"
-    }
-}
-else {
-    $rptMessagesFixTable = "<div class='tableInc'>`n"
-    $rptMessagesFixTable += "<div class='tableInc-title'>No Plan for Change Messages</div>`n"
-}
-$rptMessagesPFCTable += "</div>`n"
-
-$rptSectionFourTwo += $rptMessagesPFCTable
-$rptSectionFourTwo += "</div></div>`n"
-$divFour += $rptSectionFourTwo
-
-$rptSectionFourThree = "<div class='section'><div class='header'>Other Messages</div>`n"
-$rptSectionFourThree += "<div class='content'>`n"
-
-#Remaining message center messages
-[array]$HistoryMessages = @()
-[array]$rptMessagesTable = @()
-$HistoryMessages = $allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and $_.category -notlike 'Plan for Change' -and $_.category -notlike 'Prevent or Fix Issues') } | Sort-Object MilestoneDate -Descending
-$rptMessagesTable = "<div class='tableInc'>`n"
-if ($HistoryMessages.count -ge 1) {
-    $rptMessagesTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-dt'>Feature</div>`n`t<div class='tableInc-header-dt'>Category</div>`n`t<div class='tableInc-header-dt'>Severity</div>`n`t<div class='tableInc-header-dt'>ID</div>`n`t<div class='tableInc-header-l'>Title</div>`n`t<div class='tableInc-header-dt'>Milestone</div>`n</div>`n"
-    foreach ($item in $HistoryMessages) {
-        if ($item.LastUpdatedTime) { $LastUpdated = $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') }
-        if ($item.MilestoneDate) { $MilestoneDate = $(Get-Date $item.MilestoneDate -f 'dd-MMM-yyyy HH:mm') }
-        $Workloads = @()
-        $Workloads = $item | Select-Object -ExpandProperty AffectedWorkloadDisplaynames
-        if (!($Workloads)) { $Workloads = "General" }
-        $workloads = $workloads -join "</br>"
-        $rptMessagesTable += "<div class='tableInc-row'>`n`t"
-        $rptMessagesTable += "<div class='tableInc-cell-dt'>$($Workloads)</div>`n`t"
-        $rptMessagesTable += "<div class='tableInc-cell-dt'>$($item.Category)</div>`n`t"
-        $rptMessagesTable += "<div class='tableInc-cell-dt'>$($item.Severity)</div>`n`t"
-        $link = Get-AdvisoryInHTML $item $RebuildDocs $pathHTMLDocs
-        $rptMessagesTable += "<div class='tableInc-cell-dt'>$($item.ID)</div>`n`t"
-        if ($link) { $rptMessagesTable += "<div class='tableInc-cell-l'><a href='$($link)' target='_blank'>$($item.title)</a></div>`n`t" }
-        else { $rptMessagesTable += "<div class='tableInc-cell-l'>$($item.title)</div>`n`t" }
-        $rptMessagesTable += "<div class='tableInc-cell-dt'>$($MilestoneDate)</div>`n"
-        $rptMessagesTable += "</div>`n"
-    }
-}
-else {
-    $rptMessagesTable = "<div class='tableInc'>`n"
-    $rptMessagesTable += "<div class='tableInc-title'>No Previous Messages</div>`n"
-}
-$rptMessagesTable += "</div>`n"
-
-$rptSectionFourThree += $rptMessagesTable
-$rptSectionFourThree += "</div></div>`n"
-$divFour += $rptSectionFourThree
-
-#Build Div5
-$rptSectionFiveOne = "<div class='section'><div class='header'>Licences</div>`n"
-$rptSectionFiveOne += "<div class='content'>`n"
+$rptSectionTwoOne = "<div class='section'><div class='header'>Licences</div>`n"
+$rptSectionTwoOne += "<div class='content'>`n"
 $rptLicenceDash = "<div class='container'>`n"
 foreach ($sku in $allLicences) {
     [string]$cardDetail = ""
@@ -1731,7 +1467,10 @@ foreach ($sku in $allLicences) {
     [string]$NicePartNumber = $null
     $NicePartNumber = ($skunames.GetEnumerator() | Where-Object { $_.name -like "$($sku.skupartnumber)" }).Value
     if ($NicePartNumber -eq "") { $NicePartNumber = $($sku.SkuPartNumber) }
-    $NicePartNumber += "<br/> $($sku.consumedUnits)/$(($sku.prepaidunits).enabled) used"
+    $NicePartNumber += "<br/><span class=tooltiptext'> $($sku.consumedUnits) / $(($sku.prepaidunits).enabled +($sku.prepaidunits).warning) assigned"
+    if (($sku.prepaidunits).warning -gt 0) { $NicePartNumber += "<br/>$(($sku.prepaidunits).warning) in warning state" }
+    if (($sku.prepaidunits).suspended -gt 0) { $NicePartNumber += "<br/>$(($sku.prepaidunits).suspended) in suspended state" }
+    $NicePartNumber += "</span>"
     [int]$intPlanCount = 0
     foreach ($serviceplan in $sku.serviceplans) {
         [string]$NiceServiceName = $null
@@ -1746,208 +1485,312 @@ foreach ($sku in $allLicences) {
     $rptLicenceDash += "$cardText`n"
 }
 $rptLicenceDash += "</div>`n<br/><br/>"
-$rptSectionFiveOne += $rptLicenceDash
-$rptSectionFiveOne += "</div></div>`r`n"
-$divFive = $rptSectionFiveOne
+$rptSectionTwoOne += $rptLicenceDash
+$rptSectionTwoOne += "</div></div>`r`n"
+$divTwo = $rptSectionTwoOne
 
-#Tab 6
-
-
-$rptWebTests = OnlineEndPoints $diagWeb $diagPorts $diagURLs
-#$rptWebTests = ""
-
-$rptSectionSixOne = "<div class='section'><div class='header'>Office 365 Message Data</div>`n"
-$rptSectionSixOne += "<div class='content'>`n"
-$rptSectionSixOne += "$($rptO365Info)"
-$rptSectionSixOne += "$($diagNotes)"
-$rptSectionSixOne += "</div></div>`n"
-$divSix = $rptSectionSixOne
-
-$rptSectionSixTwo = "<div class='section'><div class='header'>Diagnostics - Microsoft URLs</div>`n"
-$rptSectionSixTwo += "<div class='content'>`n"
-$rptSectionSixTwo += "$($rptIPURLs)"
-$rptSectionSixTwo += "</div></div>`n"
-
-$divSix += $rptSectionSixTwo
-
-$rptSectionSixThree = "<div class='section'><div class='header'>Diagnostics - Misc URL/Ports</div>`n"
-$rptSectionSixThree += "<div class='content'>`n"
-$rptSectionSixThree += "$($rptWebTests)"
-$rptSectionSixThree += "</div></div>`n"
-
-$divSix += $rptSectionSixThree
-
-#Tab 7 - Network Changes
+#Build Div3
 #Retrieve latest Office 365 service instances
 
-$rptSectionSevenOne = "<div class='section'><div class='header'>Versions Information</div>`n"
-$rptSectionSevenOne += "<div class='content'>`n"
+$rptSectionThreeOne = "<div class='section'><div class='header'>Versions Information</div>`n"
+$rptSectionThreeOne += "<div class='content'>`n"
 [string]$ipurlVersion = "<b>IP and URL Version information</b><br />"
-$rptSectionSevenOne += $ipurlVersion
-$rptSectionSevenOne += $ipurlSummary
-$rptSectionSevenOne += "</div></div>`n"
+$rptSectionThreeOne += $ipurlVersion
+$rptSectionThreeOne += $ipurlSummary
+$rptSectionThreeOne += "</div></div>`n"
 
-$divSeven = $rptSectionSevenOne
+$divThree = $rptSectionThreeOne
 
-$rptSectionSevenTwo = "<div class='section'><div class='header'>Current IP and URL Information</div>`n"
-$rptSectionSevenTwo += "<div class='content'>`n"
+$rptSectionThreeTwo = "<div class='section'><div class='header'>Current IP and URL Information</div>`n"
+$rptSectionThreeTwo += "<div class='content'>`n"
 [string]$ipurlCurrent = "<b>Current IP and URL information</b><br />"
-$rptSectionSevenTwo += $ipurlCurrent
-$rptSectionSevenTwo += $ipurlOutput
-$rptSectionSevenTwo += "</div></div>`n"
+$rptSectionThreeTwo += $ipurlCurrent
+$rptSectionThreeTwo += $ipurlOutput
+$rptSectionThreeTwo += "</div></div>`n"
 
-$divSeven += $rptSectionSevenTwo
+$divThree += $rptSectionThreeTwo
 
-$rptSectionSevenThree = "<div class='section'><div class='header'>IP and URL History</div>`n"
-$rptSectionSevenThree += "<div class='content'>`n"
-[string]$ipurlHistory = "<b>IP and URL history of changes</b><br />"
-$rptSectionSevenThree += "</div></div>`n"
+$rptSectionThreeThree = "<div class='section'><div class='header'>IP and URL History</div>`n"
+$rptSectionThreeThree += "<div class='content'>`n"
+$rptSectionThreeThree += $changesHTML
+$rptSectionThreeThree += "</div></div>`n"
 
-$divSeven += $rptSectionSevenThree
+$divThree += $rptSectionThreeThree
 
-#Tab 8 - Office 365 RSS Feed
-$rptSectionEightOne = "<div class='section'><div class='header'>Microsoft 365 Roadmap</div>`n"
-$rptSectionEightOne += "<div class='content'>`n"
-$rptSectionEightOne += "Last $($maxFeedItems) items. Full roadmap can be viewed here: <a href='https://www.microsoft.com/en-us/microsoft-365/roadmap' target=_blank>https://www.microsoft.com/en-us/microsoft-365/roadmap</a><br/>`r`n"
-$Roadmap = $Roadmap.replace("ï»¿", "")
-[xml]$content = $Roadmap
-$feed = $content.rss.channel
-$feedMessages = @{ }
-$feedMessages = foreach ($msg in $feed.Item) {
-    $description = $msg.description
-    $description = $description -replace ("`n", '<br>')
-    $description = $description -replace ([char]226, "'")
-    $description = $description -replace ([char]128, "")
-    $description = $description -replace ([char]153, "")
-    $description = $description -replace ([char]162, "")
-    $description = $description -replace ([char]194, "")
-    $description = $description -replace ([char]195, "")
-    $description = $description -replace ([char]8217, "'")
-    $description = $description -replace ([char]8220, '"')
-    $description = $description -replace ([char]8221, '"')
-    $description = $description -replace ('\[', '<b><i>')
-    $description = $description -replace ('\]', '</i></b>')
-
-    [PSCustomObject]@{
-        'LastUpdated' = [datetime]$msg.updated
-        'Published'   = [datetime]$msg.pubDate
-        'Description' = $description
-        'Title'       = $msg.Title
-        'Category'    = $msg.Category
-        'Link'        = $msg.link
+#Build Div4
+$rptURLTable = ""
+if ($null -ne $fileIPURLsNotes) { if (Test-Path $($fileIPURLsNotes)) { $rptURLTable += "Download URL notes from <a href='$($fileIPURLsNotes)' target=_blank>here</a><br />" } }
+if ($null -ne $fileIPURLsNotesAll) { if (Test-Path $($fileIPURLsNotesAll)) { $rptURLTable += "Download combined URLs and notes from <a href='$($fileIPURLsNotesAll)' target=_blank>here</a><br />" } }
+if ($null -ne $fileCustomNotes) {
+    if (Test-Path $($fileCustomNotes)) {
+        $rptURLTable += "Download custom URLs and notes from <a href='$($fileCustomNotes)' target=_blank>here</a><br />";
+        $customURLs = Import-Csv $fileCustomNotes
     }
 }
 
-$feedMessages = $feedmessages | Sort-Object published -Descending | Select-Object -First $maxFeedItems
 
-if ($feedMessages.count -ge 1) {
-    $rptFeedTable += "<div class='tableFeed'>`n"
-    $rptFeedTable += "<div class='tableFeed-title'>Microsoft 365 RoadMap</div>`n"
-    $rptFeedTable += "<div class='tableFeed-header'>`n`t<div class='tableFeed-header-c'>Category</div>`n`t<div class='tableFeed-header-c'>Title</div>`n`t<div class='tableFeed-header-c'>Description</div>`n`t<div class='tableFeed-header-c'>Published</div>`n`t<div class='tableFeed-header-c'>Last Updated</div>`n</div>`n"
-    foreach ($item in $feedMessages) {
-        if ($item.LastUpdated) { $LastUpdated = $(Get-Date $item.LastUpdated -f 'dd-MMM-yyyy HH:mm') } else { $StartTime = "" }
-        if ($item.Published) { $Published = $(Get-Date $item.Published -f 'dd-MMM-yyyy HH:mm') } else { $EndTime = "" }
-        $link = $item.Link
-        #Build link to detailed message
-        #$link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
-        if ($item.link) {
-            $ID = "<a href=$($item.link) target=_blank>$($item.Title)</a>"
+$rptSectionFourOne = $rptURLTable
+$rptSectionFourOne += "<div class='section'><div class='header'>Optimize URLs</div>`n"
+$rptSectionFourOne += "<div class='content'>`n"
+$rptURLTable = "<div class='tableInc'>"
+$rptURLTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-l'>ID</div>`n`t<div class='tableInc-header-l'>serviceArea</div>`n`t<div class='tableInc-header-l'>url</div>`n`t<div class='tableInc-header-l'>tcpPorts</div>`n`t<div class='tableInc-header-l'>udpPorts</div>`n`t<div class='tableInc-header-l'>notes</div>`n`t<div class='tableInc-header-c'>required</div>`n"
+if (Test-Path $($fileIPURLsNotes)) { $rptURLTable += "<div class='tableInc-header-l'>AmendedURL</div>`n`t<div class='tableInc-header-c'>DirectInternet</div>`n`t<div class='tableInc-header-c'>ProxyAuth</div>`n`t<div class='tableInc-header-c'>SSLInspection</div>`n`t<div class='tableInc-header-c'>DLP</div>`n`t<div class='tableInc-header-c'>Antivirus</div>`n`t<div class='tableInc-header-l'>ourNotes</div>`n" }
+$rptURLTable += "</div>`n"
+
+[array]$urlList = @()
+$urlList = $flatUrls | Where-Object { $_.category -like 'optimize' }
+foreach ($entry in $urlList) {
+    $rptURLTable += "<div class='tableInc-row'>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.id)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.serviceArea)</div>`n`t"
+    #$rptURLTable+="<td>$($entry.serviceAreaDisplayName)</td>"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.url)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.tcpPorts)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.udpPorts)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.notes)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-c'>$($entry.required)</div>`n`t"
+    if (Test-Path $($fileIPURLsNotes)) {
+        $e1, $e2, $e3, $e4, $e5 = $null
+        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false') { $e1 = "False" }
+        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false') { $e2 = "False" }
+        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false') { $e3 = "False" }
+        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false') { $e4 = "False" }
+        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false') { $e5 = "False" }
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.AmendedURL)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e1)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e2)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e3)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e4)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e5)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.ourNotes)</div>`n"
+    }
+    $rptURLTable += "</div>`n"
+}
+$rptURLTable += "</div>`n"
+$rptSectionFourOne += $rptURLTable
+$rptSectionFourOne += "</div></div>`n"
+
+$divFour = $rptSectionFourOne
+
+#Custom URLS - our URLs particular to our deployment, and documented here
+if ($customURLs) {
+    $rptSectionFourTwo += "<div class='section'><div class='header'>Additional URLs associated with O365 deployment</div>`n"
+    $rptSectionFourTwo += "<div class='content'>`n"
+    $rptURLTable = "<div class='tableInc'>"
+    $rptURLTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-l'>ID</div>`n`t<div class='tableInc-header-l'>serviceArea</div>`n`t<div class='tableInc-header-l'>url</div>`n`t<div class='tableInc-header-l'>tcpPorts</div>`n`t<div class='tableInc-header-l'>udpPorts</div>`n`t"
+    $rptURLTable += "<div class='tableInc-header-c'>DirectInternet</div>`n`t<div class='tableInc-header-c'>ProxyAuth</div>`n`t<div class='tableInc-header-c'>SSLInspection</div>`n`t<div class='tableInc-header-c'>DLP</div>`n`t<div class='tableInc-header-c'>Antivirus</div>`n`t<div class='tableInc-header-l'>Notes</div>`n"
+    $rptURLTable += "</div>`n"
+    [array]$urlList = @()
+    $urlList = $customURLs | Where-Object { $_.ID -gt 0 }
+    foreach ($entry in $urlList) {
+        $e1, $e2, $e3, $e4, $e5 = $null
+        $rptURLTable += "<div class='tableInc-row'>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.id)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.serviceArea)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.url)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.tcpPorts)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.udpPorts)</div>`n`t"
+        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false') { $e1 = "False" }
+        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false') { $e2 = "False" }
+        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false') { $e3 = "False" }
+        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false') { $e4 = "False" }
+        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false') { $e5 = "False" }
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e1)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e2)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e3)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e4)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e5)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.Notes)</div>`n"
+        $rptURLTable += "</div>`n"
+    }
+    $rptURLTable += "</div>`n"
+    $rptSectionFourTwo += $rptURLTable
+    $rptSectionFourTwo += "</div></div>`n"
+}
+$divFour += $rptSectionFourTwo
+
+#Microsoft specified Allow URLs
+$rptSectionFourThree += "<div class='section'><div class='header'>Allow URLs</div>`n"
+$rptSectionFourThree += "<div class='content'>`n"
+$rptURLTable = "<div class='tableInc'>"
+$rptURLTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-l'>ID</div>`n`t<div class='tableInc-header-l'>serviceArea</div>`n`t<div class='tableInc-header-l'>url</div>`n`t<div class='tableInc-header-l'>tcpPorts</div>`n`t<div class='tableInc-header-l'>udpPorts</div>`n`t<div class='tableInc-header-l'>notes</div>`n`t<div class='tableInc-header-c'>required</div>`n"
+if (Test-Path $($fileIPURLsNotes)) { $rptURLTable += "<div class='tableInc-header-l'>AmendedURL</div>`n`t<div class='tableInc-header-c'>DirectInternet</div>`n`t<div class='tableInc-header-c'>ProxyAuth</div>`n`t<div class='tableInc-header-c'>SSLInspection</div>`n`t<div class='tableInc-header-c'>DLP</div>`n`t<div class='tableInc-header-c'>Antivirus</div>`n`t<div class='tableInc-header-l'>ourNotes</div>`n" }
+$rptURLTable += "</div>`n"
+
+[array]$urlList = @()
+$urlList = $flatUrls | Where-Object { $_.category -like 'allow' }
+foreach ($entry in $urlList) {
+    $rptURLTable += "<div class='tableInc-row'>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.id)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.serviceArea)</div>`n`t"
+    #$rptURLTable+="<td>$($entry.serviceAreaDisplayName)</td>"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.url)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.tcpPorts)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.udpPorts)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.notes)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-c'>$($entry.required)</div>`n`t"
+    if (Test-Path $($fileIPURLsNotes)) {
+        $e1, $e2, $e3, $e4, $e5 = $null
+        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false') { $e1 = "False" }
+        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false') { $e2 = "False" }
+        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false') { $e3 = "False" }
+        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false') { $e4 = "False" }
+        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false') { $e5 = "False" }
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.AmendedURL)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e1)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e2)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e3)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e4)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e5)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.ourNotes)</div>`n"
+    }
+    $rptURLTable += "</div>`n"
+}
+$rptURLTable += "</div>`n"
+$rptSectionFourThree += $rptURLTable
+$rptSectionFourThree += "</div></div>`n"
+
+$divFour += $rptSectionFourThree
+
+#Microsoft specified Default URLs
+$rptSectionFourFour += "<div class='section'><div class='header'>Default URLs</div>`n"
+$rptSectionFourFour += "<div class='content'>`n"
+$rptURLTable = "<div class='tableInc'>"
+$rptURLTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-l'>ID</div>`n`t<div class='tableInc-header-l'>serviceArea</div>`n`t<div class='tableInc-header-l'>url</div>`n`t<div class='tableInc-header-l'>tcpPorts</div>`n`t<div class='tableInc-header-l'>udpPorts</div>`n`t<div class='tableInc-header-l'>notes</div>`n`t<div class='tableInc-header-c'>required</div>`n"
+if (Test-Path $($fileIPURLsNotes)) { $rptURLTable += "<div class='tableInc-header-l'>AmendedURL</div>`n`t<div class='tableInc-header-c'>DirectInternet</div>`n`t<div class='tableInc-header-c'>ProxyAuth</div>`n`t<div class='tableInc-header-c'>SSLInspection</div>`n`t<div class='tableInc-header-c'>DLP</div>`n`t<div class='tableInc-header-c'>Antivirus</div>`n`t<div class='tableInc-header-l'>ourNotes</div>`n" }
+$rptURLTable += "</div>`n"
+
+[array]$urlList = @()
+$urlList = $flatUrls | Where-Object { $_.category -like 'default' }
+foreach ($entry in $urlList) {
+    $rptURLTable += "<div class='tableInc-row'>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.id)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.serviceArea)</div>`n`t"
+    #$rptURLTable+="<td>$($entry.serviceAreaDisplayName)</td>"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.url)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.tcpPorts)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.udpPorts)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-l'>$($entry.notes)</div>`n`t"
+    $rptURLTable += "<div class='tableInc-cell-c'>$($entry.required)</div>`n`t"
+    if (Test-Path $($fileIPURLsNotes)) {
+        $e1, $e2, $e3, $e4, $e5 = $null
+        if ($entry.DirectInternet -in 'yes', 'true') { $e1 = "True" } elseif ($entry.DirectInternet -in 'no', 'false') { $e1 = "False" }
+        if ($entry.ProxyAuth -in 'yes', 'true') { $e2 = "True" } elseif ($entry.ProxyAuth -in 'no', 'false') { $e2 = "False" }
+        if ($entry.SSLInspection -in 'yes', 'true') { $e3 = "True" } elseif ($entry.SSLInspection -in 'no', 'false') { $e3 = "False" }
+        if ($entry.DLP -in 'yes', 'true') { $e4 = "True" } elseif ($entry.DLP -in 'no', 'false') { $e4 = "False" }
+        if ($entry.Antivirus -in 'yes', 'true') { $e5 = "True" } elseif ($entry.Antivirus -in 'no', 'false') { $e5 = "False" }
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.AmendedURL)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e1)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e2)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e3)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e4)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-c'>$($e5)</div>`n`t"
+        $rptURLTable += "<div class='tableInc-cell-l'>$($entry.ourNotes)</div>`n"
+    }
+    $rptURLTable += "</div>`n"
+}
+$rptURLTable += "</div>`n"
+$rptSectionFourFour += $rptURLTable
+$rptSectionFourFour += "</div></div>`n"
+
+$divFour += $rptSectionFourFour
+
+
+#CNAME checks where possible
+$divFive = "<!- Start of section five ->"
+$rptSectionFiveOne = ""
+if ($cnameenabled) {
+    [array]$CNAMEResults = $null
+    [array]$cnames = $null
+
+    #Import the DNS results being output by the monitor script
+    foreach ($dns in $cnameresolvers) {
+        $dnsResults = Import-Csv "$($pathWorking)\$cnameFilename-$($DNS)-$($rptProfile).csv"
+        $CNAMEResults += $dnsResults
+    }
+
+    $cnames = $CNameResults
+
+    #Build Div5
+    $rptSectionFiveOne = "<div class='section'><div class='header'>Information</div>`n"
+    $rptSectionFiveOne += "<div class='content'>`n"
+    $rptSectionFiveOne += "$($cnameNotes)"
+    $rptSectionFiveOne += "</div></div>`n"
+    $divFive += $rptSectionFiveOne
+
+    $rptSectionFiveTwo = "<div class='section'><div class='header'>CNAMEs</div>`r`n"
+    $rptSectionFiveTwo += "<div class='content'>`r`n"
+    #Get CNAMEs
+    #For each unique monitor
+    foreach ($url in $cnameURLs) {
+        $rptCNAMEInfo += "<div class='section'>`r`n"
+        $rptCNAMEInfo += "<div class='header'>$($url)</div>`r`n"
+        $rptCNAMEInfo += "<div class='tableCname-header'>`r`n"
+        $rptCNAMEInfo += "<div class='tableCname-header-hn'>CNAME Host</div>`r`n"
+        $rptCNAMEInfo += "<div class='tableCname-header-dom'>Domain</div>`r`n"
+        #Now build headers for each of the resolving servers
+        foreach ($dns in $cnameresolvers) {
+            $dnsServerDesc = $cnameresolverdesc[[array]::indexof($cnameResolvers, $DNS)]
+            $rptCNAMEInfo += "<div class='tableCname-header-dtf'>$($dnsServerDesc)<br/>$($dns)<br/>First Seen</div>`r`n"
+            $rptCNAMEInfo += "<div class='tableCname-header-dtl'><br/><br/>Last Seen</div>"
         }
-        else { $ID = "$($item.Title)" }
-        $rptFeedTable += "<div class='tableFeed-row'>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-cat'>$($item.Category -join ' | ')</div>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-title'>$($ID)</div>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-desc'>$($item.description)</div>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($Published)</div>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($LastUpdated)</div>`n`t"
-        $rptFeedTable += "</div>`n"
-    }
-    #Close tablefeed
-    $rptFeedTable += "</div>"
-}
-$rptSectionEightOne += $rptFeedTable
-$rptSectionEightOne += "</div></div>`n"
-
-$divEight = $rptSectionEightOne
-
-$rptSectionEightTwo = "<div class='section'><div class='header'>Azure Updates</div>`n"
-$rptSectionEightTwo += "<div class='content'>`n"
-
-#Azure Updates URI: https://azurecomcdn.azureedge.net/en-gb/updates/feed/
-$rptSectionEightTwo += "Last 20 items. Full roadmap can be viewed here: <a href='https://azure.microsoft.com/en-gb/updates/' target=_blank>https://azure.microsoft.com/en-gb/updates/</a><br/>`r`n"
-$AzureUpdates = $AzureUpdates.replace("ï»¿", "")
-[xml]$content = $AzureUpdates
-$feed = $content.rss.channel
-$feedMessages = @{ }
-$feedMessages = foreach ($msg in $feed.Item) {
-    $description = $msg.description
-    $description = $description -replace ("`n", '<br>')
-    $description = $description -replace ([char]226, "'")
-    $description = $description -replace ([char]128, "")
-    $description = $description -replace ([char]153, "")
-    $description = $description -replace ([char]162, "")
-    $description = $description -replace ([char]194, "")
-    $description = $description -replace ([char]195, "")
-    $description = $description -replace ([char]8217, "'")
-    $description = $description -replace ([char]8220, '"')
-    $description = $description -replace ([char]8221, '"')
-    $description = $description -replace ('\[', '<b><i>')
-    $description = $description -replace ('\]', '</i></b>')
-
-    [PSCustomObject]@{
-        'Published'   = [datetime]$msg.pubDate
-        'Description' = $description
-        'Title'       = $msg.Title
-        'Category'    = $msg.Category
-        'Link'        = $msg.link
-    }
-}
-
-$feedMessages = $feedmessages | Sort-Object published -Descending | Select-Object -First $maxFeedItems
-$rptFeedTable = $null
-if ($feedMessages.count -ge 1) {
-    $rptFeedTable += "<div class='tableFeed'>`n"
-    $rptFeedTable += "<div class='tableFeed-title'>Azure Updates</div>`n"
-    $rptFeedTable += "<div class='tableFeed-header'>`n`t<div class='tableFeed-header-c'>Category</div>`n`t<div class='tableFeed-header-c'>Title</div>`n`t<div class='tableFeed-header-c'>Description</div>`n`t<div class='tableFeed-header-c'>Published</div>`n`t</div>`n"
-    foreach ($item in $feedMessages) {
-        if ($item.Published) { $Published = $(Get-Date $item.Published -f 'dd-MMM-yyyy HH:mm') } else { $EndTime = "" }
-        $link = $item.Link
-        #Build link to detailed message
-        #$link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
-        if ($item.link) {
-            $ID = "<a href=$($item.link) target=_blank>$($item.Title)</a>"
+        $rptCNAMEInfo += "</div>`r`n"
+        $cnameslist = $cnames | Where-Object { $_.monitor -like $url } | Select-Object -Unique namehost, domain
+        foreach ($cname in  $cnameslist) {
+            $rptCNAMEInfo += "<div class='tableCname-row'>`r`n"
+            $rptCNAMEInfo += "<div class='tableCname-cell-hn'>$($cname.namehost)</div>"
+            $rptCNAMEInfo += "<div class='tableCname-cell-dom'>$($cname.domain)</div>`r`n"
+            foreach ($dns in $cnameresolvers) {
+                $spotted = $cnames | Where-Object { $_.resolver -like $dns -and $_.monitor -like $url -and $_.namehost -like $cname.namehost }
+                $addedDate = ""
+                $lastDate = ""
+                if ($spotted.addedDate) {
+                    if ((Get-Date $spotted.addedDate) -lt ((Get-Date).addhours(-48))) { $fontcolour = "<p>" }
+                    elseif ((Get-Date $spotted.addedDate) -lt ((Get-Date).addhours(-24))) { $fontcolour = "<p class='recentCname'>" }
+                    else { $fontcolour = "<p class='newCname'>" }
+                    $addedDate = "$($fontcolour)$(Get-Date $spotted.addedDate -Format 'dd-MMM-yy HH:mm')</p>"
+                }
+                else { $addedDate = "<p class='error'>n/a</p>" }
+                $rptCNAMEInfo += "<div class='tableCname-cell-dtf'>$($addedDate)</div>`r`n"
+                if ($spotted.lastdate) {
+                    if ((Get-Date $spotted.lastdate) -lt ((Get-Date).addhours(-12))) { $fontcolour = "<p class='error'>" }
+                    elseif ((Get-Date $spotted.lastdate) -lt ((Get-Date).addhours(-4))) { $fontcolour = "<p class='warning'>" }
+                    else { $fontcolour = "<p class='ok'>" }
+                    $lastDate = "$($fontcolour)$(Get-Date $spotted.lastDate -Format 'dd-MMM-yy HH:mm')</p>"
+                }
+                else { $lastDate = "<p class='error'>n/a</p>" }
+                $rptCNAMEInfo += "<div class='tableCname-cell-dtl'>$($lastDate)</div>`r`n"
+            }
+            $rptCNAMEInfo += "</div>`r`n"
         }
-        else { $ID = "$($item.Title)" }
-        $rptFeedTable += "<div class='tableFeed-row'>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-cat'>$($item.Category -join ' | ')</div>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-title'>$($ID)</div>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-desc'>$($item.description)</div>`n`t"
-        $rptFeedTable += "<div class='tableFeed-cell-dt' $($tdStyle2)>$($Published)</div>`n`t"
-        $rptFeedTable += "</div>`n"
+        $rptCNAMEInfo += "</div>`r`n"
+        #$rptCNAMEInfo += "<div><br/></div>`r`n"
     }
-    #Close tablefeed
-    $rptFeedTable += "</div>"
+    $rptCNAMEInfo += "</div>`r`n"
+    #get name host and added date
+
+
+    $rptSectionFiveTwo += $rptCNAMEInfo
+    $rptSectionFiveTwo += "</div></div>`n"
 }
+$divFive += $rptSectionFiveTwo
 
-$rptSectionEightTwo += $rptFeedTable
-$rptSectionEightTwo += "</div></div>`n"
-$divEight += $rptSectionEightTwo
+#Build Last
+$rptSectionLastOne = "<div class='section'><div class='header'>Logs</div>`n"
+$rptSectionLastOne += "<div class='content'>`n"
+$rptSectionLastOne += $rptO365Info
+$rptSectionLastOne += "</div></div>`n"
 
-$rptSectionEightThree = "<div class='section'><div class='header'>Information</div>`n"
-$rptSectionEightThree += "<div class='content'>`n"
-$rptSectionEightThree += "</div></div>`n"
+$divLast = $rptSectionLastOne
 
-$divEight += $rptSectionEightThree
-
-
-$rptHTMLName = ($rptName.Replace(" ", "") + ".html")
+$rptHTMLName = $HTMLFile.Replace(" ", "")
 $rptTitle = $rptTenantName + " " + $rptName
 if ($rptOutage) { $rptTitle += " Outage detected" }
 $evtMessage = "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] Tenant: $($rptProfile) - Generating HTML to '$($pathHTML)\$($rptHTMLName)'`r`n"
 $evtLogMessage += $evtMessage
 Write-Verbose $evtMessage
 
-BuildHTML $rptTitle $divOne $divTwo $divThree $divFour $divFive $divSix $divSeven $divEight $swScript.Elapsed $rptHTMLName
+BuildHTML $rptTitle $divOne $divTwo $divThree $divFour $divFive $divLast $swScript.Elapsed $rptHTMLName
 #Check if .css file exists in HTML file destination
 if (!(Test-Path "$($pathHTML)\$($cssfile)")) {
     Write-Log "Copying O365Health.css to directory $($pathHTML)"
@@ -1959,6 +1802,8 @@ $swScript.Stop()
 $evtMessage = "Tenant: $($rptProfile) - Script runtime $($swScript.Elapsed.Minutes)m:$($swScript.Elapsed.Seconds)s:$($swScript.Elapsed.Milliseconds)ms on $env:COMPUTERNAME"
 $evtMessage += "*** Processing finished ***`r`n"
 Write-Log $evtMessage
+#Re-instate default proxy
+[System.Net.GlobalProxySelection]::Select = $defaultProxy
 
 #Append to daily log file.
 Get-Content $script:logfile | Add-Content $script:Dailylogfile

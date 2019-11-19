@@ -15,9 +15,11 @@
   </Azure>
   <Output>
     <!-- All paths, if not absolute, are relative to the location of the running script-->
-    <LogPath>.\Logs</LogPath>
+    <LogPath>..\Logs</LogPath>
     <!-- Where any HTML documents should be saved-->
     <HTMLPath>c:\inetpub\wwwroot\</HTMLPath>
+    <!-- Where any working files should be saved-->
+    <WorkingPath>..\Working</WorkingPath>
     <!-- If using the local event log on the machine that runs the scripts, define which custom event log to use-->
     <UseEventLog>True</UseEventLog>
     <EventLog>O365 Health</EventLog>
@@ -27,6 +29,7 @@
     <!-- Email server connectivity settings. Can be office365 or other mail system-->
     <!-- SendReport function in the common module can be trimmed if there is no need for username/password (ie internal systems)-->
     <!-- Current settings are required to use exchange online. 'From' should be the authenticated user -->
+    <Enabled></Enabled>
     <SMTPServer>smtp.office365.com</SMTPServer>
     <Port>587</Port>
     <UseSSL>True</UseSSL>
@@ -70,11 +73,13 @@
   </Dashboard>
   <UsageReports>
     <!-- Where to store the Office 365 Usage Reports (CSV)-->
-    <Path>C:\UsageReports\</Path>
+    <Path>C:\UsageReports</Path>
     <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Usage Reports</EventSource>
   </UsageReports>
   <Diagnostics>
+    <Name>Diagnostics</Name>
+    <HTMLFileName>O365Toolbox.html</HTMLFileName>
     <!-- Text to add to Diagnostics tab. Will be converted to HTML so can include HTML tags-->
     <Notes></Notes>
     <!-- Run http/https tests for IP connections: true/false-->
@@ -85,14 +90,54 @@
     <URLs>true</URLs>
     <!-- Show detailed errors for pages: true/false-->
     <Verbose>false</Verbose>
+    <!-- Refresh interval in minutes-->
+    <Refresh>5</Refresh>
   </Diagnostics>
+  <RSSFeeds>
+    <!-- Microsoft 365 RSS Feed settings-->
+    <F1>
+      <Enabled>true</Enabled>
+      <Name>Microsoft 365 Roadmap</Name>
+      <Feed>https://www.microsoft.com/en-gb/microsoft-365/RoadmapFeatureRSS</Feed>
+      <URL>https://www.microsoft.com/en-gb/microsoft-365/roadmap</URL>
+      <!-- Maximum number of items to return if feed provides more -->
+      <Items>30</Items>
+    </F1>
+    <!-- Azure Updates RSS Feed settings-->
+    <F2>
+      <Enabled>true</Enabled>
+      <Name>Azure Updates</Name>
+      <Feed>https://azurecomcdn.azureedge.net/en-gb/updates/feed/</Feed>
+      <URL>https://azure.microsoft.com/en-gb/updates/</URL>
+      <!-- Maximum number of items to return if feed provides more -->
+      <Items>30</Items>
+    </F2>
+  </RSSFeeds>
   <IPURLs>
-    <!-- Maximum number of items to return if feed provides more -->
-    <MaxFeedItems>30</MaxFeedItems>
-    <Path></Path>
+    <Path>..\output</Path>
     <!-- Where to send updates to IP and URLs to. Comma separated quoted list "john@home.com","bob@vader.net"-->
     <AlertsTo></AlertsTo>
+    <!-- Custom CSV file to hold additional information relation to URLs. Matches URL list on ID and URL. System will append short tenant name when loading-->
+    <NotesFilename></NotesFilename>
+    <!-- Custom CSV file to hold additional URLs. System will append short tenant name when loading -->
+    <CustomNotesFilename></CustomNotesFilename>
+    <!-- Maximum number of items to return if feed provides more -->
+    <History>6</History>
   </IPURLs>
+  <CNAME>
+    <!-- CNAME checking enabled -->
+    <Enabled>false</Enabled>
+    <!-- Filename to pre-pend to IP lookups ie 'CNAMEs' -->
+    <Filename>cnames</Filename>
+    <!-- Where to send change/error detection to. Comma separated quoted list "john@home.com","bob@vader.net" -->
+    <AlertsTo></AlertsTo>
+    <!-- URLs to check CNAMEs against. Comma separated quoted list "outlook.office.com","outlook.office365.com" -->
+    <URLs>"outlook.office.com","outlook.office365.com","portal.office.com","portal.azure.com"</URLs>
+    <!-- List of resolvers to test CNAMES ie "dns1.mydomain.com","8.8.8.8" -->
+    <Resolvers>"8.8.8.8","1.1.1.1"</Resolvers>
+    <!-- List of descriptions matching the above resolvers ie "Internal DNS","Google DNS" -->
+    <ResolverDesc>"Google 8","Private 1"</ResolverDesc>
+  </CNAME>
   <Proxy>
     <!-- Proxy settings if required-->
     <!-- Use proxy values: true/false-->
@@ -102,4 +147,9 @@
     <!-- Ignore SSL: true/false-->
     <IgnoreSSL>true</IgnoreSSL>
   </Proxy>
+  <!-- Blogs is a simple HTML list of useful links -->
+  <Blogs>
+    <a href="https://techcommunity.microsoft.com/t5/Office-365-Blog/bg-p/Office365Blog">Office 365 Blog</a> <br />
+    <a href="https://status.azure.com/en-gb/status">Azure Status</a> <br />
+  </Blogs>
 </Settings>

@@ -11,9 +11,10 @@
     Azure AD Application - Tenant ID, Application ID and Secret. (store in config file)
 
 .EXAMPLE
-    PS .\O365-Usage.ps1 -configXML '..\profile-sample.xml'
+    PS .\O365-Usage.ps1 -configXML '..\profile-sample.xml' -ReportTimeSpan D7 -ReportType All
 
     Uses the specific XML settings file to load tenant information. The file is specified relative to the location of this script, or absolute location
+	All reports listed will be downloaded for a 7 day timespan
 
 .NOTES
     Author:  Jonathan Christie
@@ -23,7 +24,9 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)] [String]$configXML = "..\config\profile-test.xml"
+    [Parameter(Mandatory = $true)] [String]$configXML = "..\config\profile-test.xml",
+    [Parameter(Mandatory = $false)] [ValidateSet("D7", "D30", "D90", "D180")][String]$ReportTimeSpan = "D7",
+    [Parameter(Mandatory = $false)] [ValidateSet("All", "UserDetail")][String]$ReportType = "UserDetail"
 )
 
 $swScript = [system.diagnostics.stopwatch]::StartNew()
@@ -163,7 +166,7 @@ $authHeader = @{
 }
 
 #O365 reports to generate from https://docs.microsoft.com/en-us/graph/api/resources/report?view=graph-rest-1.0
-$allO365Reports = @(
+$rptsAllUsage = @(
     'getTeamsDeviceUsageUserDetail';
     'getTeamsDeviceUsageUserCounts';
     'getTeamsDeviceUsageDistributionUserCounts';
@@ -233,14 +236,41 @@ $allO365Reports = @(
     'getYammerGroupsActivityGroupCounts';
     'getYammerGroupsActivityCounts'
 )
+$rptsUserDetails = @(
+    'getTeamsDeviceUsageUserDetail';
+    'getTeamsUserActivityUserDetail';
+    'getEmailActivityCounts';
+    'getEmailActivityUserCounts';
+    'getEmailActivityUserDetail';
+    'getEmailAppUsageUserDetail';
+    'getMailboxUsageDetail';
+    'getOffice365ActivationsUserDetail';
+    'getOffice365ActiveUserDetail';
+    'getOffice365GroupsActivityDetail';
+    'getOneDriveActivityUserDetail';
+    'getOneDriveUsageAccountDetail';
+    'getSharePointActivityUserDetail';
+    'getSharePointSiteUsageDetail';
+    'getSkypeForBusinessActivityUserDetail';
+    'getSkypeForBusinessDeviceUsageUserDetail';
+    'getYammerActivityUserDetail';
+    'getYammerDeviceUsageUserDetail';
+    'getYammerGroupsActivityDetail'
+)
 
-$Period = 'D7'
+$Period = $ReportTimeSpan
 $evtMessage = $null
 $evtLogAll = $null
 $i = 0
-foreach ($O365Report in $allO365Reports) {
+switch ($ReportType) {
+    "All" { $UsageReports = $rptsAllUsage }
+    "UserDetail" { $UsageReports = $rptsUserDetails }
+}
+
+
+foreach ($O365Report in $UsageReports) {
     $i++
-    Write-Progress -Activity "Downloading data for $($O365Report)" -Status "Storing Office 365 Usage Report $i of $($allO365Reports.count)" -PercentComplete (($i / $allO365Reports.count) * 100)
+    Write-Progress -Activity "Downloading data for $($O365Report)" -Status "Storing Office 365 Usage Report $i of $($UsageReports.count)" -PercentComplete (($i / $UsageReports.count) * 100)
     $allResults = $null
     $reportURI = $null
     # Activation reports dont take a time period, appending one causes an error. So dont.
@@ -249,7 +279,7 @@ foreach ($O365Report in $allO365Reports) {
         $reportName = "$($O365Report)"
     }
     else {
-        $reportPeriod = "(period='$($period)')"
+        $reportPeriod = "(period='$($ReportTimeSpan)')"
         $reportName = "$($O365Report)-$($period)"
     }
     [uri]$reportURI = "https://graph.microsoft.com/v1.0/reports/$($O365Report)$($reportPeriod)"
@@ -274,7 +304,7 @@ foreach ($O365Report in $allO365Reports) {
             #theres some characters at the start of the output to remove
             $allResults = $allResults.replace("ï»¿", "") | ConvertFrom-Csv
             if (!($null -eq $allResults)) {
-                $allResults | Export-Csv -Path "$($pathUsageReports)$(Get-Date -f 'yyyyMMddHHmm')-$($reportName).csv" -NoTypeInformation -Encoding UTF8
+                $allResults | Export-Csv -Path "$($pathUsageReports)$(Get-Date -f 'yyyyMMdd')-$($reportName).csv" -NoTypeInformation -Encoding UTF8
                 $evtMessage = "Exporting data for $($O365Report) : $($reportURI)"
                 Write-Log $evtMessage
             }
