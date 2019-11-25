@@ -142,6 +142,7 @@ if ($config.RSS2Enabled -like 'true') {
 [string]$rss2URL = $config.RSS2URL
 [int]$rss2Items = $config.RSS2Items
 
+[string]$Blogs = $config.Blogs
 
 [boolean]$rptOutage = $false
 
@@ -778,11 +779,11 @@ if ($advNew.count -gt 0) {
         $dtmActionRequiredByDate = $null
         $dtmMilestoneDate = $null
 
-        if ($null -ne $message.StartTime) { $dtmStartTime = $(get-date $message.StartTime -f 'dd-MMM-yyyy HH:mm') } 
-        if ($null -ne $message.LastUpdatedTime) { $dtmLastUpdatedTime = $(get-date $message.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') } 
-        if ($null -ne $message.EndTime) { $dtmEndTime = $(get-date $message.EndTime -f 'dd-MMM-yyyy HH:mm') } 
-        if ($null -ne $message.ActionRequiredByDate) { $dtmActionRequiredByDate = $(get-date $message.ActionRequiredByDate -f 'dd-MMM-yyyy HH:mm') } 
-        if ($null -ne $message.MilestoneDate) { $dtmMilestoneDate = $(get-date $message.MilestoneDate -f 'dd-MMM-yyyy HH:mm') } 
+        if ($null -ne $message.StartTime) { $dtmStartTime = $(Get-Date $message.StartTime -f 'dd-MMM-yyyy HH:mm') } 
+        if ($null -ne $message.LastUpdatedTime) { $dtmLastUpdatedTime = $(Get-Date $message.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') } 
+        if ($null -ne $message.EndTime) { $dtmEndTime = $(Get-Date $message.EndTime -f 'dd-MMM-yyyy HH:mm') } 
+        if ($null -ne $message.ActionRequiredByDate) { $dtmActionRequiredByDate = $(Get-Date $message.ActionRequiredByDate -f 'dd-MMM-yyyy HH:mm') } 
+        if ($null -ne $message.MilestoneDate) { $dtmMilestoneDate = $(Get-Date $message.MilestoneDate -f 'dd-MMM-yyyy HH:mm') } 
         $advTemp = New-Object PSObject
         $advTemp | Add-Member -MemberType NoteProperty -Name ID -Value $message.ID
         $advTemp | Add-Member -MemberType NoteProperty -Name ActionType -Value $message.Actiontype
@@ -1099,6 +1100,7 @@ $divFive += $rptSectionFiveTwo
 
 $rptSectionFiveThree = "<div class='section'><div class='header'>Useful Blogs</div>`n"
 $rptSectionFiveThree += "<div class='content'>`n"
+$rptSectionFiveThree += "$($Blogs)"
 $rptSectionFiveThree += "</div></div>`n"
 
 $divFive += $rptSectionFiveThree

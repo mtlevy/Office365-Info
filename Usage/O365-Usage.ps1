@@ -26,7 +26,9 @@
 param(
     [Parameter(Mandatory = $true)] [String]$configXML = "..\config\profile-test.xml",
     [Parameter(Mandatory = $false)] [ValidateSet("D7", "D30", "D90", "D180")][String]$ReportTimeSpan = "D7",
-    [Parameter(Mandatory = $false)] [ValidateSet("All", "UserDetail")][String]$ReportType = "UserDetail"
+    [Parameter(Mandatory = $false)] [ValidateSet("All", "UserDetail")][String]$ReportType = "UserDetail",
+    [Parameter(Mandatory = $false)] [String]$ReportSet = "",
+    [Parameter(Mandatory = $false)] [String]$ReportOutput = ""
 )
 
 $swScript = [system.diagnostics.stopwatch]::StartNew()
@@ -56,6 +58,11 @@ $config = LoadConfig $configXML
 
 [string]$pathLogs = $config.LogPath
 [string]$pathUsageReports = $config.UsageReportsPath
+#check if path is passed via Parameter (override config)
+if ($ReportOutput) {
+    #Param passed as input
+    $pathUsageReports = $ReportOutput
+}
 
 [array]$allResults = @()
 
@@ -85,8 +92,18 @@ if (!$pathLogs) {
     $pathLogs = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 }
 
+#Check for a reports set file if specified
+if ($ReportSet) {
+    if ([system.IO.path]::IsPathRooted($ReportSet) -eq $false) {
+        #its not an absolute path. Find the absolute path
+        $ReportSet = Resolve-Path $ReportSet
+    }
+    $rptsAction = Get-Content $ReportSet | ConvertFrom-Json
+}
+
 #Check and trim the report path
 $pathLogs = $pathLogs.TrimEnd("\")
+$pathUsageReports = $pathUsageReports.TrimEnd("\")
 #Build and Check output directories
 #Base for logs
 if (!(Test-Path $($pathLogs))) {
@@ -266,6 +283,9 @@ switch ($ReportType) {
     "All" { $UsageReports = $rptsAllUsage }
     "UserDetail" { $UsageReports = $rptsUserDetails }
 }
+if ($rptsAction) {
+    $UsageReports = $rptsAction
+}
 
 
 foreach ($O365Report in $UsageReports) {
@@ -304,7 +324,7 @@ foreach ($O365Report in $UsageReports) {
             #theres some characters at the start of the output to remove
             $allResults = $allResults.replace("ï»¿", "") | ConvertFrom-Csv
             if (!($null -eq $allResults)) {
-                $allResults | Export-Csv -Path "$($pathUsageReports)$(Get-Date -f 'yyyyMMdd')-$($reportName).csv" -NoTypeInformation -Encoding UTF8
+                $allResults | Export-Csv -Path "$($pathUsageReports)\$(Get-Date -f 'yyyyMMdd')-$($reportName).csv" -NoTypeInformation -Encoding UTF8
                 $evtMessage = "Exporting data for $($O365Report) : $($reportURI)"
                 Write-Log $evtMessage
             }

@@ -132,6 +132,8 @@ if (Test-Path $configXML) {
     UseProxy            = $xmlExisting.Settings.Proxy.UseProxy
     ProxyHost           = $xmlExisting.Settings.Proxy.ProxyHost
     ProxyIgnoreSSL      = $xmlExisting.Settings.Proxy.IgnoreSSL
+
+    Blogs               = ($xmlExisting.Settings.Blogs).InnerXML
   }
 
   #set output file
@@ -287,9 +289,12 @@ if (Test-Path $configXML) {
     <!-- Ignore SSL: true/false-->
     <IgnoreSSL>$($appSettings.ProxyIgnoreSSL)</IgnoreSSL>
   </Proxy>
+  <Blogs>
+	$($appSettings.Blogs)
+  </Blogs>
 </Settings>
 "@
-	$datetime=get-date -Format "yyyyMMddHHmm"
+  $datetime = Get-Date -Format "yyyyMMddHHmm"
   Copy-Item $configXMLFile "$($configXMLFile)-$($datetime).bak"
   $xmlNewConfig | Set-Content -Path "$($configXMLFile)"
   #$xmlNewConfig | ConvertTo-Json | Set-Content -Path "New-$($configXMLFile).json"

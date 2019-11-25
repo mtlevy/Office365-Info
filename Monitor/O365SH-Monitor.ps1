@@ -101,10 +101,10 @@ $cnameResolvers = $cnameResolvers.Trim()
 $cnameResolverDesc = $cnameResolverDesc.Replace('"', '')
 $cnameResolverDesc = $cnameResolverDesc.Trim()
 
-    if ($cnameresolvers[0] -eq "") {
-        $cnameResolvers = @(Get-DnsClientServerAddress | Sort-Object interfaceindex | Select-Object -ExpandProperty serveraddresses | Where-Object { $_ -like '*.*' } | Select-Object -First 1)
-        $cnameResolverDesc = @("Default")
-    }
+if ($cnameresolvers[0] -eq "") {
+    $cnameResolvers = @(Get-DnsClientServerAddress | Sort-Object interfaceindex | Select-Object -ExpandProperty serveraddresses | Where-Object { $_ -like '*.*' } | Select-Object -First 1)
+    $cnameResolverDesc = @("Default")
+}
 
 
 #Configure local event log
@@ -249,7 +249,7 @@ if ($newIncidents.count -ge 1) {
             $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
             $mailMessage += "$($item.ImpactDescription)<br/><br/>"
             $emailPriority = Get-Severity "email" $item.severity
-            $emailSubject = "New issue: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
+            $emailSubject = "New $($item.Severity) issue: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
             if ($MonitorAlertsTo -and $emailEnabled) { SendEmail $mailMessage $EmailCreds $config $emailPriority $emailSubject $MonitorAlertsTo }
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
             $evtMessage = $evtMessage.Replace("<b>", "")
@@ -332,7 +332,7 @@ if ($cnameEnabled) {
                 $cnameKnown | Add-Member -MemberType NoteProperty -Name resolver -Value $null
             }
         }
-        $addDateTime = get-date -f "dd-MMM-yy HH:mm"
+        $addDateTime = Get-Date -f "dd-MMM-yy HH:mm"
         $alert = ""
         #for each entry in the monitored urls
         foreach ($entry in $cnameURLs) {
@@ -341,13 +341,13 @@ if ($cnameEnabled) {
             catch { $alert += "<b>Cannot resolve CNAMES for $($entry)</b><br/>$($error[0].exception)"; break; }
             #From the list own previous responses, get matching monitor records
             #update the lastDate for names which have been found
-            $updateNH = $cnameknown | where-object { ($_.namehost -in $cnames.namehost) -and ($_.monitor -like $entry) }
+            $updateNH = $cnameknown | Where-Object { ($_.namehost -in $cnames.namehost) -and ($_.monitor -like $entry) }
             foreach ($knownNH in $updateNH) {
                 $knownNH.lastDate = $addDateTime
             }
             $exportNH += $updateNH
             #identify the new cnames returned
-            $unknownNH = $cnames | where-object { ($_.namehost -notin $cnameknown.namehost) }
+            $unknownNH = $cnames | Where-Object { ($_.namehost -notin $cnameknown.namehost) }
             foreach ($alias in $unknownNH) {
                 $nh = @($alias.nameHost.split("."))
                 $aliasDomain = $nh[-2] + "." + $nh[-1]
@@ -359,7 +359,7 @@ if ($cnameEnabled) {
                 $addNew | Add-Member -MemberType NoteProperty -Name lastdate -Value $addDateTime
                 $addNew | Add-Member -MemberType NoteProperty -Name resolver -Value $DNSServer
 
-                Write-Log "Adding $($nameHost) to CSV"
+                Write-Log "Adding $($alias.nameHost) to CSV"
                 $alert += "<b>{0}</b>: New name host found CNAME <b>{1}</b> via Resolver <b>{2} ({3})</b><br/>" -f $entry, $alias.nameHost, $DNSServer, $dnsServerDesc
                 $newDomains += @($addNew)
             }

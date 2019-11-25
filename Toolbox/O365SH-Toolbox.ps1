@@ -123,10 +123,10 @@ $cnameResolverDesc = $cnameResolverDesc.Replace('"', '')
 $cnameResolverDesc = $cnameResolverDesc.Trim()
 [string]$cnameNotes = $config.CnameNotes
 
-    if ($cnameresolvers[0] -eq "") {
-        $cnameResolvers = @(Get-DnsClientServerAddress | Sort-Object interfaceindex | Select-Object -ExpandProperty serveraddresses | Where-Object { $_ -like '*.*' } | Select-Object -First 1)
-        $cnameResolverDesc = @("Default")
-    }
+if ($cnameresolvers[0] -eq "") {
+    $cnameResolvers = @(Get-DnsClientServerAddress | Sort-Object interfaceindex | Select-Object -ExpandProperty serveraddresses | Where-Object { $_ -like '*.*' } | Select-Object -First 1)
+    $cnameResolverDesc = @("Default")
+}
 
 
 
@@ -404,7 +404,7 @@ function ipURLChanges {
         $ipHistoryHTML += "<div class='wrap-collabsible'>`r`n"
         $ipHistoryHTML += "<input id='$($InputID)' class='toggle' type='checkbox'"
         if ($ipHistoryCnt -le $expandCount) { $ipHistoryHTML += " checked>" } else { $ipHistoryHTML += ">" }
-        $ipHistoryHTML += "<label for='$($inputID)' class='lbl-toggle'>Version: $(get-date $change.VersionDate -Format 'dd-MMM-yyyy') : $($changeslast.count) item(s)</label>`r`n"
+        $ipHistoryHTML += "<label for='$($inputID)' class='lbl-toggle'>Version: $(Get-Date $change.VersionDate -Format 'dd-MMM-yyyy') : $($changeslast.count) item(s)</label>`r`n"
         $ipHistoryHTML += "<div class='collapsible-content'><div class='content-inner'>`r`n"
         $ipHistoryHTML += "<div class='tableInc'>`r`n"
         $ipHistoryHTML += "<div class='tableInc-header'>`r`n"
@@ -432,9 +432,9 @@ function ipURLChanges {
             $entry = @()
             $addED, $addIP, $addURL = $null
             $remIP, $remURL = $null
-            $entry = @($changesFlat | where-object { $_.id -eq $item.id -and $_.action -like 'Add' })
+            $entry = @($changesFlat | Where-Object { $_.id -eq $item.id -and $_.action -like 'Add' })
             if ($null -ne $entry.effectivedate) {
-                if ((get-date $entry.effectivedate) -gt (get-date)) { $colour = "<font color='red'>" } else { $colour = "<font color='green'>" }
+                if ((Get-Date $entry.effectivedate) -gt (Get-Date)) { $colour = "<font color='red'>" } else { $colour = "<font color='green'>" }
                 $addED = "<b>Effective Date:</b> $($colour)<b>$($entry.effectivedate)</b></font><br/>"
             }
             if (!([string]::IsNullOrEmpty($entry.IPs))) { $addIP = "<b>Add IPs:</b> $($entry.ips)<br/>" }
@@ -444,7 +444,7 @@ function ipURLChanges {
             $entry = @()
             $addED, $addIP, $addURL = $null
             $remIP, $remURL = $null
-            $entry = @($changesFlat | where-object { $_.id -eq $item.id -and $_.action -like 'Remove' })
+            $entry = @($changesFlat | Where-Object { $_.id -eq $item.id -and $_.action -like 'Remove' })
             if (!([string]::IsNullOrEmpty($entry.ips))) { $remIP = "<b>Remove IPs:</b> $($entry.ips)<br/>" }
             if (!([string]::IsNullOrEmpty($entry.urls))) { $remURL = "<b>Remove URLs:</b> $($entry.urls)" }
             $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($remIP)$($remURL)</div>`n`t"
@@ -1056,12 +1056,12 @@ $fileData = "O365_endpoints_data-$($rptProfile).txt"
 $pathData = $pathIPURLs + "\" + $fileData
 $currentData = $null
 
-if (test-path $pathdata) { $currentData = Get-Content $pathData } else { $fileMissing = $true }
-if (test-path $pathIPurl) { $flatUrls = Import-Csv $pathIPurl } else { $fileMissing = $true }
-if (test-path $pathIP4) { $flatIp4s = Import-Csv $pathIP4 } else { $fileMissing = $true }
-if (test-path $pathIP6) { $flatIp6s = Import-Csv $pathIP6 } else { $fileMissing = $true }
-if (test-path $pathIPChanges) { $flatChanges = Import-Csv $pathIPChanges } else { $fileMissing = $true }
-if (test-path $pathIPChangeIDX) { $flatChangesIDX = Import-Csv $pathIPChangeIDX } else { $fileMissing = $true }
+if (Test-Path $pathdata) { $currentData = Get-Content $pathData } else { $fileMissing = $true }
+if (Test-Path $pathIPurl) { $flatUrls = Import-Csv $pathIPurl } else { $fileMissing = $true }
+if (Test-Path $pathIP4) { $flatIp4s = Import-Csv $pathIP4 } else { $fileMissing = $true }
+if (Test-Path $pathIP6) { $flatIp6s = Import-Csv $pathIP6 } else { $fileMissing = $true }
+if (Test-Path $pathIPChanges) { $flatChanges = Import-Csv $pathIPChanges } else { $fileMissing = $true }
+if (Test-Path $pathIPChangeIDX) { $flatChangesIDX = Import-Csv $pathIPChangeIDX } else { $fileMissing = $true }
 if (Test-Path $pathEndpointSetsIDX) { $EndPointSetsIDX = Import-Csv $pathEndpointSetsIDX } else { $fileMissing = $true }
 
 
@@ -1247,11 +1247,11 @@ $changesAll = $flatchangesIDX | Select-Object version, @{label = "VersionDate"; 
 $changesAllHTML = ipURLChanges $changesAll $flatchangesIDX $EndPointSetsIDX $flatChanges 100
 ConvertTo-Html -CssUri o365health.css -Body $changesAllHTML -Title "IP and URL Change History" | Out-File -FilePath "$($pathHTML)\IPURLChangeHistory.html" -Encoding UTF8 -Force
 
-if (test-path $fileIPURLsNotes) {
-    $notesCustom = import-csv $fileIPURLsNotes
+if (Test-Path $fileIPURLsNotes) {
+    $notesCustom = Import-Csv $fileIPURLsNotes
     #match custom notes data to ID and url
     foreach ($url in $flaturls) {
-        $notes = @($notesCustom | where-object { $_.ID -like $url.ID -and $_.url -like $url.url })
+        $notes = @($notesCustom | Where-Object { $_.ID -like $url.ID -and $_.url -like $url.url })
         $url | Add-Member -MemberType NoteProperty -Name "AmendedURL" -Value $notes.AmendedURL
         $url | Add-Member -MemberType NoteProperty -Name "DirectInternet" -Value $notes.DirectInternet
         $url | Add-Member -MemberType NoteProperty -Name "ProxyAuth" -Value $notes.ProxyAuth
@@ -1320,13 +1320,13 @@ Write-Output "" | Out-File $pathData -Append
 Write-Output "URLs for Proxy Server" | Out-File $pathData -Append
 ($flatUrls.url | Sort-Object -Unique) -join ", " | Out-File $pathData -Append
 
-if (test-path $pathdata) { Copy-Item $pathdata -Destination $pathHTML }
-if (test-path $pathIPurl) { Copy-Item $pathIPurl -Destination $pathHTML }
-if (test-path $pathIP4) { Copy-Item $pathIP4 -Destination $pathHTML }
-if (test-path $pathIP6) { Copy-Item $pathIP6 -Destination $pathHTML }
-if (test-path $fileIPURLsNotes) { Copy-Item $fileIPURLsNotes -Destination $pathHTML }
-if (test-path $fileIPURLsNotesAll) { Copy-Item $fileIPURLsNotesAll -Destination $pathHTML }
-if (test-path $fileCustomNotes) { Copy-Item $fileCustomNotes -Destination $pathHTML }
+if (Test-Path $pathdata) { Copy-Item $pathdata -Destination $pathHTML }
+if (Test-Path $pathIPurl) { Copy-Item $pathIPurl -Destination $pathHTML }
+if (Test-Path $pathIP4) { Copy-Item $pathIP4 -Destination $pathHTML }
+if (Test-Path $pathIP6) { Copy-Item $pathIP6 -Destination $pathHTML }
+if (Test-Path $fileIPURLsNotes) { Copy-Item $fileIPURLsNotes -Destination $pathHTML }
+if (Test-Path $fileIPURLsNotesAll) { Copy-Item $fileIPURLsNotesAll -Destination $pathHTML }
+if (Test-Path $fileCustomNotes) { Copy-Item $fileCustomNotes -Destination $pathHTML }
 
 $checkOptHTTP = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*80*' -and $_.category -match 'Optimize') }
 $checkOptHTTPs = $flaturls | Where-Object { ($_.url -notmatch '\*' -and $_.tcpPorts -like '*443*' -and $_.category -match 'Optimize') }
@@ -1745,18 +1745,18 @@ if ($cnameenabled) {
                 $addedDate = ""
                 $lastDate = ""
                 if ($spotted.addedDate) {
-                    if ((get-date $spotted.addedDate) -lt ((get-date).addhours(-48))) { $fontcolour = "<p>" }
-                    elseif ((get-date $spotted.addedDate) -lt ((get-date).addhours(-24))) { $fontcolour = "<p class='recentCname'>" }
+                    if ((Get-Date $spotted.addedDate) -lt ((Get-Date).addhours(-48))) { $fontcolour = "<p>" }
+                    elseif ((Get-Date $spotted.addedDate) -lt ((Get-Date).addhours(-24))) { $fontcolour = "<p class='recentCname'>" }
                     else { $fontcolour = "<p class='newCname'>" }
-                    $addedDate = "$($fontcolour)$(get-date $spotted.addedDate -Format 'dd-MMM-yy HH:mm')</p>"
+                    $addedDate = "$($fontcolour)$(Get-Date $spotted.addedDate -Format 'dd-MMM-yy HH:mm')</p>"
                 }
                 else { $addedDate = "<p class='error'>n/a</p>" }
                 $rptCNAMEInfo += "<div class='tableCname-cell-dtf'>$($addedDate)</div>`r`n"
                 if ($spotted.lastdate) {
-                    if ((get-date $spotted.lastdate) -lt ((get-date).addhours(-12))) { $fontcolour = "<p class='error'>" }
-                    elseif ((get-date $spotted.lastdate) -lt ((get-date).addhours(-4))) { $fontcolour = "<p class='warning'>" }
+                    if ((Get-Date $spotted.lastdate) -lt ((Get-Date).addhours(-12))) { $fontcolour = "<p class='error'>" }
+                    elseif ((Get-Date $spotted.lastdate) -lt ((Get-Date).addhours(-4))) { $fontcolour = "<p class='warning'>" }
                     else { $fontcolour = "<p class='ok'>" }
-                    $lastDate = "$($fontcolour)$(get-date $spotted.lastDate -Format 'dd-MMM-yy HH:mm')</p>"
+                    $lastDate = "$($fontcolour)$(Get-Date $spotted.lastDate -Format 'dd-MMM-yy HH:mm')</p>"
                 }
                 else { $lastDate = "<p class='error'>n/a</p>" }
                 $rptCNAMEInfo += "<div class='tableCname-cell-dtl'>$($lastDate)</div>`r`n"

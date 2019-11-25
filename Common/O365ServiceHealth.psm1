@@ -179,6 +179,8 @@ function LoadConfig {
         ProxyHost           = $configFile.Settings.Proxy.ProxyHost
         ProxyIgnoreSSL      = $configFile.Settings.Proxy.IgnoreSSL
 
+        Blogs               = ($configFile.Settings.Blogs).InnerXML
+
     }
     return $appSettings
 }
@@ -375,11 +377,11 @@ function SendEmail {
 
     $strSubject = "Office 365 [$($config.tenantshortname)]"
     if ($subject) { $strSubject += ": $($subject)" }
-    else { $strSubject += ": Alert [$(get-date -f 'dd-MMM-yyy HH:mm:ss')]" }
+    else { $strSubject += ": Alert [$(Get-Date -f 'dd-MMM-yyy HH:mm:ss')]" }
     $strHeader = "<!DOCTYPE html PUBLIC ""-//W3C/DTD XHTML 1.0 Transitional//EN"" ""http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd""><html xmlns=""http://www.w3.org/1999/xhtml"">"
     $strHeader += "<head>`n<style type=""text/css"">`nbody {font-family: ""Segoe UI"", Tahoma, Geneva, Verdana, sans-serif;font-size: x-small;}`n"
     $strHeader += "table.border {border-collapse:collapse;border:1px solid silver;} table td.border {border:1px solid silver;} table th{color:white;background-color: #003399;}</style></head>`n"
-    $strBody = "<body><b>Alert [$(get-date -f 'dd-MMM-yyy HH:mm:ss')]</b><br/>`r`n"
+    $strBody = "<body><b>Alert [$(Get-Date -f 'dd-MMM-yyy HH:mm:ss')]</b><br/>`r`n"
     $strBody += $strMessage
     $strSig = "<br/><br/>Kind regards<br/>Powershell scheduled task<br/><br/><b><i>(Automated report/email, do not respond)</i></b><br/>`n"
     $strSig += "<font: xx-small>Generated on: $env:computername by: $($env:userdomain)\$($env:username)</font></br>`n"
@@ -393,9 +395,15 @@ function SendEmail {
     #Splat the parameters
     $params = @{ }
     $params += @{to = $strTo; subject = $strSubject; body = $strHTMLBody; BodyAsHTML = $true; priority = $strPriority; from = $config.emailfrom; smtpServer = $config.EmailHost; port = $config.emailport }
-    If ($credemail -notlike '') { $params += @{Credential = $credEmail } }
-    If ($config.EmailUseSSL -eq 'True') { $params += @{UseSSL = $true } }
-    if ($attachment -ne "") { $params += @{attachments = $attachment } }
+    If ($credemail -notlike '') {
+        $params += @{Credential = $credEmail } 
+    }
+    If ($config.EmailUseSSL -eq 'True') {
+        $params += @{UseSSL = $true } 
+    }
+    if ($attachment -ne "") {
+        $params += @{attachments = $attachment } 
+    }
     Send-MailMessage @params
 }
 
@@ -492,12 +500,12 @@ function Get-IncidentInHTML {
     #Main item data
     $url = "docs/$($item.ID).html"
     $htmlHead = "<title>$($item.ID) - $($item.WorkloadDisplayName)</title>"
-    $css = get-content ..\common\article.css
+    $css = Get-Content ..\common\article.css
     $htmlHead += $css
     $htmlBody += "<table class='msg'>"
     $htmlBody += "<tr><th colspan=7 style='font-size:x-large;'>$($item.ImpactDescription)</th></tr>"
     $htmlBody += "<tr><th>ID</th><th>Workload<br/>Feature</th><th>Title</th><th>Classification</th><th>Severity</th><th>Start Time</th><th>Last Updated</th></tr>"
-    $htmlBody += "<tr class='msgO'><td>$($item.ID)</td><td>$($item.WorkloadDisplayName)<br/>$($item.FeatureDisplayName)</td><td>$($item.Title)</td><td>$($item.Classification)</td><td>$($item.Severity)</td><td>$(get-date $item.StartTime -f 'dd-MMM-yyyy HH:mm')</td><td>$(get-date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')</td></tr>"
+    $htmlBody += "<tr class='msgO'><td>$($item.ID)</td><td>$($item.WorkloadDisplayName)<br/>$($item.FeatureDisplayName)</td><td>$($item.Title)</td><td>$($item.Classification)</td><td>$($item.Severity)</td><td>$(Get-Date $item.StartTime -f 'dd-MMM-yyyy HH:mm')</td><td>$(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')</td></tr>"
     $subMessages = $item | Select-Object -ExpandProperty Messages
     $subMessages = $subMessages | Sort-Object publishedtime -Descending
     $pubWindow = (New-TimeSpan -Start (Get-Date $submessages[0].publishedtime) -End $(Get-Date)).TotalHours
@@ -506,7 +514,7 @@ function Get-IncidentInHTML {
         #Article was updated in the last 2 hours. Lets update it Or force rebuild of docs
         foreach ($message in $subMessages) {
             $htmlBuild = Get-htmlMessage $message.messagetext
-            $htmlBuild = "<br/><b>Update:</b> $(get-date $message.PublishedTime -f 'dd-MMM-yyyy HH:mm')<br/>" + $htmlBuild
+            $htmlBuild = "<br/><b>Update:</b> $(Get-Date $message.PublishedTime -f 'dd-MMM-yyyy HH:mm')<br/>" + $htmlBuild
             $htmlSub += $htmlBuild + "<hr><br/>"
         }
         $htmlBody += "<tr><td colspan=7>$($htmlSub)</td></tr>"
@@ -530,12 +538,12 @@ function Get-AdvisoryInHTML {
     #Main item data
     $url = "docs/$($item.ID).html"
     $htmlHead = "<title>$($item.ID) - $($item.Title)</title>"
-    $css = get-content ..\common\article.css
+    $css = Get-Content ..\common\article.css
     $htmlHead += $css
     $htmlBody += "<table class='msg'>"
     $htmlBody += "<tr><th colspan=7 style='font-size:x-large;'>$($item.Title)</th></tr>"
     $htmlBody += "<tr><th>ID</th><th>Workload</th><th>Action</th><th>Classification</th><th>Severity</th><th>Start Time</th><th>Last Updated</th></tr>"
-    $htmlBody += "<tr class='msgO'><td>$($item.ID)</td><td>$($item.AffectedWorkloadDisplayNames)</td><td>$($item.ActionType)</td><td>$($item.Classification)</td><td>$($item.Severity)</td><td>$(get-date $item.StartTime -f 'dd-MMM-yyyy HH:mm')</td><td>$(get-date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')</td></tr>"
+    $htmlBody += "<tr class='msgO'><td>$($item.ID)</td><td>$($item.AffectedWorkloadDisplayNames)</td><td>$($item.ActionType)</td><td>$($item.Classification)</td><td>$($item.Severity)</td><td>$(Get-Date $item.StartTime -f 'dd-MMM-yyyy HH:mm')</td><td>$(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')</td></tr>"
     $subMessages = $item | Select-Object -ExpandProperty Messages
     $subMessages = $subMessages | Sort-Object publishedtime -Descending
     $pubWindow = (New-TimeSpan -Start (Get-Date $submessages[0].publishedtime) -End $(Get-Date)).TotalHours
@@ -544,7 +552,7 @@ function Get-AdvisoryInHTML {
         #Article has been updated in the last 2 hours, or force a rebuild of documents
         foreach ($message in $subMessages) {
             $htmlBuild = $message.messagetext
-            $htmlBuild = "<br/><b>Update:</b> $(get-date $message.PublishedTime -f 'dd-MMM-yyyy HH:mm')<br/>" + $htmlBuild
+            $htmlBuild = "<br/><b>Update:</b> $(Get-Date $message.PublishedTime -f 'dd-MMM-yyyy HH:mm')<br/>" + $htmlBuild
             $htmlBuild = $htmlBuild -replace "Title:", "<b>Title</b>:"
             $htmlBuild = $htmlBuild -replace "`n", "<br/>"
             $htmlBuild = $htmlBuild -replace ("`n", '<br>') -replace ([char]8217, "'") -replace ([char]8220, '"') -replace ([char]8221, '"') -replace ('\[', '<b><i>') -replace ('\]', '</i></b>')
