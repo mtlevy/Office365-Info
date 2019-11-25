@@ -548,7 +548,7 @@ function Get-AdvisoryInHTML {
     $subMessages = $subMessages | Sort-Object publishedtime -Descending
     $pubWindow = (New-TimeSpan -Start (Get-Date $submessages[0].publishedtime) -End $(Get-Date)).TotalHours
     $updWindow = (New-TimeSpan -Start (Get-Date $item.LastUpdatedTime) -End $(Get-Date)).TotalHours
-    if ($pubWindow -le 18 -or $RebuildDocs -or $updWindow -le 72) {
+    if ($pubWindow -le 18 -or $RebuildDocs -or $updWindow -le 2) {
         #Article has been updated in the last 2 hours, or force a rebuild of documents
         foreach ($message in $subMessages) {
             $htmlBuild = $message.messagetext

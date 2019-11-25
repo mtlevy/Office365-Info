@@ -161,23 +161,31 @@ else {
 
 #Connect to Azure app and grab the service status
 ConnectAzureAD
-[uri]$urlOrca = "https://manage.office.com"
-[uri]$authority = "https://login.microsoftonline.com/$($TenantID)"
-$authContext = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext" -ArgumentList $authority
-$clientCredential = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.ClientCredential" -ArgumentList $appId, $clientSecret
-$authenticationResult = ($authContext.AcquireTokenAsync($urlOrca, $clientCredential)).Result;
-$bearerToken = $authenticationResult.AccessToken
-if ($null -eq $authenticationResult) {
+[string]$urlResource = "https://manage.office.com/.default"
+[uri]$authority = "https://login.microsoftonline.com/$($TenantID)/oauth2/v2.0/token"
+$reqTokenBody = @{
+	Grant_Type="client_credentials"
+	Scope=$urlResource
+	Client_ID=$appID
+	Client_Secret=$clientSecret
+}
+
+if ($proxyServer) {
+	$bearerToken= invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody -Proxy $proxyHost -ProxyUseDefaultCredentials
+} else {
+	$bearerToken= Invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody
+}
+
+$authHeader=@{
+    'Content-Type' = 'application/json'
+	Authorization = "$($bearerToken.token_type) $($bearerToken.access_token)"
+}
+
+if ($null -eq $bearerToken) {
     $evtMessage = "ERROR - No authentication result for Auzre AD App"
     Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 1 -EntryType Error
     Write-Log $evtMessage
 }
-
-$authHeader = @{
-    'Content-Type'  = 'application/json'
-    'Authorization' = "Bearer " + $bearerToken
-}
-
 function BuildHTML {
     Param (
         [Parameter(Mandatory = $true)] [string]$Title,

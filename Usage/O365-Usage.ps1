@@ -164,22 +164,30 @@ if ($UseEventLog) {
 #Connect to Azure app and grab the service status
 ConnectAzureAD
 #Connect to Graph API
-[uri]$urlOrca = "https://graph.microsoft.com"
-[uri]$authority = "https://login.microsoftonline.com/$($TenantID)"
-$authContext = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext" -ArgumentList $authority
-$clientCredential = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.ClientCredential" -ArgumentList $appId, $clientSecret
-$authenticationResult = ($authContext.AcquireTokenAsync($urlOrca, $clientCredential)).Result;
-$bearerToken = $authenticationResult.AccessToken
-if ($null -eq $authenticationResult) {
+
+[uri]$urlResource = "https://graph.microsoft.com/.default"
+[uri]$authority = "https://login.microsoftonline.com/$($TenantID)/oauth2/V2.0/token"
+$reqTokenBody = @{
+	Grant_Type="client_credentials"
+	Scope=$urlResource
+	Client_ID=$appID
+	Client_Secret=$clientSecret
+}
+
+if ($proxyServer) {
+	$bearerToken= invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody -Proxy $proxyHost -ProxyUseDefaultCredentials
+} else {
+	$bearerToken= invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody
+}
+
+$authHeader=@{
+	Authorization = "$($bearerToken.token_type) $($bearerToken.access_token)"
+}
+
+if ($null -eq $bearerToken) {
     $evtMessage = "ERROR - No authentication result for Auzre AD App"
     Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 1 -EntryType Error
     Write-Log $evtMessage
-}
-
-# Get Messages
-$authHeader = @{
-    'Content-Type'  = 'application/json'
-    'Authorization' = "Bearer " + $bearerToken
 }
 
 #O365 reports to generate from https://docs.microsoft.com/en-us/graph/api/resources/report?view=graph-rest-1.0
