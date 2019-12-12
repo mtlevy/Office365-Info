@@ -91,6 +91,7 @@ else { [boolean]$UseEventLog = $false }
 
 #Declare variables
 [string]$tenantID = $config.TenantID
+[string]$tenantMSName = $config.TenantMSName
 [string]$appID = $config.AppID
 [string]$clientSecret = $config.AppSecret
 [string]$emailEnabled = $config.EmailEnabled
@@ -128,6 +129,11 @@ if ($cnameresolvers[0] -eq "") {
     $cnameResolverDesc = @("Default")
 }
 
+[string]$pacEnabled = $config.PACEnabled
+[string]$pacProxy = $config.PACProxy
+[string]$pacType1Filename = $config.PACType1Filename
+[string]$pacType2Filename = $config.PACType2Filename
+
 
 
 [string[]]$emailIPURLAlerts = $config.IPURLsAlertsTo
@@ -145,6 +151,7 @@ if ($config.DiagnosticsPorts -like 'true') { [boolean]$diagPorts = $true } else 
 if ($config.DiagnosticsURLs -like 'true') { [boolean]$diagURLs = $true } else { [boolean]$diagURLs = $false }
 if ($config.DiagnosticsVerbose -like 'true') { [boolean]$diagVerbose = $true } else { [boolean]$diagVerbose = $false }
 if ($config.EmailEnabled -like 'true') { [boolean]$emailEnabled = $true } else { [boolean]$emailEnabled = $false }
+if ($config.PACEnabled -like 'true') { [boolean]$pacEnabled = $true } else { [boolean]$pacEnabled = $false }
 
 [string]$diagNotes = $config.DiagnosticsNotes
 
@@ -213,21 +220,17 @@ ConnectAzureAD
 [string]$urlResource = "https://manage.office.com/.default"
 [uri]$authority = "https://login.microsoftonline.com/$($TenantID)/oauth2/v2.0/token"
 $reqTokenBody = @{
-	Grant_Type="client_credentials"
-	Scope=$urlResource
-	Client_ID=$appID
-	Client_Secret=$clientSecret
+    Grant_Type    = "client_credentials"
+    Scope         = $urlResource
+    Client_ID     = $appID
+    Client_Secret = $clientSecret
 }
 
 if ($proxyServer) {
-	$bearerToken= invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody -Proxy $proxyHost -ProxyUseDefaultCredentials
-} else {
-	$bearerToken= Invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody
+    $bearerToken = invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody -Proxy $proxyHost -ProxyUseDefaultCredentials
 }
-
-$authHeader=@{
-    'Content-Type' = 'application/json'
-	Authorization = "$($bearerToken.token_type) $($bearerToken.access_token)"
+else {
+    $bearerToken = Invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody
 }
 
 if ($null -eq $bearerToken) {
@@ -737,6 +740,7 @@ $SkuNames = @{
     "DESKLESSWOFFPACK"                            = "Office 365 (Plan K2)"
     "DESKLESSWOFFPACK_GOV"                        = "Office 365 (Plan K2) for Gov"
     "DEVELOPERPACK"                               = "Office 365 Enterprise E3 Developer"
+    "DEVELOPERPACK_E5"                            = "Office 365 Enterprise E5 Developer"
     "DYN365_AI_SERVICE_INSIGHTS"                  = "Dynamics 365 Customer Service Insights"
     "DYN365_AI_SERVICE_INSIGHTS_VIRAL"            = "Dynamics 365 Customer Service Insights Viral"
     "DYN365_BUSINESS_Marketing"                   = "Dynamics 365 for Marketing"
@@ -842,6 +846,7 @@ $SkuNames = @{
     "LITEPACK_P2"                                 = "Office 365 Small Business Premium"
     "LOCKBOX"                                     = "Customer Lockbox"
     "LOCKBOX_ENTERPRISE"                          = "Customer Lockbox"
+    "M365_ADVANCED_AUDITING"                      = "Microsoft 365 Advanced Auditing"
     "MCO_TEAMS_IW"                                = "Microsoft Teams"
     "MCOEV"                                       = "Skype for Business Cloud PBX"
     "MCOIMP"                                      = "Skype for Business Online (Plan 1)"
@@ -929,6 +934,7 @@ $SkuNames = @{
     "RMS_S_PREMIUM"                               = "Azure Information Protection (Plan 1)"
     "RMS_S_PREMIUM2"                              = "Azure Information Protection Premium (Plan 2)"
     "SCHOOL_DATA_SYNC_P1"                         = "School Data Sync (Plan 1)"
+    "SAFEDOCS"                                    = "Office 365 SafeDocs"
     "SHAREPOINT_PROJECT"                          = "Project Online (Plan 2)"
     "SHAREPOINT_PROJECT_EDU"                      = "SharePoint Project Online Service for Edu"
     "SHAREPOINTDESKLESS"                          = "SharePoint Online Kiosk"
@@ -1061,6 +1067,9 @@ $pathIPurl = $pathIPURLs + "\O365_endpoints_urls-$($rptProfile).csv"
 $pathIPChanges = $pathIPURLs + "\O365_IPChanges-$($rptProfile).csv"
 $pathIPChangeIDX = $pathIPURLs + "\O365_IPChangeIDX-$($rptProfile).csv"
 $pathEndpointSetsIDX = $pathIPURLs + "\O365_EndpointSetsIDX-$($rptProfile).csv"
+$pacFile1 = "$($pathHTML)\$($pacType1Filename)"
+$pacFile2 = "$($pathHTML)\$($pacType2Filename)"
+
 
 $fileData = "O365_endpoints_data-$($rptProfile).txt"
 $pathData = $pathIPURLs + "\" + $fileData
@@ -1073,6 +1082,11 @@ if (Test-Path $pathIP6) { $flatIp6s = Import-Csv $pathIP6 } else { $fileMissing 
 if (Test-Path $pathIPChanges) { $flatChanges = Import-Csv $pathIPChanges } else { $fileMissing = $true }
 if (Test-Path $pathIPChangeIDX) { $flatChangesIDX = Import-Csv $pathIPChangeIDX } else { $fileMissing = $true }
 if (Test-Path $pathEndpointSetsIDX) { $EndPointSetsIDX = Import-Csv $pathEndpointSetsIDX } else { $fileMissing = $true }
+if ($PACEnabled) {
+	if (Test-Path $pacFile1) { } else { $fileMissing = $true }
+	if (Test-Path $pacFile2) { } else { $fileMissing = $true }
+}
+
 
 
 
@@ -1094,6 +1108,16 @@ if ($proxyServer) { $version = Invoke-RestMethod -Uri ($ipurlVersion) -Proxy $pr
 else { $version = Invoke-RestMethod -Uri ($ipurlVersion) }
 if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileMissing) {
     $ipurlOutput += "New version of Office 365 worldwide commercial service instance endpoints detected<br />`r`n"
+    if ($pacEnabled) {
+        #Get Proxy PAC file using MS Script (why re-invent the wheel)
+        $pacCreate="$PSScriptRoot\Get-PacFile.ps1"
+        $paramsPac = @("-Type 1 -clientRequestID $($clientRequestId) -Instance Worldwide -TenantName $($tenantMSName) -DefaultProxySettings $($PACProxy) -FilePath $($pathHTML)\$($pacType1Filename)")
+        $callMe="'$($pacCreate)' $($paramsPac)"
+        Invoke-Expression "& $($callme)"
+        $paramsPac = @("-Type 2 -clientRequestID $($clientRequestId) -Instance Worldwide -TenantName $($tenantMSName) -DefaultProxySettings $($PACProxy) -FilePath $($pathHTML)\$($pacType2Filename)")
+        $callMe="'$($pacCreate)' $($paramsPac)"
+        Invoke-Expression "& $($callme)"
+    }
     #Build changes
     [uri]$ipurlChanges = "$($ws)/changes/Worldwide/0000000000?ClientRequestId=$($clientRequestId)"
     if ($proxyServer) { $changes = Invoke-RestMethod -Uri ($ipurlChanges) -Proxy $proxyhost -ProxyUseDefaultCredentials }
@@ -1272,7 +1296,6 @@ if (Test-Path $fileIPURLsNotes) {
     }
     #Export a full list with additional information
     $flaturls | Export-Csv $fileIPURLsNotesAll -NoTypeInformation -Encoding UTF8
-
 }
 
 
@@ -1280,7 +1303,14 @@ if (Test-Path $fileIPURLsNotes) {
 # Clients arent going to want to view this, are they?
 $ipurlSummary += "<b>Client Request ID: " + $clientRequestId + "</b><br />`r`n"
 $ipurlSummary += "<b>Last Version: " + $lastVersion + "</b><br />`r`n"
-$ipurlSummary += "<b>New Version: " + $version.latest + "</b><br />`r`n"
+$ipurlSummary += "<b>New Version: " + $version.latest + "</b><br />`r`n<br />`r`n"
+
+#Links to PAC Files (if enabled)
+if ($PACEnabled) {
+    $ipurlOutput += "<b>Example Proxy PAC Files with Optimize and Allow URLS</b><br />`r`n"
+    $ipurlOutput += "<b>Optimize URLs Only:</b> <a href='./$($PACType1Filename)' target=_blank>Optimize URLS go Direct</a><br />`r`n"
+    $ipurlOutput += "<b>Optimize and Allow URLs:</b> <a href='./$($PACType2Filename)' target=_blank>Optimize and Allow URLS go Direct</a><br />`r`n<br />`r`n"
+}
 
 #IPv4
 $ipurlOutput += "<b>IPv4 Firewall IP Address Ranges</b><br />`r`n"
@@ -1482,7 +1512,8 @@ foreach ($sku in $allLicences) {
     if (($sku.prepaidunits).suspended -gt 0) { $NicePartNumber += "<br/>$(($sku.prepaidunits).suspended) in suspended state" }
     $NicePartNumber += "</span>"
     [int]$intPlanCount = 0
-    foreach ($serviceplan in $sku.serviceplans) {
+    $sps = $sku.ServicePlans | Sort-Object servicePlanName
+    foreach ($serviceplan in $sps) {
         [string]$NiceServiceName = $null
         $NiceServiceName = $SkuNames.item($serviceplan.serviceplanname)
         if ($NiceServiceName -eq "") { $NiceServiceName = $($serviceplan.serviceplanname) }

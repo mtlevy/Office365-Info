@@ -5,6 +5,8 @@
     <Name>Sample Tenant</Name>
     <!-- Short name is used in filenames to help identify files per tenant-->
     <ShortName>Sample</ShortName>
+    <!-- MS name is the name used to create the tenant (which may be used as shortname, above)-->
+    <MSName>MSTenant</MSName>
     <Description>Sample tenant description</Description>
   </Tenant>
   <Azure>
@@ -138,6 +140,16 @@
     <!-- List of descriptions matching the above resolvers ie "Internal DNS","Google DNS" -->
     <ResolverDesc>"Google 8","Private 1"</ResolverDesc>
   </CNAME>
+  <PACFile>
+    <!-- Proxy .pac file generation required?-->
+    <Enabled>true</Enabled>
+    <!-- Client proxy server to specificy in .pac file-->
+    <Proxy>192.168.10.10:8080</Proxy>
+    <!-- If using .pac extension remember to allow on web server as valid extension-->
+    <!-- If in doubt use .txt and rename-->
+    <Type1Filename>pac-Optimize.txt</Type1Filename>
+    <Type2Filename>pac-OptimizeAllow.txt</Type2Filename>
+  </PACFile>
   <Proxy>
     <!-- Proxy settings if required-->
     <!-- Use proxy values: true/false-->

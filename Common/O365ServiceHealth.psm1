@@ -96,6 +96,7 @@ function LoadConfig {
     $appSettings = [PSCustomObject]@{
         TenantName          = $configFile.Settings.Tenant.Name
         TenantShortName     = $configFile.Settings.Tenant.ShortName
+        TenantMSName        = $configFile.Settings.Tenant.MSName
         TenantDescription   = $configFile.Settings.Tenant.Description
     
         TenantID            = $configFile.Settings.Azure.TenantID
@@ -174,6 +175,11 @@ function LoadConfig {
         CnameURLs           = $configFile.Settings.CNAME.URLs
         CnameResolvers      = [string[]]$configFile.Settings.CNAME.Resolvers
         CnameResolverDesc   = [string[]]$configFile.Settings.CNAME.ResolverDesc
+
+        PACEnabled          = $configFile.Settings.PACFile.Enabled
+        PACProxy            = $configFile.Settings.PACFile.Proxy
+        PACType1Filename    = $configFile.Settings.PACFile.Type1Filename
+        PACType2Filename    = $configFile.Settings.PACFile.Type2Filename
 
         UseProxy            = $configFile.Settings.Proxy.UseProxy
         ProxyHost           = $configFile.Settings.Proxy.ProxyHost

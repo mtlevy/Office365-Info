@@ -49,6 +49,7 @@ if (Test-Path $configXML) {
   $appSettings = [PSCustomObject]@{
     TenantName          = $xmlExisting.Settings.Tenant.Name
     TenantShortName     = $xmlExisting.Settings.Tenant.ShortName
+    TenantMSName        = $xmlExisting.Settings.Tenant.MSName
     TenantDescription   = $xmlExisting.Settings.Tenant.Description
 
     TenantID            = $xmlExisting.Settings.Azure.TenantID
@@ -128,6 +129,11 @@ if (Test-Path $configXML) {
     CnameURLs           = $xmlExisting.Settings.CNAME.URLs
     CnameResolvers      = [string[]]$xmlExisting.Settings.CNAME.Resolvers
     CnameResolverDesc   = [string[]]$xmlExisting.Settings.CNAME.ResolverDesc
+
+    PACEnabled          = $xmlExisting.Settings.PACFile.Enabled
+    PACProxy            = $xmlExisting.Settings.PACFile.Proxy
+    PACType1Filename    = $xmlExisting.Settings.PACFile.Type1Filename
+    PACType2Filename    = $xmlExisting.Settings.PACFile.Type2Filename
     
     UseProxy            = $xmlExisting.Settings.Proxy.UseProxy
     ProxyHost           = $xmlExisting.Settings.Proxy.ProxyHost
@@ -145,6 +151,7 @@ if (Test-Path $configXML) {
     <Name>$($appSettings.TenantName)</Name>
     <!-- Short name is used in filenames to help identify files per tenant-->
     <ShortName>$($appSettings.TenantShortName)</ShortName>
+    <MSName>$($appSettings.TenantMSName)</MSName>
     <Description>$($appSettings.TenantDescription)</Description>
   </Tenant>
   <Azure>
@@ -280,11 +287,21 @@ if (Test-Path $configXML) {
     <!-- List of descriptions matching the above resolvers ie "Internal DNS","Google DNS" -->
     <ResolverDesc>$($appSettings.CnameResolverDesc)</ResolverDesc>
   </CNAME>
+  <PACFile>
+    <!-- Proxy .pac file generation required?-->
+    <Enabled>$($appSettings.PACEnabled)</Enabled>
+    <!-- Client proxy server to specificy in .pac file-->
+    <Proxy>$($appSettings.PACProxy)</Proxy>
+    <!-- If using .pac extension remember to allow on web server as valid extension-->
+    <!-- If in doubt use .txt and rename-->
+    <Type1Filename>$($appSettings.PACType1Filename)</Type1Filename>
+    <Type2Filename>$($appSettings.PACType2Filename)</Type2Filename>
+  </PACFile>
   <Proxy>
     <!-- Proxy settings if required-->
     <!-- Use proxy values: true/false-->
     <UseProxy>$($appSettings.UseProxy)</UseProxy>
-    <!-- Proxy server FQDN value http://proxyfqdn.domain.com -->
+    <!-- Proxy server FQDN value http://proxyfqdn.domain.com:8080 -->
     <ProxyHost>$($appSettings.ProxyHost)</ProxyHost>
     <!-- Ignore SSL: true/false-->
     <IgnoreSSL>$($appSettings.ProxyIgnoreSSL)</IgnoreSSL>

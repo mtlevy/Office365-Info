@@ -212,21 +212,22 @@ ConnectAzureAD
 [string]$urlResource = "https://manage.office.com/.default"
 [uri]$authority = "https://login.microsoftonline.com/$($TenantID)/oauth2/v2.0/token"
 $reqTokenBody = @{
-	Grant_Type="client_credentials"
-	Scope=$urlResource
-	Client_ID=$appID
-	Client_Secret=$clientSecret
+    Grant_Type    = "client_credentials"
+    Scope         = $urlResource
+    Client_ID     = $appID
+    Client_Secret = $clientSecret
 }
 
 if ($proxyServer) {
-	$bearerToken= invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody -Proxy $proxyHost -ProxyUseDefaultCredentials
-} else {
-	$bearerToken= Invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody
+    $bearerToken = invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody -Proxy $proxyHost -ProxyUseDefaultCredentials
+}
+else {
+    $bearerToken = Invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody
 }
 
-$authHeader=@{
+$authHeader = @{
     'Content-Type' = 'application/json'
-	Authorization = "$($bearerToken.token_type) $($bearerToken.access_token)"
+    Authorization  = "$($bearerToken.token_type) $($bearerToken.access_token)"
 }
 
 if ($null -eq $bearerToken) {
@@ -481,10 +482,10 @@ catch {
 if ($rss1Enabled) {
     try {
         if ($proxyServer) {
-            $rss1Data = @((Invoke-WebRequest -Uri $rss1Feed -Proxy $proxyHost -ProxyUseDefaultCredentials).content)
+            $rss1Data = @((Invoke-WebRequest -Uri $rss1Feed -Proxy $proxyHost -ProxyUseDefaultCredentials -UseBasicParsing).content)
         }
         else {
-            $rss1Data = @((Invoke-WebRequest -Uri $rss1Feed).content)
+            $rss1Data = @((Invoke-WebRequest -Uri $rss1Feed -UseBasicParsing).content)
         }
         if ($null -eq $rss1Data -or $rss1Data.Count -eq 0) {
             $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No $($rss1Name) RSS Feed information - verify proxy and network connectivity</p><br/>"
@@ -503,10 +504,10 @@ if ($rss1Enabled) {
 if ($rss2Enabled) {
     try {
         if ($proxyServer) {
-            $rss2Data = @((Invoke-WebRequest -Uri $rss2Feed -Proxy $proxyHost -ProxyUseDefaultCredentials).content)
+            $rss2Data = @((Invoke-WebRequest -Uri $rss2Feed -Proxy $proxyHost -ProxyUseDefaultCredentials -UseBasicParsing).content)
         }
         else {
-            $rss2Data = @((Invoke-WebRequest -Uri $rss2Feed).content)
+            $rss2Data = @((Invoke-WebRequest -Uri $rss2Feed -UseBasicParsing).content)
         }
         if ($null -eq $rss2Data -or $rss2Data.Count -eq 0) {
             $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No $($rss2Name) RSS Feed information - verify proxy and network connectivity</p><br/>"
