@@ -1,15 +1,15 @@
 <#
 .SYNOPSIS
-	Utility to update an existing profile configuration file.
+	Utility to update an existing profile configuration file. Current version is renamed with date and .bak extension
 
 .DESCRIPTION
-	Updates an existing configuration file
+	Updates an existing configuration file and backs up the original configuration file with date/time and .bak extension in the same directory as the original.
 
 .INPUTS
     Existing config.xml file
 
 .OUTPUTS
-    Updated config.xml file
+    Updated config.xml file and backup copy of origin
 
 .EXAMPLE
     PS C:\> .\ProfileBuilder.ps1 -configXML .\configfile.xml
@@ -43,6 +43,7 @@ $configXML = Resolve-Path $configXML
 if (Test-Path $configXML) {
   #Resolve the full path the configuration file
   $configXMLFile = Split-Path $configXML -Leaf
+  $configPath = Split-Path $configXML
   #Get existing configuration file contents
   $xmlExisting = [xml](Get-Content -Path "$($configXML)")
   #Assign the config to variables. We dont need to but this will allow for checking in future for null values and building a profile via question/input
@@ -151,7 +152,8 @@ if (Test-Path $configXML) {
     <Name>$($appSettings.TenantName)</Name>
     <!-- Short name is used in filenames to help identify files per tenant-->
     <ShortName>$($appSettings.TenantShortName)</ShortName>
-    <MSName>$($appSettings.TenantMSName)</MSName>
+    <!-- MS name is the name used to create the tenant (which may be used as shortname, above)-->
+	<MSName>$($appSettings.TenantMSName)</MSName>
     <Description>$($appSettings.TenantDescription)</Description>
   </Tenant>
   <Azure>
@@ -307,12 +309,14 @@ if (Test-Path $configXML) {
     <IgnoreSSL>$($appSettings.ProxyIgnoreSSL)</IgnoreSSL>
   </Proxy>
   <Blogs>
+  <!-- Blogs is a simple HTML list of useful links -->
 	$($appSettings.Blogs)
   </Blogs>
 </Settings>
 "@
   $datetime = Get-Date -Format "yyyyMMddHHmm"
-  Copy-Item $configXMLFile "$($configXMLFile)-$($datetime).bak"
-  $xmlNewConfig | Set-Content -Path "$($configXMLFile)"
-  #$xmlNewConfig | ConvertTo-Json | Set-Content -Path "New-$($configXMLFile).json"
+  #Copy existing config file to back
+  Copy-Item "$($configPath)\$($configXMLFile)" "$($configPath)\$($configXMLFile)-$($datetime).bak"
+  #write new settings to config file
+  $xmlNewConfig | Set-Content -Path "$($configPath)\$($configXMLFile)"
 }

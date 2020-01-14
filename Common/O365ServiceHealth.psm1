@@ -327,6 +327,138 @@ function Get-htmlMessage ($msgText) {
     return $htmlMessage
 }
 
+function BuildIPURLChanges {
+    Param(
+        [Parameter(Mandatory = $true)] [array]$changesList,
+        [Parameter(Mandatory = $true)] [array]$changesIDX,
+        [Parameter(Mandatory = $true)] [array]$changesEPSIDX,
+        [Parameter(Mandatory = $true)] [array]$changesFlat,
+        [Parameter(Mandatory = $true)] [int]$expandCount,
+        [Parameter(Mandatory = $true)] [array]$watchCats,
+        [Parameter(Mandatory = $false)] [switch]$email
+    )
+    if ($email) { $html = $true } else { $html = $false }
+    #Use DIVs to build HTML page
+    $ipHistoryHTML = ""
+    $ipHistoryCnt = 0
+    foreach ($change in $changesList) {
+        $ipHistoryCnt++
+        $changesLast = @($changesIDX | Where-Object { $_.version -In $change.version })
+        $inputID = "collapsible$($ipHistoryCnt)"
+        if ($html) {
+            $ipHistoryHTML += "<table>`r`n"
+            $ipHistoryHTML += "<caption>Version: $(Get-Date $change.VersionDate -Format 'dd-MMM-yyyy') : $($changeslast.count) item(s)</caption>`r`n"
+            $ipHistoryHTML += "<thead><tr>`r`n"
+            $ipHistoryHTML += "<th>Service Area</th>`r`n"
+            $ipHistoryHTML += "<th>Disposition</th>`r`n<th>Impact</th>`r`n"
+            $ipHistoryHTML += "<th style='max-width:250px'>Add</th>`r`n<th style='max-width:250px'>Remove</th>`r`n"
+            $ipHistoryHTML += "<th style='max-width:150px'>Current</th>`r`n`<th style='max-width:150px'>Previous</th>`r`n"
+            $ipHistoryHTML += "</tr></thead>`r`n"
+            $ipHistoryHTML += "<tbody>`r`n"		
+        }
+        else {
+            $ipHistoryHTML += "<div class='wrap-collabsible'>`r`n"
+            $ipHistoryHTML += "<input id='$($InputID)' class='toggle' type='checkbox'"
+            if ($ipHistoryCnt -le $expandCount) { $ipHistoryHTML += " checked>" } else { $ipHistoryHTML += ">" }
+            $ipHistoryHTML += "<label for='$($inputID)' class='lbl-toggle'>Version: $(Get-Date $change.VersionDate -Format 'dd-MMM-yyyy') : $($changeslast.count) item(s)</label>`r`n"
+            $ipHistoryHTML += "<div class='collapsible-content'><div class='content-inner'>`r`n"
+            $ipHistoryHTML += "<div class='tableInc'>`r`n"
+            $ipHistoryHTML += "<div class='tableInc-header'>`r`n"
+            $ipHistoryHTML += "<div class='tableInc-header-l'>Service Area</div>`r`n"
+            $ipHistoryHTML += "<div class='tableInc-header-l'>Disposition</div>`r`n<div class='tableInc-header-l'>Impact</div>`r`n"
+            $ipHistoryHTML += "<div class='tableInc-header-l' style='max-width:250px'>Add</div>`r`n<div class='tableInc-header-l' style='max-width:250px'>Remove</div>`r`n"
+            $ipHistoryHTML += "<div class='tableInc-header-l' style='max-width:150px'>Current</div>`r`n`<div class='tableInc-header-l' style='max-width:150px'>Previous</div>`r`n"
+            $ipHistoryHTML += "</div>`r`n"
+        }
+        $ipHistory = ""
+        foreach ($item in $changesLast) {
+            $cat = ""
+            if ($html) { $ipHistory += "<tr>" } else { $ipHistory += "<div class='tableInc-row'>" }
+            $serviceArea = ($changesEPSIDX | Where-Object { $item.endpointsetid -eq $_.id }).ServiceArea
+            if ($item.endpointsetid -in ($watchCats.id)) {
+                $cat = ($watchCats | where-Object { $_.id -eq $item.endpointsetid }).category
+                if ($cat -like 'Optimize') { $suffix = "<font color='red'> ($($cat))</font>" }
+                elseif ($cat -like 'Allow') { $suffix = "<font color='blue'> ($($cat))</font>" }
+            }
+            else { $suffix = "" }
+            $serviceArea = "$($serviceArea)$($suffix)"
+            if ($html) {
+                $ipHistory += "<td>[$($item.endpointsetid)] $($serviceArea)</td>`n`t"
+                $ipHistory += "<td>$($item.disposition)</td>`n`t"
+            }
+            else {
+                $ipHistory += "<div class='tableInc-cell-l'>[$($item.endpointsetid)] $($serviceArea)</div>`n`t"
+                $ipHistory += "<div class='tableInc-cell-l'>$($item.disposition)</div>`n`t"
+            }
+            switch ($item.impact) {
+                "RemovedIpOrUrl" { $desc = "Removed IP or URL" }
+                "AddedIP" { $desc = "Added IP" }
+                "AddedUrl" { $desc = "Added URL" }
+                "RemovedDuplicateIpOrUrl" { $desc = "Removed Duplicate IP or URL" }
+            }
+            if ($html) { $ipHistory += "<td>$($desc)</td>`n`t" }
+            else { $ipHistory += "<div class='tableInc-cell-l'>$($desc)</div>`n`t" }
+            #Get IP and URL changes
+            $entry = @()
+            $addED, $addIP, $addURL = $null
+            $remIP, $remURL = $null
+            $entry = @($changesFlat | Where-Object { $_.id -eq $item.id -and $_.action -like 'Add' })
+            if ($null -ne $entry.effectivedate) {
+                if ((Get-Date $entry.effectivedate) -gt (Get-Date)) { $colour = "<font color='red'>" } else { $colour = "<font color='green'>" }
+                $addED = "<b>Effective Date:</b> $($colour)<b>$($entry.effectivedate)</b></font><br/>"
+            }
+            if (!([string]::IsNullOrEmpty($entry.IPs))) { $addIP = "<b>Add IPs:</b> $($entry.ips)<br/>" }
+            if (!([string]::IsNullOrEmpty($entry.urls))) { $addURL = "<b>Add URLs:</b> $($entry.urls)" }
+            if ($html) { $ipHistory += "<td  style='max-width:250px'>$($addED)$($addIP)$($addURL)</td>`n`t" }
+            else { $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($addED)$($addIP)$($addURL)</div>`n`t" }
+            $entry = @()
+            $addED, $addIP, $addURL = $null
+            $remIP, $remURL = $null
+            $entry = @($changesFlat | Where-Object { $_.id -eq $item.id -and $_.action -like 'Remove' })
+            if (!([string]::IsNullOrEmpty($entry.ips))) { $remIP = "<b>Remove IPs:</b> $($entry.ips)<br/>" }
+            if (!([string]::IsNullOrEmpty($entry.urls))) { $remURL = "<b>Remove URLs:</b> $($entry.urls)" }
+            if ($html) { $ipHistory += "<td  style='max-width:250px'>$($remIP)$($remURL)</td>`n`t" }
+            else { $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($remIP)$($remURL)</div>`n`t" }
+            $itemEP, $itemSA, $itemCat, $itemRqd, $itemTCP, $itemUDP, $itemNotes = ""
+            $itemCur = ($item.current -replace '@{' -replace '}').Split(";") | ConvertFrom-StringData
+            if ($item.Current) {
+                if ($null -ne $itemCur.expressroute) { $itemEP = "<b>Express Route:</b> $($itemCur.expressroute)<br/>" }
+                if ($null -ne $itemCur.serviceArea) { $itemSA = "<b>Service Area:</b> $($itemCur.serviceArea)<br/>" }
+                if ($null -ne $itemCur.category) { $itemCat = "<b>Category:</b> $($itemCur.category)<br/>" }
+                if ($null -ne $itemCur.required) { $itemRqd = "<b>Required:</b> $($itemCur.required)<br/>" }
+                if ($null -ne $itemCur.tcpPorts) { $itemTCP = "<b>TCP Ports:</b> $($itemCur.tcpPorts)<br/>" }
+                if ($null -ne $itemCur.udpPorts) { $itemUDP = "<b>UDP Ports:</b> $($itemCur.udpPorts)<br/>" }
+                if ($null -ne $itemCur.notes) { $itemNotes = "<b>Notes:</b> $($itemCur.Notes)<br/>" }
+            }
+            if ($html) { $ipHistory += "<td  style='max-width:150px'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</td>`n`t" }
+            else { $ipHistory += "<div class='tableInc-cell-l' style='max-width:150px'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</div>`n`t" }
+            $itemEP, $itemSA, $itemCat, $itemRqd, $itemTCP, $itemUDP, $itemNotes = ""
+            $itemPre = ($item.Previous -replace '@{' -replace '}').Split(";") | ConvertFrom-StringData
+            if ($item.Previous) {
+                if ($null -ne $itemPre.expressroute) { $itemEP = "<b>Express Route:</b> $($itemPre.expressroute)<br/>" }
+                if ($null -ne $itemPre.serviceArea) { $itemSA = "<b>Service Area:</b> $($itemPre.serviceArea)<br/>" }
+                if ($null -ne $itemPre.category) { $itemCat = "<b>Category:</b> $($itemPre.category)<br/>" }
+                if ($null -ne $itemPre.required) { $itemRqd = "<b>Required:</b> $($itemPre.required)<br/>" }
+                if ($null -ne $itemPre.tcpPorts) { $itemTCP = "<b>TCP Ports:</b> $($itemPre.tcpPorts)<br/>" }
+                if ($null -ne $itemPre.udpPorts) { $itemUDP = "<b>UDP Ports:</b> $($itemPre.udpPorts)<br/>" }
+                if ($null -ne $itemPre.notes) { $itemNotes = "<b>Notes:</b> $($itemPre.Notes)<br/>" }
+            }
+            if ($html) {
+                $ipHistory += "<td  style='max-width:150px'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</td>`n`t"
+                $ipHistory += "</tr>`n"
+            }
+            else {
+                $ipHistory += "<div class='tableInc-cell-l' style='max-width:150px'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</div>`n`t"
+                $ipHistory += "</div>`n"
+            }
+        }
+        $ipHistoryHTML += $ipHistory
+        if ($html) { $ipHistoryHTML += "</tbody></table><br/>`r`n" }
+        else { $ipHistoryHTML += "</div></div></div></div><br/>`r`n" }
+    }
+    return $ipHistoryHTML
+}
+
 function IgnoreSSLWarnings {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     if (-not ([System.Management.Automation.PSTypeName]'ServerCertificateValidationCallback').Type) {
@@ -384,9 +516,10 @@ function SendEmail {
     $strSubject = "Office 365 [$($config.tenantshortname)]"
     if ($subject) { $strSubject += ": $($subject)" }
     else { $strSubject += ": Alert [$(Get-Date -f 'dd-MMM-yyy HH:mm:ss')]" }
+    $css = Get-Content ..\common\O365email.css
+
     $strHeader = "<!DOCTYPE html PUBLIC ""-//W3C/DTD XHTML 1.0 Transitional//EN"" ""http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd""><html xmlns=""http://www.w3.org/1999/xhtml"">"
-    $strHeader += "<head>`n<style type=""text/css"">`nbody {font-family: ""Segoe UI"", Tahoma, Geneva, Verdana, sans-serif;font-size: x-small;}`n"
-    $strHeader += "table.border {border-collapse:collapse;border:1px solid silver;} table td.border {border:1px solid silver;} table th{color:white;background-color: #003399;}</style></head>`n"
+    $strHeader += "<head>`n<style type=""text/css"">`n" + $css + "</style></head>`n"
     $strBody = "<body><b>Alert [$(Get-Date -f 'dd-MMM-yyy HH:mm:ss')]</b><br/>`r`n"
     $strBody += $strMessage
     $strSig = "<br/><br/>Kind regards<br/>Powershell scheduled task<br/><br/><b><i>(Automated report/email, do not respond)</i></b><br/>`n"

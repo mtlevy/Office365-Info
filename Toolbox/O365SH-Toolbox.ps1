@@ -77,7 +77,8 @@ $config = LoadConfig $configXML
 
 #Configure local event log
 [string]$evtLogname = $config.EventLog
-[string]$evtSource = $config.MonitorEvtSource
+#[string]$evtSource = $config.MonitorEvtSource
+[string]$evtSource = "Toolbox"
 if ($config.UseEventlog -like 'true') {
     [boolean]$UseEventLog = $true
     #check source and log exists
@@ -234,8 +235,8 @@ else {
 }
 
 if ($null -eq $bearerToken) {
-    $evtMessage = "ERROR - No authentication result for Auzre AD App"
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 1 -EntryType Error
+    $evtMessage = "ERROR - No authentication result for Azure AD App"
+    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
     Write-Log $evtMessage
 }
 
@@ -398,103 +399,6 @@ $($scriptRuntime)
     $htmlReport = $htmlHeader + $addJava + $htmlBody + $htmlFooter
     $htmlReport | Out-File "$($pathHTML)\$($HTMLOutput)"
 }
-
-function ipURLChanges {
-    Param(
-        [Parameter(Mandatory = $true)] [array]$changesList,
-        [Parameter(Mandatory = $true)] [array]$changesIDX,
-        [Parameter(Mandatory = $true)] [array]$changesEPSIDX,
-        [Parameter(Mandatory = $true)] [array]$changesFlat,
-        [Parameter(Mandatory = $true)] [int]$expandCount
-    )
-
-    $ipHistoryHTML = ""
-    $ipHistoryCnt = 0
-    foreach ($change in $changesList) {
-        $ipHistoryCnt++
-        $changesLast = @($changesIDX | Where-Object { $_.version -In $change.version })
-        $inputID = "collapsible$($ipHistoryCnt)"
-        $ipHistoryHTML += "<div class='wrap-collabsible'>`r`n"
-        $ipHistoryHTML += "<input id='$($InputID)' class='toggle' type='checkbox'"
-        if ($ipHistoryCnt -le $expandCount) { $ipHistoryHTML += " checked>" } else { $ipHistoryHTML += ">" }
-        $ipHistoryHTML += "<label for='$($inputID)' class='lbl-toggle'>Version: $(Get-Date $change.VersionDate -Format 'dd-MMM-yyyy') : $($changeslast.count) item(s)</label>`r`n"
-        $ipHistoryHTML += "<div class='collapsible-content'><div class='content-inner'>`r`n"
-        $ipHistoryHTML += "<div class='tableInc'>`r`n"
-        $ipHistoryHTML += "<div class='tableInc-header'>`r`n"
-        $ipHistoryHTML += "<div class='tableInc-header-l'>Service Area</div>`r`n"
-        $ipHistoryHTML += "<div class='tableInc-header-l'>Disposition</div>`r`n<div class='tableInc-header-l'>Impact</div>`r`n"
-        $ipHistoryHTML += "<div class='tableInc-header-l' style='max-width:250px'>Add</div>`r`n<div class='tableInc-header-l' style='max-width:250px'>Remove</div>`r`n"
-        $ipHistoryHTML += "<div class='tableInc-header-l' style='max-width:150px'>Current</div>`r`n`<div class='tableInc-header-l' style='max-width:150px'>Previous</div>`r`n"
-        $ipHistoryHTML += "</div>`r`n"
-
-        $ipHistory = ""
-        foreach ($item in $changesLast) {
-            $ipHistory += "<div class='tableInc-row'>"
-            $serviceArea = ($changesEPSIDX | Where-Object { $item.endpointsetid -eq $_.id }).ServiceArea
-            $ipHistory += "<div class='tableInc-cell-l'>[$($item.endpointsetid)] $($serviceArea)</div>`n`t"
-            $ipHistory += "<div class='tableInc-cell-l'>$($item.disposition)</div>`n`t"
-            switch ($item.impact) {
-                "RemovedIpOrUrl" { $desc = "Removed IP or URL" }
-                "AddedIP" { $desc = "Added IP" }
-                "AddedUrl" { $desc = "Added URL" }
-                "RemovedDuplicateIpOrUrl" { $desc = "Removed Duplicate IP or URL" }
-            }
-            $ipHistory += "<div class='tableInc-cell-l'>$($desc)</div>`n`t"
-        
-            #Get IP and URL changes
-            $entry = @()
-            $addED, $addIP, $addURL = $null
-            $remIP, $remURL = $null
-            $entry = @($changesFlat | Where-Object { $_.id -eq $item.id -and $_.action -like 'Add' })
-            if ($null -ne $entry.effectivedate) {
-                if ((Get-Date $entry.effectivedate) -gt (Get-Date)) { $colour = "<font color='red'>" } else { $colour = "<font color='green'>" }
-                $addED = "<b>Effective Date:</b> $($colour)<b>$($entry.effectivedate)</b></font><br/>"
-            }
-            if (!([string]::IsNullOrEmpty($entry.IPs))) { $addIP = "<b>Add IPs:</b> $($entry.ips)<br/>" }
-            if (!([string]::IsNullOrEmpty($entry.urls))) { $addURL = "<b>Add URLs:</b> $($entry.urls)" }
-            $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($addED)$($addIP)$($addURL)</div>`n`t"
-
-            $entry = @()
-            $addED, $addIP, $addURL = $null
-            $remIP, $remURL = $null
-            $entry = @($changesFlat | Where-Object { $_.id -eq $item.id -and $_.action -like 'Remove' })
-            if (!([string]::IsNullOrEmpty($entry.ips))) { $remIP = "<b>Remove IPs:</b> $($entry.ips)<br/>" }
-            if (!([string]::IsNullOrEmpty($entry.urls))) { $remURL = "<b>Remove URLs:</b> $($entry.urls)" }
-            $ipHistory += "<div class='tableInc-cell-l' style='max-width:250px'>$($remIP)$($remURL)</div>`n`t"
-            $itemEP, $itemSA, $itemCat, $itemRqd, $itemTCP, $itemUDP, $itemNotes = ""
-            $itemCur = ($item.current -replace '@{' -replace '}').Split(";") | ConvertFrom-StringData
-            if ($item.Current) {
-                if ($null -ne $itemCur.expressroute) { $itemEP = "<b>Express Route:</b> $($itemCur.expressroute)<br/>" }
-                if ($null -ne $itemCur.serviceArea) { $itemSA = "<b>Service Area:</b> $($itemCur.serviceArea)<br/>" }
-                if ($null -ne $itemCur.category) { $itemCat = "<b>Category:</b> $($itemCur.category)<br/>" }
-                if ($null -ne $itemCur.required) { $itemRqd = "<b>Required:</b> $($itemCur.required)<br/>" }
-                if ($null -ne $itemCur.tcpPorts) { $itemTCP = "<b>TCP Ports:</b> $($itemCur.tcpPorts)<br/>" }
-                if ($null -ne $itemCur.udpPorts) { $itemUDP = "<b>UDP Ports:</b> $($itemCur.udpPorts)<br/>" }
-                if ($null -ne $itemCur.notes) { $itemNotes = "<b>Notes:</b> $($itemCur.Notes)<br/>" }
-            }
-            $ipHistory += "<div class='tableInc-cell-l' style='max-width:150px'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</div>`n`t"
-
-            $itemEP, $itemSA, $itemCat, $itemRqd, $itemTCP, $itemUDP, $itemNotes = ""
-            $itemPre = ($item.Previous -replace '@{' -replace '}').Split(";") | ConvertFrom-StringData
-            if ($item.Previous) {
-                if ($null -ne $itemPre.expressroute) { $itemEP = "<b>Express Route:</b> $($itemPre.expressroute)<br/>" }
-                if ($null -ne $itemPre.serviceArea) { $itemSA = "<b>Service Area:</b> $($itemPre.serviceArea)<br/>" }
-                if ($null -ne $itemPre.category) { $itemCat = "<b>Category:</b> $($itemPre.category)<br/>" }
-                if ($null -ne $itemPre.required) { $itemRqd = "<b>Required:</b> $($itemPre.required)<br/>" }
-                if ($null -ne $itemPre.tcpPorts) { $itemTCP = "<b>TCP Ports:</b> $($itemPre.tcpPorts)<br/>" }
-                if ($null -ne $itemPre.udpPorts) { $itemUDP = "<b>UDP Ports:</b> $($itemPre.udpPorts)<br/>" }
-                if ($null -ne $itemPre.notes) { $itemNotes = "<b>Notes:</b> $($itemPre.Notes)<br/>" }
-            }
-            $ipHistory += "<div class='tableInc-cell-l' style='max-width:150px'>$($itemEP)$($itemSA)$($itemCat)$($itemRqd)$($itemTCP)$($itemUDP)$($itemNotes)</div>`n`t"
-            $ipHistory += "</div>`n"
-        }
-
-        $ipHistoryHTML += $ipHistory
-        $ipHistoryHTML += "</div></div></div></div><br/>`r`n"
-    }
-    return $ipHistoryHTML
-}
-
 
 #Diagnostics
 #Get the CRL endpoints and check they are valid
@@ -706,6 +610,7 @@ $SkuNames = @{
     "AAD_PREMIUM"                                 = "Azure Active Directory Premium P1"
     "AAD_PREMIUM_P2"                              = "Azure Active Directory Premium P2"
     "AAD_SMB"                                     = ""
+    "ADALLOM_STANDALONE"                          = "Microsoft Cloud App Security"
     "ADALLOM_O365"                                = "Office 365 Cloud App Security"
     "ADALLOM_S_DISCOVERY"                         = "Enterprise Mobility + Security E3"
     "ADALLOM_S_O365"                              = "Office 365 Advanced Security Management"
@@ -760,6 +665,10 @@ $SkuNames = @{
     "DYN365_ENTERPRISE_TEAM_MEMBERS"              = "Dynamics 365 For Team Members Enterprise Edition"
     "DYN365_FINANCIALS_BUSINESS_SKU"              = "Dynamics 365 for Financials Business Edition"
     "DYN365_FINANCIALS_TEAM_MEMBERS_SKU"          = "Dynamics 365 for Team Members Business Edition"
+    "DYN365_MARKETING_APPLICATION_ADDON"          = "Dynamics 365 for Marketing Additional Application"
+    "DYN365_MARKETING_CONTACT_ADDON"              = "Dynamics 365 for Marketing Addnl Contacts"
+    "DYN365_MARKETING_CONTACT_CE_PLAN_ADDON"      = "Dynamics 365 for Marketing Addnl Contacts for CE"
+    "DYN365_MARKETING_SANDBOX_APPLICATION_ADDON"  = "Dynamics 365 for Marketing Additional Non-Prod Application"
     "DYN365BC_MS_INVOICING"                       = "Microsoft Invoicing"
     "Dynamics_365_for_HCM_Trial"                  = "Dynamics 365 for Talent"
     "Dynamics_365_for_Operations"                 = "Dynamics 365 for Operations"
@@ -1083,8 +992,8 @@ if (Test-Path $pathIPChanges) { $flatChanges = Import-Csv $pathIPChanges } else 
 if (Test-Path $pathIPChangeIDX) { $flatChangesIDX = Import-Csv $pathIPChangeIDX } else { $fileMissing = $true }
 if (Test-Path $pathEndpointSetsIDX) { $EndPointSetsIDX = Import-Csv $pathEndpointSetsIDX } else { $fileMissing = $true }
 if ($PACEnabled) {
-	if (Test-Path $pacFile1) { } else { $fileMissing = $true }
-	if (Test-Path $pacFile2) { } else { $fileMissing = $true }
+    if (Test-Path $pacFile1) { } else { $fileMissing = $true }
+    if (Test-Path $pacFile2) { } else { $fileMissing = $true }
 }
 
 
@@ -1106,22 +1015,32 @@ else {
 [uri]$ipurlVersion = "$($ws)/version/Worldwide?clientRequestId=$($clientRequestId)"
 if ($proxyServer) { $version = Invoke-RestMethod -Uri ($ipurlVersion) -Proxy $proxyhost -ProxyUseDefaultCredentials }
 else { $version = Invoke-RestMethod -Uri ($ipurlVersion) }
+$evtMessage = "Downloading IP/URL Versions - this is not rate limited"
+Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 701 -EntryType Information
+Write-Log $evtMessage
+
 if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileMissing) {
     $ipurlOutput += "New version of Office 365 worldwide commercial service instance endpoints detected<br />`r`n"
     if ($pacEnabled) {
         #Get Proxy PAC file using MS Script (why re-invent the wheel)
-        $pacCreate="$PSScriptRoot\Get-PacFile.ps1"
-        $paramsPac = @("-Type 1 -clientRequestID $($clientRequestId) -Instance Worldwide -TenantName $($tenantMSName) -DefaultProxySettings $($PACProxy) -FilePath $($pathHTML)\$($pacType1Filename)")
-        $callMe="'$($pacCreate)' $($paramsPac)"
+        $pacCreate = "$PSScriptRoot\Get-PacFile.ps1"
+        if ($PacProxy) { $paramsPac = @("-Type 1 -clientRequestID $($clientRequestId) -Instance Worldwide -TenantName $($tenantMSName) -DefaultProxySettings $($PACProxy) -FilePath $($pathHTML)\$($pacType1Filename)") }
+        else { $paramsPac = @("-Type 1 -clientRequestID $($clientRequestId) -Instance Worldwide -TenantName $($tenantMSName) -FilePath $($pathHTML)\$($pacType1Filename)") }
+        $callMe = "'$($pacCreate)' $($paramsPac)"
         Invoke-Expression "& $($callme)"
-        $paramsPac = @("-Type 2 -clientRequestID $($clientRequestId) -Instance Worldwide -TenantName $($tenantMSName) -DefaultProxySettings $($PACProxy) -FilePath $($pathHTML)\$($pacType2Filename)")
-        $callMe="'$($pacCreate)' $($paramsPac)"
+        if ($PacProxy) { $paramsPac = @("-Type 2 -clientRequestID $($clientRequestId) -Instance Worldwide -TenantName $($tenantMSName) -DefaultProxySettings $($PACProxy) -FilePath $($pathHTML)\$($pacType2Filename)") }
+        else { $paramsPac = @("-Type 2 -clientRequestID $($clientRequestId) -Instance Worldwide -TenantName $($tenantMSName) -FilePath $($pathHTML)\$($pacType2Filename)") }
+        $callMe = "'$($pacCreate)' $($paramsPac)"
         Invoke-Expression "& $($callme)"
     }
     #Build changes
     [uri]$ipurlChanges = "$($ws)/changes/Worldwide/0000000000?ClientRequestId=$($clientRequestId)"
     if ($proxyServer) { $changes = Invoke-RestMethod -Uri ($ipurlChanges) -Proxy $proxyhost -ProxyUseDefaultCredentials }
     else { $changes = Invoke-RestMethod -Uri ($ipurlChanges) }
+    $evtMessage = "Downloading IP/URL changes - this is rate limited to 30 per hour"
+    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 702 -EntryType Information
+    Write-Log $evtMessage
+
     #Flatten the IP/URL Changes
     [array]$allChanges = @()
     $changes | ForEach-Object {
@@ -1182,19 +1101,16 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
     $flatRemoveChanges | Export-Csv $pathIPChanges -Encoding UTF8 -NoTypeInformation -Append
     $flatChanges = [array]$flatAddChanges + $flatRemoveChanges
 
-    #If an updated version has been found, generate an email (prevents sending on new installs/clearing files)
-    if (($version.latest -gt $lastVersion -and $lastversion -notlike "0000000000" ) -and $emailEnabled) {
-        #Send email to users on IP/URL change
-        $emailSubject = "IPs and URLs: New version $($version.latest)"
-        $emailMessage = "new version of Office 365 Worldwide Commercial service instance endpoints"
-        SendEmail $emailMessage $EmailCreds $config "Normal" $emailSubject $emailIPURLAlerts
-    }
     # write the new version number to the version file
     @($clientRequestId, $version.latest) | Out-File $versionpath
     # invoke endpoints method to get the new data
     [uri]$ipurlEndpoint = "$($ws)/endpoints/Worldwide?clientRequestId=$($clientRequestId)"
     if ($proxyserver) { $endpointSets = Invoke-RestMethod -Uri ($ipurlEndpoint) -Proxy $proxyHost -ProxyUseDefaultCredentials }
     else { $endpointSets = Invoke-RestMethod -Uri ($ipurlEndpoint) }
+    $evtMessage = "Downloading IP/URL endpoints - this is rate limited to 30 per hour"
+    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 703 -EntryType Information
+    Write-Log $evtMessage
+
     # filter results for Allow and Optimize endpoints, and transform these into custom objects with port and category
     # URL results
     $flatUrls = $endpointSets | ForEach-Object {
@@ -1259,8 +1175,8 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
         $ip6CustomObjects
     }
     $flatIp6s | Export-Csv $pathIP6 -Encoding UTF8 -NoTypeInformation
-    $endpointSets | Select-Object id, servicearea, serviceareadisplayname | Export-Csv $pathEndpointSetsIDX -Encoding UTF8 -NoTypeInformation
-    $EndPointSetsIDX = $endpointSets | Select-Object id, servicearea, serviceareadisplayname
+    $endpointSets | Select-Object id, servicearea, serviceareadisplayname, category, required | Export-Csv $pathEndpointSetsIDX -Encoding UTF8 -NoTypeInformation
+    $EndPointSetsIDX = $endpointSets | Select-Object id, servicearea, serviceareadisplayname, category, required
 }
 else {
     $ipurlSummary += "Office 365 worldwide commercial service instance endpoints are up-to-date. <br />`r`n"
@@ -1268,17 +1184,33 @@ else {
     $ipurlSummary += "Data available from <a href='https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges' target=_blank>https://docs.microsoft.com/en-us/office365/enterprise/urls-and-ip-address-ranges</a><br/>`r`n"
 }
 
+$watchCats = $endpointSetsIDX | where-object { $_.category -in ('Allow', 'Optimize') } | Select-Object id, category -Unique
+
+if (($version.latest -gt $lastVersion) -and $emailEnabled) {
+    $changesLast1 = $flatchangesIDX | Select-Object version, @{label = "VersionDate"; Expression = { [datetime]::parseexact($_.version, "yyyyMMddHH", $null) } } -Unique | Sort-Object versiondate -Descending | Select-Object -First 1
+    #Send email to users on IP/URL change
+    $emailSubject = "IPs and URLs: New version $($version.latest)"
+    $emailMessage = "new version of Office 365 Worldwide Commercial service instance endpoints"
+    $emailMessage += BuildIPURLChanges $changesLast1 $flatchangesIDX $EndPointSetsIDX $flatChanges 1 $watchCats -email
+    SendEmail $emailMessage $EmailCreds $config "Normal" $emailSubject $emailIPURLAlerts
+}
+
+
+$flatAddressIPv4 = @($flatIp4s | Where-Object { $_.category -like 'optimize' })
+$flatAddressIPv6 = @($flatIp6s | Where-Object { $_.category -like 'optimize' })
+$flatAddressURLs = @($flatUrls | Where-Object { $_.category -like 'optimize' })
+
 
 $changesHTML = $null
 $changesHTML = "<p>Full history available <a href='IPURLChangeHistory.html' target=_blank> here </a></p>"
 $changesLast5 = $flatchangesIDX | Select-Object version, @{label = "VersionDate"; Expression = { [datetime]::parseexact($_.version, "yyyyMMddHH", $null) } } -Unique | Sort-Object versiondate -Descending | Select-Object -First $($IPURLHistory)
-$changesHTML += ipURLChanges $changesLast5 $flatchangesIDX $EndPointSetsIDX $flatChanges 2
+$changesHTML += BuildIPURLChanges $changesLast5 $flatchangesIDX $EndPointSetsIDX $flatChanges 2 $watchCats
 $changesHTML += "`r`n</div>"
 
 #Build history list of all changes
 $changesAllHTML = $null
 $changesAll = $flatchangesIDX | Select-Object version, @{label = "VersionDate"; Expression = { [datetime]::parseexact($_.version, "yyyyMMddHH", $null) } } -Unique | Sort-Object versiondate -Descending
-$changesAllHTML = ipURLChanges $changesAll $flatchangesIDX $EndPointSetsIDX $flatChanges 100
+$changesAllHTML = BuildIPURLChanges $changesAll $flatchangesIDX $EndPointSetsIDX $flatChanges 100 $watchCats
 ConvertTo-Html -CssUri o365health.css -Body $changesAllHTML -Title "IP and URL Change History" | Out-File -FilePath "$($pathHTML)\IPURLChangeHistory.html" -Encoding UTF8 -Force
 
 if (Test-Path $fileIPURLsNotes) {
@@ -1316,7 +1248,6 @@ if ($PACEnabled) {
 $ipurlOutput += "<b>IPv4 Firewall IP Address Ranges</b><br />`r`n"
 $ipurlOutput += "<b>Optimize (Direct connection):</b><br />`r`n"
 
-$flatAddressIPv4 = @($flatIp4s | Where-Object { $_.category -like 'optimize' })
 $ipurlOutput += "$(($flatAddressIPv4.ip | Sort-Object -unique) -join ', ' | Out-String) <br /><br />`r`n"
 $ipurlOutput += "<b>Allow:</b><br />`r`n"
 $flatAddressIPv4 = @($flatIp4s | Where-Object { $_.category -notlike 'Optimize' })
@@ -1327,7 +1258,6 @@ $ipurlOutput += "All IPv4 networks, TCP/UDP Ports and classifications available 
 $ipurlOutput += "<b>IPv6 Firewall IP Address Ranges</b><br />`r`n"
 $ipurlOutput += "<b>Optimize (Direct connection):</b><br />`r`n"
 
-$flatAddressIPv6 = @($flatIp6s | Where-Object { $_.category -like 'optimize' })
 $ipurlOutput += "$(($flatAddressIPv6.ip | Sort-Object -unique) -join ', ' | Out-String) <br /><br />`r`n"
 $ipurlOutput += "<b>Allow:</b><br />`r`n"
 $flatAddressIPv6 = @($flatIp6s | Where-Object { $_.category -notlike 'Optimize' })
@@ -1337,7 +1267,6 @@ $ipurlOutput += "All IPv6 networks, TCP/UDP Ports and classifications available 
 #URLs
 $ipurlOutput += "<b>URLs</b><br />`r`n"
 $ipurlOutput += "<b>Optimize (Direct connection):</b><br />`r`n"
-$flatAddressURLs = @($flatUrls | Where-Object { $_.category -like 'optimize' })
 $ipurlOutput += "$(($flatAddressURLs.url | Sort-Object -unique) -join ', ' | Out-String) <br /><br />`r`n"
 $ipurlOutput += "<b>Allow:</b><br />`r`n"
 $flatAddressURLs = @($flatUrls | Where-Object { $_.category -like 'Allow' })

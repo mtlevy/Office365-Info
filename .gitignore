@@ -328,3 +328,18 @@ ASALocalRun/
 
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
+/HelloWorld.ps1
+/Dashboard/Output/mte/HTML
+/config/profile-test.xml
+/config/profile-rbsprod.xml
+/config/profile-rbsmte.xml
+/config/profile-bhitprod.xml
+/Dashboard/Reports
+/Monitor/knownIssues-BHIT11.csv
+/Dashboard/historical.csv
+/.vscode/settings.json
+/Dashboard/O365_endpoints_urls-BHIT11.txt
+/Dashboard/O365_endpoints_latestversion-BHIT11.txt
+/Dashboard/O365_endpoints_ip6-BHIT11.txt
+/Dashboard/O365_endpoints_ip4-BHIT11.txt
+/Dashboard/O365_endpoints_data-BHIT11.txt

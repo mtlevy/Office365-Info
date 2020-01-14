@@ -183,7 +183,7 @@ $authHeader=@{
 
 if ($null -eq $bearerToken) {
     $evtMessage = "ERROR - No authentication result for Auzre AD App"
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 1 -EntryType Error
+    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
     Write-Log $evtMessage
 }
 function BuildHTML {
@@ -250,7 +250,7 @@ else {
 
 if (($null -eq $allCurrentStatusMessages) -or ($allCurrentStatusMessages -eq 0)) {
     $evtMessage = "ERROR - Cannot retrieve the current status of services - verify proxy and network connectivity."
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 1 -EntryType Error
+    Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 11 -EntryType Error
     Write-Log $evtMessage
 }
 else {

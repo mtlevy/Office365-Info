@@ -6,7 +6,7 @@
     <!-- Short name is used in filenames to help identify files per tenant-->
     <ShortName>Sample</ShortName>
     <!-- MS name is the name used to create the tenant (which may be used as shortname, above)-->
-    <MSName>MSTenant</MSName>
+	<MSName>MSTenant</MSName>
     <Description>Sample tenant description</Description>
   </Tenant>
   <Azure>
@@ -129,6 +129,8 @@
   <CNAME>
     <!-- CNAME checking enabled -->
     <Enabled>false</Enabled>
+    <!-- Text to add to Information section. Will be converted to HTML so can include HTML tags-->
+    <Notes></Notes>
     <!-- Filename to pre-pend to IP lookups ie 'CNAMEs' -->
     <Filename>cnames</Filename>
     <!-- Where to send change/error detection to. Comma separated quoted list "john@home.com","bob@vader.net" -->
@@ -154,14 +156,13 @@
     <!-- Proxy settings if required-->
     <!-- Use proxy values: true/false-->
     <UseProxy>false</UseProxy>
-    <!-- Proxy server FQDN value http://proxyfqdn.domain.com -->
+    <!-- Proxy server FQDN value http://proxyfqdn.domain.com:8080 -->
     <ProxyHost>http://proxyfqdn.domain.com</ProxyHost>
     <!-- Ignore SSL: true/false-->
     <IgnoreSSL>true</IgnoreSSL>
   </Proxy>
-  <!-- Blogs is a simple HTML list of useful links -->
   <Blogs>
-    <a href="https://techcommunity.microsoft.com/t5/Office-365-Blog/bg-p/Office365Blog">Office 365 Blog</a> <br />
-    <a href="https://status.azure.com/en-gb/status">Azure Status</a> <br />
+  <!-- Blogs is a simple HTML list of useful links -->
+	<a href="https://techcommunity.microsoft.com/t5/Office-365-Blog/bg-p/Office365Blog">Office 365 Blog</a><br /><a href="https://status.azure.com/en-gb/status">Azure Status</a><br />
   </Blogs>
 </Settings>

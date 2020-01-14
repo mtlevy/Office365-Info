@@ -81,7 +81,8 @@ $config = LoadConfig $configXML
 [string]$SMTPKey = $config.EmailKey
 [string]$pathLogs = $config.LogPath
 [string]$evtLogname = $config.EventLog
-[string]$evtSource = $config.MonitorEvtSource
+#[string]$evtSource = $config.MonitorEvtSource
+[string]$evtSource = "Monitor"
 [boolean]$checklog = $false
 [boolean]$checksource = $false
 [string[]]$MonitorAlertsTo = $config.MonitorAlertsTo
@@ -197,8 +198,8 @@ $authHeader = @{
 }
 
 if ($null -eq $bearerToken) {
-    $evtMessage = "ERROR - No authentication result for Auzre AD App"
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 1 -EntryType Error
+    $evtMessage = "ERROR - No authentication result for Azure AD App"
+    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
     Write-Log $evtMessage
 }
 
@@ -223,7 +224,7 @@ else {
 
 if (($null -eq $allMessages) -or ($allMessages.Count -eq 0)) {
     $evtMessage = "ERROR - Cannot retrieve the current status of services - verify proxy and network connectivity."
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 1 -EntryType Error
+    Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 11 -EntryType Error
     Write-Log $evtMessage
 
 }
@@ -263,8 +264,15 @@ if ($newIncidents.count -ge 1) {
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
             $evtMessage = $evtMessage.Replace("<b>", "")
             $evtMessage = $evtMessage.Replace("</b>", "")
-            if ($item.severity -in 'SEV0', 'SEV1' ) { $evtErr = 'Error' } else { $evtErr = 'Warning' }
-            Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 20 -EntryType $evtErr
+			$evtID=0
+			$evtErr=''
+            switch ($item.severity)
+			{
+				'SEV0' {$evtErr = 'Error'; $evtID=22}
+				'SEV1' {$evtErr = 'Error'; $evtID=21}
+				'SEV2' {$evtErr = 'Warning'; $evtID=20}
+			}
+            Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId $evtID -EntryType $evtErr
             Write-Log $evtMessage
         }
     }
@@ -308,7 +316,7 @@ foreach ($item in $reportClosed) {
     $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
     $evtMessage = $evtMessage.Replace("<b>", "")
     $evtMessage = $evtMessage.Replace("</b>", "")
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 20 -EntryType Information
+    Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 30 -EntryType Information
     Write-Log $evtMessage
 }
 

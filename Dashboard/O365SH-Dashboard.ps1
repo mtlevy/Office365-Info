@@ -77,7 +77,8 @@ $config = LoadConfig $configXML
 
 #Configure local event log
 [string]$evtLogname = $config.EventLog
-[string]$evtSource = $config.MonitorEvtSource
+#[string]$evtSource = $config.MonitorEvtSource
+[string]$evtSource = "Dashboard"
 if ($config.UseEventlog -like 'true') {
     [boolean]$UseEventLog = $true
     #check source and log exists
@@ -232,7 +233,7 @@ $authHeader = @{
 
 if ($null -eq $bearerToken) {
     $evtMessage = "ERROR - No authentication result for Auzre AD App"
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 1 -EntryType Error
+    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
     Write-Log $evtMessage
 }
 
@@ -313,7 +314,7 @@ function BuildHTML {
     <button class="tablinks" onclick="openTab(event,'Overview')" id="defaultOpen">Overview</button>
     <button class="tablinks" onclick="openTab(event,'Features')">Features</button>
     <button class="tablinks" onclick="openTab(event,'Incidents')">Incidents</button>
-    <button class="tablinks" onclick="openTab(event,'Advisories')">Advisories</button>
+    <button class="tablinks" onclick="openTab(event,'Messages')">Messages</button>
     <button class="tablinks" onclick="openTab(event,'Roadmap')">Roadmaps</button>
     <button class="tablinks" onclick="openTab(event,'Log')">Log</button>
 </div>
@@ -331,7 +332,7 @@ function BuildHTML {
     $($contentThree)
 </div>
 
-<div id="Advisories" class="tabcontent">
+<div id="Messages" class="tabcontent">
     $($contentFour)
 </div>
 
@@ -727,23 +728,38 @@ $rptFeatureDash += "</div>`r`n<br/><br/>`r`n"
 $divTwo = ($rptFeatureDash)
 
 #Build Div3
-$rptSectionThreeOne = "<div class='section'><div class='header'>Office 365 Incident History</div>`n"
+$rptSectionThreeOne = "<div class='section'><div class='header'>Service Health notes</div>`n"
 $rptSectionThreeOne += "<div class='content'>`n"
+$rptSectionThreeOne += "<b>Microsoft definitions of 'Incident' and 'Advisory'</b></br>`n"
+$rptSectionThreeOne += "An incident is a critical service issue, typically involving noticable user impact.</br>`n"
+$rptSectionThreeOne += "An advisory is a service issue that is typically limited in scope or impact.</br>`n"
+$rptSectionThreeOne += "</br>Microsoft Severity ranges are typically Sev 0 (Critical), Sev 1 (Error) and Sev2 (Warning)</br>`n"
+
+$rptSectionThreeOne += "</div></div>`n"
+$divThree = $rptSectionThreeOne
+
+$rptSectionThreeTwo = "<div class='section'><div class='header'>Office 365 Open Incidents</div>`n"
+$rptSectionThreeTwo += "<div class='content'>`n"
 
 #Incident History
-#Get all closed (end date) messages of incidents
-[array]$HistoryIncidents = @()
-$rptHistoryTable = @()
+#Get all open Incidents
+$rptIncidentTable = @()
 $item = $null
-$HistoryIncidents = $allMessages | Where-Object { ($_.EndTime -ne $null -and $_.messagetype -notlike 'MessageCenter') } | Sort-Object EndTime -Descending
-if ($HistoryIncidents.count -ge 1) {
-    $rptHistoryTable += "<div class='tableInc'>`n"
-    $rptHistoryTable += "<div class='tableInc-title'>Closed Incidents</div>`n"
-    $rptHistoryTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-c'>Feature</div>`n`t<div class='tableInc-header-c'>Status</div>`n`t<div class='tableInc-header-c'>Description</div>`n`t<div class='tableInc-header-c'>Start Time</div>`n`t<div class='tableInc-header-c'>End Time</div>`n`t<div class='tableInc-header-c'>Last Updated</div>`n</div>`n"
-    foreach ($item in $HistoryIncidents) {
+
+if ($CurrentMessagesOpen.count -ge 1) {
+    $rptIncidentTable += "<div class='tableInc'>`n"
+    $rptIncidentTable += "<div class='tableInc-title'>Open Incidents</div>`n"
+    $rptIncidentTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-c'>Feature</div>`n`t<div class='tableInc-header-c'>Severity</div>`n`t<div class='tableInc-header-c'>Status</div>`n`t<div class='tableInc-header-c'>Description</div>`n`t<div class='tableInc-header-c'>Start Time</div>`n`t<div class='tableInc-header-c'>Last Updated</div>`n</div>`n"
+    foreach ($item in $CurrentMessagesOpen) {
         if ($item.StartTime) { $StartTime = $(Get-Date $item.StartTime -f 'dd-MMM-yyyy HH:mm') } else { $StartTime = "" }
-        if ($item.EndTime) { $EndTime = $(Get-Date $item.EndTime -f 'dd-MMM-yyyy HH:mm') } else { $EndTime = "" }
         if ($item.LastUpdatedTime) { $LastUpdated = $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') } else { $LastUpdated = "" }
+        $severity = $item.severity
+        switch ($severity) {
+            "SEV0" { $actionStyle = "style=border:none;text-align:center;font-weight:bold;color:red" }
+            "SEV1" { $actionStyle = "style=border:none;text-align:center;color:red" }
+            "SEV2" { $actionStyle = "style=border:none;text-align:center;color:blue" }
+            default { $actionStyle = "style=border:none;text-align:center;font-weight:bold;color:red" }
+        }
         $link = ""
         #Build link to detailed message
         $link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
@@ -751,25 +767,77 @@ if ($HistoryIncidents.count -ge 1) {
             $ID = "<a href=$($link) target=_blank>$($item.ID) - $($item.ImpactDescription)</a>"
         }
         else { $ID = "$($item.ID) - $($item.ImpactDescription)" }
-        $rptHistoryTable += "<div class='tableInc-row'>`n`t"
-        $rptHistoryTable += "<div class='tableInc-cell-l'>$($item.WorkloadDisplayname -join '<br>')</div>`n`t"
-        $rptHistoryTable += "<div class='tableInc-cell-l'>$($item.Status)</div>`n`t"
-        $rptHistoryTable += "<div class='tableInc-cell-l'>$($ID)</div>`n`t"
-        $rptHistoryTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($StartTime)</div>`n`t"
-        $rptHistoryTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($EndTime)</div>`n`t"
-        $rptHistoryTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($LastUpdated)</div>`n"
-        $rptHistoryTable += "</div>`n"
+        $rptIncidentTable += "<div class='tableInc-row'>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-l'>$($item.WorkloadDisplayname -join '<br>')</div>`n`t"
+		$rptIncidentTable += "<div class='tableInc-cell-r' $($actionStyle)>$($item.classification) - $($Severity)</div>`n`t"
+		$rptIncidentTable += "<div class='tableInc-cell-l'>$($item.Status)</div>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-l'>$($ID)</div>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($StartTime)</div>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($LastUpdated)</div>`n"
+        $rptIncidentTable += "</div>`n"
     }
 }
 else {
-    $rptHistoryTable = "<div class='tableInc'>`n"
-    $rptHistoryTable += "<div class='tableInc-title'>No Closed Incidents</div>`n"
+    $rptIncidentTable = "<div class='tableInc'>`n"
+    $rptIncidentTable += "<div class='tableInc-title'>No Open Incidents</div>`n"
 }
-$rptHistoryTable += "</div>`n"
-$rptSectionThreeOne += $rptHistoryTable
-$rptSectionThreeOne += "</div></div>`n"
+$rptIncidentTable += "</div>`n"
+$rptSectionThreeTwo += $rptIncidentTable
+$rptSectionThreeTwo += "</div></div>`n"
+$divThree += $rptSectionThreeTwo
 
-$divThree = $rptSectionThreeOne
+
+$rptSectionThreeThree = "<div class='section'><div class='header'>Office 365 Closed Incidents</div>`n"
+$rptSectionThreeThree += "<div class='content'>`n"
+
+#Get Incident History
+[array]$HistoryIncidents = @()
+$rptIncidentTable = @()
+
+$item = $null
+$HistoryIncidents = $allMessages | Where-Object { ($_.EndTime -ne $null -and $_.messagetype -notlike 'MessageCenter') } | Sort-Object EndTime -Descending
+if ($HistoryIncidents.count -ge 1) {
+    $rptIncidentTable += "<div class='tableInc'>`n"
+    $rptIncidentTable += "<div class='tableInc-title'>Closed Incidents</div>`n"
+    $rptIncidentTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-c'>Feature</div>`n`t<div class='tableInc-header-c'>Severity</div>`n`t<div class='tableInc-header-c'>Status</div>`n`t<div class='tableInc-header-c'>Description</div>`n`t<div class='tableInc-header-c'>Start Time</div>`n`t<div class='tableInc-header-c'>End Time</div>`n`t<div class='tableInc-header-c'>Last Updated</div>`n</div>`n"
+    foreach ($item in $HistoryIncidents) {
+        if ($item.StartTime) { $StartTime = $(Get-Date $item.StartTime -f 'dd-MMM-yyyy HH:mm') } else { $StartTime = "" }
+        if ($item.EndTime) { $EndTime = $(Get-Date $item.EndTime -f 'dd-MMM-yyyy HH:mm') } else { $EndTime = "" }
+        if ($item.LastUpdatedTime) { $LastUpdated = $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') } else { $LastUpdated = "" }
+        $severity = $item.severity
+        switch ($severity) {
+            "SEV0" { $actionStyle = "style=border:none;text-align:center;font-weight:bold;color:red" }
+            "SEV1" { $actionStyle = "style=border:none;text-align:center;color:red" }
+            "SEV2" { $actionStyle = "style=border:none;text-align:center;color:blue" }
+            default { $actionStyle = "style=border:none;text-align:center;font-weight:bold;color:red" }
+        }
+        $link = ""
+        #Build link to detailed message
+        $link = Get-IncidentInHTML $item $RebuildDocs $pathHTMLDocs
+        if ($link) {
+            $ID = "<a href=$($link) target=_blank>$($item.ID) - $($item.ImpactDescription)</a>"
+        }
+        else { $ID = "$($item.ID) - $($item.ImpactDescription)" }
+        $rptIncidentTable += "<div class='tableInc-row'>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-l'>$($item.WorkloadDisplayname -join '<br>')</div>`n`t"
+		$rptIncidentTable += "<div class='tableInc-cell-r' $($actionStyle)>$($item.classification) - $($Severity)</div>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-l'>$($item.Status)</div>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-l'>$($ID)</div>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($StartTime)</div>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($EndTime)</div>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($LastUpdated)</div>`n"
+        $rptIncidentTable += "</div>`n"
+    }
+}
+else {
+    $rptIncidentTable += "<div class='tableInc'>`n"
+    $rptIncidentTable += "<div class='tableInc-title'>No Closed Incidents</div>`n"
+}
+$rptIncidentTable += "</div>`n"
+$rptSectionThreeThree += $rptIncidentTable
+$rptSectionThreeThree += "</div></div>`n"
+
+$divThree += $rptSectionThreeThree
 
 #Build Div4
 #Get current messages

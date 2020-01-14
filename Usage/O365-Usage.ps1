@@ -68,7 +68,8 @@ if ($ReportOutput) {
 
 #Configure local event log
 [string]$evtLogname = $config.EventLog
-[string]$evtSource = $config.UsageEventSource
+#[string]$evtSource = $config.UsageEventSource
+[string]$evtSource = "UsageReports"
 if ($config.UseEventlog -like 'true') {
     [boolean]$UseEventLog = $true
     #check source and log exists
@@ -186,7 +187,7 @@ $authHeader=@{
 
 if ($null -eq $bearerToken) {
     $evtMessage = "ERROR - No authentication result for Auzre AD App"
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 1 -EntryType Error
+    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
     Write-Log $evtMessage
 }
 
@@ -347,7 +348,7 @@ foreach ($O365Report in $UsageReports) {
         $evtMessage += "$($error[0].exception)"
         $evtLog = $evtMessage + "`r`n"
         Write-Log $evtMessage
-        Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtLog -EventId 5 -EntryType Error
+        Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtLog -EventId 15 -EntryType Error
     }
 }
 
