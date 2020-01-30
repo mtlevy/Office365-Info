@@ -137,7 +137,7 @@ Write-Log $evtMessage
 $evtMessage = "HTML Output: $($pathHTML)"
 Write-Log $evtMessage
 
-if ($config.UseProxy -like 'true') {
+if ($config.ProxyEnabled -like 'true') {
     [boolean]$ProxyServer = $true
     $evtMessage = "Using proxy server $($proxyHost) for connectivity"
     Write-Log $evtMessage
@@ -154,7 +154,7 @@ if ($UseEventLog) {
     $evtCheck = Get-EventLog -List -ErrorAction SilentlyContinue | Where-Object { $_.LogDisplayName -eq $evtLogname }
     if (!($evtCheck)) {
         New-EventLog -LogName $evtLogname -Source $evtSource
-        Write-EventLog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
     }
 }
 
@@ -187,7 +187,7 @@ $authHeader=@{
 
 if ($null -eq $bearerToken) {
     $evtMessage = "ERROR - No authentication result for Auzre AD App"
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
     Write-Log $evtMessage
 }
 
@@ -348,7 +348,7 @@ foreach ($O365Report in $UsageReports) {
         $evtMessage += "$($error[0].exception)"
         $evtLog = $evtMessage + "`r`n"
         Write-Log $evtMessage
-        Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtLog -EventId 15 -EntryType Error
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message $evtLog -EventId 15 -EntryType Error
     }
 }
 

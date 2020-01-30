@@ -53,7 +53,7 @@ function CheckDirectory {
 
     #If path doesnt exist then create
     if (!(Test-Path $($folder))) {
-        New-Item -ItemType Directory -Path $folder
+        $result=New-Item -ItemType Directory -Path $folder
     }
 
     #If path is not absolute, then find it.
@@ -61,6 +61,20 @@ function CheckDirectory {
         $folder = Resolve-Path $folder
     }
     return $folder
+}
+
+function Write-ELog {
+    Param (
+        [parameter(Mandatory=$false)] [boolean]$useEventLog,
+     [parameter(Mandatory=$false)] [string]$LogName,
+     [parameter(Mandatory=$false)] [string]$Source,
+     [parameter(Mandatory=$false)] [string]$Message,
+     [parameter(Mandatory=$false)] [int]$EventId,
+     [parameter(Mandatory=$false)] [string]$EntryType
+	)
+    if ($useEventLog) {
+    Write-ELog -LogName $LogName -Source $Source -Message $Message -EventId $EventId -EntryType $EntryType
+    }
 }
 
 function ConnectAzureAD() {
@@ -141,26 +155,29 @@ function LoadConfig {
         UsageReportsPath    = $configFile.Settings.UsageReports.Path
         UsageEventSource    = $configFile.Settings.UsageReports.EventSource
 
+        DiagnosticsEnabled  = $configFile.Settings.Diagnostics.Enabled
         DiagnosticsName     = $configFile.Settings.Diagnostics.Name
-        DiagnosticsHTML     = $configfile.Settings.Diagnostics.HTMLFilename
-        DiagnosticsNotes    = ($configfile.Settings.Diagnostics.Notes).InnerXML
-        DiagnosticsWeb      = $configfile.Settings.Diagnostics.Web
-        DiagnosticsPorts    = $configfile.Settings.Diagnostics.Ports
-        DiagnosticsURLs     = $configfile.Settings.Diagnostics.URLs
-        DiagnosticsVerbose  = $configfile.Settings.Diagnostics.Verbose
-        DiagnosticsRefresh  = $configfile.Settings.Diagnostics.Refresh
+        DiagnosticsHTML     = $configFile.Settings.Diagnostics.HTMLFilename
+        DiagnosticsNotes    = ($configFile.Settings.Diagnostics.Notes).InnerXML
+        DiagnosticsURLs     = $configFile.Settings.Diagnostics.URLs
+        DiagnosticsVerbose  = $configFile.Settings.Diagnostics.Verbose
+        DiagnosticsRefresh  = $configFile.Settings.Diagnostics.Refresh
 
-        RSS1Enabled         = $configfile.Settings.RSSFeeds.F1.Enabled
-        RSS1Name            = $configfile.Settings.RSSFeeds.F1.Name
-        RSS1Feed            = $configfile.Settings.RSSFeeds.F1.Feed
-        RSS1URL             = $configfile.Settings.RSSFeeds.F1.URL
-        RSS1Items           = $configfile.Settings.RSSFeeds.F1.Items
+        MiscDiagsEnabled    = $configFile.Settings.MiscDiagnostics.Enabled
+        MiscDiagsWeb        = $configFile.Settings.MiscDiagnostics.Web
+        MiscDiagsPorts      = $configFile.Settings.MiscDiagnostics.Ports
 
-        RSS2Enabled         = $configfile.Settings.RSSFeeds.F2.Enabled
-        RSS2Name            = $configfile.Settings.RSSFeeds.F2.Name
-        RSS2Feed            = $configfile.Settings.RSSFeeds.F2.Feed
-        RSS2URL             = $configfile.Settings.RSSFeeds.F2.URL
-        RSS2Items           = $configfile.Settings.RSSFeeds.F2.Items
+        RSS1Enabled         = $configFile.Settings.RSSFeeds.F1.Enabled
+        RSS1Name            = $configFile.Settings.RSSFeeds.F1.Name
+        RSS1Feed            = $configFile.Settings.RSSFeeds.F1.Feed
+        RSS1URL             = $configFile.Settings.RSSFeeds.F1.URL
+        RSS1Items           = $configFile.Settings.RSSFeeds.F1.Items
+
+        RSS2Enabled         = $configFile.Settings.RSSFeeds.F2.Enabled
+        RSS2Name            = $configFile.Settings.RSSFeeds.F2.Name
+        RSS2Feed            = $configFile.Settings.RSSFeeds.F2.Feed
+        RSS2URL             = $configFile.Settings.RSSFeeds.F2.URL
+        RSS2Items           = $configFile.Settings.RSSFeeds.F2.Items
 
         IPURLsPath          = $configFile.Settings.IPURLs.Path
         IPURLsAlertsTo      = $configFile.Settings.IPURLs.AlertsTo
@@ -169,7 +186,7 @@ function LoadConfig {
         IPURLHistory        = $configFile.Settings.IPURLs.History
     
         CnameEnabled        = $configFile.Settings.CNAME.Enabled
-        CnameNotes          = ($configfile.Settings.CNAME.Notes).InnerXML
+        CnameNotes          = ($configFile.Settings.CNAME.Notes).InnerXML
         CnameFilename       = $configFile.Settings.CNAME.Filename
         CnameAlertsTo       = $configFile.Settings.CNAME.AlertsTo
         CnameURLs           = $configFile.Settings.CNAME.URLs
@@ -181,7 +198,7 @@ function LoadConfig {
         PACType1Filename    = $configFile.Settings.PACFile.Type1Filename
         PACType2Filename    = $configFile.Settings.PACFile.Type2Filename
 
-        UseProxy            = $configFile.Settings.Proxy.UseProxy
+        ProxyEnabled            = $configFile.Settings.Proxy.ProxyEnabled
         ProxyHost           = $configFile.Settings.Proxy.ProxyHost
         ProxyIgnoreSSL      = $configFile.Settings.Proxy.IgnoreSSL
 

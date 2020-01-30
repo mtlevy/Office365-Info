@@ -143,12 +143,12 @@ if ($UseEventLog) {
     $evtCheck = Get-EventLog -List -ErrorAction SilentlyContinue | Where-Object { $_.LogDisplayName -eq $evtLogname }
     if (!($evtCheck)) {
         New-EventLog -LogName $evtLogname -Source $evtSource
-        Write-EventLog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
     }
 }
 
 #Proxy Configuration
-if ($config.UseProxy -like 'true') {
+if ($config.ProxyEnabled -like 'true') {
     [boolean]$ProxyServer = $true
     $evtMessage = "Using proxy server $($proxyHost) for connectivity"
     Write-Log $evtMessage
@@ -183,7 +183,7 @@ $authHeader=@{
 
 if ($null -eq $bearerToken) {
     $evtMessage = "ERROR - No authentication result for Auzre AD App"
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
     Write-Log $evtMessage
 }
 function BuildHTML {
@@ -250,7 +250,7 @@ else {
 
 if (($null -eq $allCurrentStatusMessages) -or ($allCurrentStatusMessages -eq 0)) {
     $evtMessage = "ERROR - Cannot retrieve the current status of services - verify proxy and network connectivity."
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 11 -EntryType Error
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 11 -EntryType Error
     Write-Log $evtMessage
 }
 else {

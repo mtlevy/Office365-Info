@@ -31,6 +31,8 @@ Licensed under the MIT License.
 
 .RELEASENOTES
 
+Updated 10 Jan 2020 - Added proxy detection.
+
 #>
 
 <#
@@ -252,7 +254,15 @@ function Get-Endpoints
     {
         $url += "&ServiceAreas=" + ($ServiceAreas -Join ",")
     }
-    return Invoke-RestMethod -Uri $url
+
+    if ($proxyServer) {
+        return Invoke-RestMethod -Uri $url -Proxy $proxyHost -ProxyUseDefaultCredentials
+    }
+    else {
+        return Invoke-RestMethod -Uri $url
+}
+
+
 }
 
 function Get-Urls

@@ -147,12 +147,15 @@ if ($cnameresolvers[0] -eq "") {
 
 if ($IPURLHistory -le 1) { $IPURLHistory = 6 }
 #Check diagnostics and save as boolean
-if ($config.DiagnosticsWeb -like 'true') { [boolean]$diagWeb = $true } else { [boolean]$diagWeb = $false }
-if ($config.DiagnosticsPorts -like 'true') { [boolean]$diagPorts = $true } else { [boolean]$diagPorts = $false }
+if ($config.DiagnosticsEnabled -like 'true') { [boolean]$diagEnabled = $true } else { [boolean]$diagEnabled = $false }
 if ($config.DiagnosticsURLs -like 'true') { [boolean]$diagURLs = $true } else { [boolean]$diagURLs = $false }
 if ($config.DiagnosticsVerbose -like 'true') { [boolean]$diagVerbose = $true } else { [boolean]$diagVerbose = $false }
+if ($config.MiscDiagsWeb -like 'true') { [boolean]$diagWeb = $true } else { [boolean]$diagWeb = $false }
+if ($config.MiscDiagsPorts -like 'true') { [boolean]$diagPorts = $true } else { [boolean]$diagPorts = $false }
+if ($config.MiscDiagsEnabled -like 'true') { [boolean]$miscDiagsEnabled = $true } else { [boolean]$miscDiagsEnabled = $false }
 if ($config.EmailEnabled -like 'true') { [boolean]$emailEnabled = $true } else { [boolean]$emailEnabled = $false }
 if ($config.PACEnabled -like 'true') { [boolean]$pacEnabled = $true } else { [boolean]$pacEnabled = $false }
+if ($config.CNAMEEnabled -like 'true') { [boolean]$cnameEnabled = $true } else { [boolean]$cnameEnabled = $false }
 
 [string]$diagNotes = $config.DiagnosticsNotes
 
@@ -199,12 +202,12 @@ if ($UseEventLog) {
     $evtCheck = Get-EventLog -List -ErrorAction SilentlyContinue | Where-Object { $_.LogDisplayName -eq $evtLogname }
     if (!($evtCheck)) {
         New-EventLog -LogName $evtLogname -Source $evtSource
-        Write-EventLog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
     }
 }
 
 #Proxy Configuration
-if ($config.UseProxy -like 'true') {
+if ($config.ProxyEnabled -like 'true') {
     [boolean]$ProxyServer = $true
     $evtMessage = "Using proxy server $($proxyHost) for connectivity"
     Write-Log $evtMessage
@@ -236,7 +239,7 @@ else {
 
 if ($null -eq $bearerToken) {
     $evtMessage = "ERROR - No authentication result for Azure AD App"
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
     Write-Log $evtMessage
 }
 
@@ -1016,7 +1019,7 @@ else {
 if ($proxyServer) { $version = Invoke-RestMethod -Uri ($ipurlVersion) -Proxy $proxyhost -ProxyUseDefaultCredentials }
 else { $version = Invoke-RestMethod -Uri ($ipurlVersion) }
 $evtMessage = "Downloading IP/URL Versions - this is not rate limited"
-Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 701 -EntryType Information
+Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 701 -EntryType Information
 Write-Log $evtMessage
 
 if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileMissing) {
@@ -1038,7 +1041,7 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
     if ($proxyServer) { $changes = Invoke-RestMethod -Uri ($ipurlChanges) -Proxy $proxyhost -ProxyUseDefaultCredentials }
     else { $changes = Invoke-RestMethod -Uri ($ipurlChanges) }
     $evtMessage = "Downloading IP/URL changes - this is rate limited to 30 per hour"
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 702 -EntryType Information
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 702 -EntryType Information
     Write-Log $evtMessage
 
     #Flatten the IP/URL Changes
@@ -1108,7 +1111,7 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
     if ($proxyserver) { $endpointSets = Invoke-RestMethod -Uri ($ipurlEndpoint) -Proxy $proxyHost -ProxyUseDefaultCredentials }
     else { $endpointSets = Invoke-RestMethod -Uri ($ipurlEndpoint) }
     $evtMessage = "Downloading IP/URL endpoints - this is rate limited to 30 per hour"
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 703 -EntryType Information
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 703 -EntryType Information
     Write-Log $evtMessage
 
     # filter results for Allow and Optimize endpoints, and transform these into custom objects with port and category
@@ -1353,7 +1356,7 @@ function checkURL {
     while ($stopLoop -eq $false)
     return $resultURL
 }
-if ($diagURLs) {
+if ($diagURLs -and $diagEnabled) {
     # Microsoft Office 365 URL tests - check the Optimize HTTP connections
     $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting HTTP checks for 'Optimize' Sites (Invoke-WebRequest)</p><br/>"
     $rptIPURLs += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Direct (Optimized route)</p><br/>"
@@ -1402,7 +1405,7 @@ if ($diagURLs) {
 
 #Start Building the Pages
 #Build Div1
-$rptWebTests = OnlineEndPoints $diagWeb $diagPorts $diagURLs
+if ($miscDiagsEnabled) { $rptWebTests = OnlineEndPoints $diagWeb $diagPorts $diagURLs }
 #$rptWebTests = ""
 
 $rptSectionOneOne = "<div class='section'><div class='header'>Office 365 Message Data</div>`n"
@@ -1414,14 +1417,26 @@ $divOne = $rptSectionOneOne
 
 $rptSectionOneTwo = "<div class='section'><div class='header'>Diagnostics - Microsoft URLs</div>`n"
 $rptSectionOneTwo += "<div class='content'>`n"
-$rptSectionOneTwo += "$($rptIPURLs)"
+if ($diagEnabled) {
+    $rptSectionOneTwo += "Check connectivity to the current Microsoft 'Optimize' and 'Allow' URLs<br />"
+    $rptSectionOneTwo += "Optimize URLs are tested directly and through proxy<br />"
+    $rptSectionOneTwo += "$($rptIPURLs)"
+}
+else {
+    $rptSectionOneTwo += "Diagnostics disabled. To show, enable in the configuration file $($configXML): Diagnostics.Enabled = true" 
+}
 $rptSectionOneTwo += "</div></div>`n"
 
 $divOne += $rptSectionOneTwo
 
 $rptSectionOneThree = "<div class='section'><div class='header'>Diagnostics - Misc URL/Ports</div>`n"
 $rptSectionOneThree += "<div class='content'>`n"
-$rptSectionOneThree += "$($rptWebTests)"
+if ($miscDiagsEnabled) {
+    $rptSectionOneThree += "$($rptWebTests)" 
+}
+else { 
+    $rptSectionOneThree += "Diagnostics disabled. To show, enable in the configuration file $($configXML): MiscDiagnostics.Enabled = true" 
+}
 $rptSectionOneThree += "</div></div>`n"
 
 $divOne += $rptSectionOneThree
@@ -1675,7 +1690,12 @@ if ($cnameenabled) {
 
     #Import the DNS results being output by the monitor script
     foreach ($dns in $cnameresolvers) {
-        $dnsResults = Import-Csv "$($pathWorking)\$cnameFilename-$($DNS)-$($rptProfile).csv"
+        try {$dnsResults = Import-Csv "$($pathWorking)\$cnameFilename-$($DNS)-$($rptProfile).csv"}
+        catch {
+        $evtMessage = "[CNAMES] Cannot import DNS results file $($pathWorking)\$cnameFilename-$($DNS)-$($rptProfile).csv`r`n Check file has been created by monitoring script."
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 601 -EntryType Error
+        Write-Log $evtMessage
+}
         $CNAMEResults += $dnsResults
     }
 
@@ -1769,7 +1789,7 @@ if (!(Test-Path "$($pathHTML)\$($cssfile)")) {
 
 $swScript.Stop()
 
-$evtMessage = "Tenant: $($rptProfile) - Script runtime $($swScript.Elapsed.Minutes)m:$($swScript.Elapsed.Seconds)s:$($swScript.Elapsed.Milliseconds)ms on $env:COMPUTERNAME"
+$evtMessage = "Tenant: $($rptProfile) - Script runtime $($swScript.Elapsed.Minutes)m:$($swScript.Elapsed.Seconds)s:$($swScript.Elapsed.Milliseconds)ms on $env:COMPUTERNAME`r`n"
 $evtMessage += "*** Processing finished ***`r`n"
 Write-Log $evtMessage
 #Re-instate default proxy

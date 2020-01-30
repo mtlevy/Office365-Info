@@ -12,24 +12,32 @@ function TestConnection {
     $measure = $null
     $testWeb = $null
     $testResp = $null
-    $measure = Measure-Command {
-        [System.Net.ServicePointManager]::DefaultConnectionLimit = 1024
-        $testWeb = [System.Net.WebRequest]::Create($strWebURL)
-        $testWeb.AllowAutoRedirect = $false
-        $testResp = $testWeb.GetResponse()
-    }
-    if ($null -ne $testResp) {
-        if ($testResp.statusCode -like 'OK') {
-            $tmpOutput = "Good results for $($strWebURL)"
+    try {
+        $measure = Measure-Command {
+            [System.Net.ServicePointManager]::DefaultConnectionLimit = 1024
+            $testWeb = [System.Net.WebRequest]::Create($strWebURL)
+            $testWeb.AllowAutoRedirect = $false
+            $testResp = $testWeb.GetResponse()
+        }
+        if ($null -ne $testResp) {
+            if ($testResp.statusCode -like 'OK') {
+                $tmpOutput = "Good results for $($strWebURL)"
+            }
+            else {
+                $tmpOutput = "Status Code $($testResp.StatusCode) - $($testResp.StatusDescription) for $($strWebURL). "
+            }
+            if ($testResp.ResponseUri.OriginalString -ne $strWebURL) {
+                $tmpOutput += "Response contains a redirect to alternate web page. "
+            }
         }
         else {
-            $tmpOutput = "Status Code $($testResp.StatusCode) - $($testResp.StatusDescription) for $($strWebURL). "
+            $tmpOutput = "No response. Can destination be reached for $($strWebURL)"
         }
-        if ($testResp.ResponseUri.OriginalString -ne $strWebURL) {
-            $tmpOutput += "Response contains a redirect to alternate web page. "
-        }
+        $tmpOutput += ": $($measure.TotalSeconds)`r`n"
     }
-    $tmpOutput += ": $($measure.TotalSeconds)`r`n"
+    catch {
+        $tmpOutput = "Exception calling $strWebURL`r`n$($error[0].exception.message)`r`n"
+    }
     return $tmpOutput
 }
 
@@ -43,6 +51,12 @@ $Output += TestConnection $testURL
 $testURL = "https://outlook.office.com"
 $Output += TestConnection $testURL
 $testURL = "https://outlook.office365.com"
+$Output += TestConnection $testURL
+
+#These should fail if non-optimized URLs are forced through proxy
+$testURL = "https://portal.office.com"
+$Output += TestConnection $testURL
+$testURL = "https://admin.microsoft.com"
 $Output += TestConnection $testURL
 
 

@@ -48,104 +48,121 @@ if (Test-Path $configXML) {
   $xmlExisting = [xml](Get-Content -Path "$($configXML)")
   #Assign the config to variables. We dont need to but this will allow for checking in future for null values and building a profile via question/input
   $appSettings = [PSCustomObject]@{
-    TenantName          = $xmlExisting.Settings.Tenant.Name
-    TenantShortName     = $xmlExisting.Settings.Tenant.ShortName
-    TenantMSName        = $xmlExisting.Settings.Tenant.MSName
-    TenantDescription   = $xmlExisting.Settings.Tenant.Description
+    TenantName             = $xmlExisting.Settings.Tenant.Name
+    TenantShortName        = $xmlExisting.Settings.Tenant.ShortName
+    TenantMSName           = $xmlExisting.Settings.Tenant.MSName
+    TenantDescription      = $xmlExisting.Settings.Tenant.Description
 
-    TenantID            = $xmlExisting.Settings.Azure.TenantID
-    AppID               = $xmlExisting.Settings.Azure.AppID
-    AppSecret           = $xmlExisting.Settings.Azure.AppSecret
+    TenantID               = $xmlExisting.Settings.Azure.TenantID
+    AppID                  = $xmlExisting.Settings.Azure.AppID
+    AppSecret              = $xmlExisting.Settings.Azure.AppSecret
 
-    LogPath             = $xmlExisting.Settings.Output.LogPath
-    HTMLPath            = $xmlExisting.Settings.Output.HTMLPath
-    WorkingPath         = $xmlExisting.Settings.Output.WorkingPath
-    UseEventLog         = $xmlExisting.Settings.Output.UseEventLog
-    EventLog            = $xmlExisting.Settings.Output.EventLog
-    HostURL             = $xmlExisting.Settings.Output.HostURL
+    LogPath                = $xmlExisting.Settings.Output.LogPath
+    HTMLPath               = $xmlExisting.Settings.Output.HTMLPath
+    WorkingPath            = $xmlExisting.Settings.Output.WorkingPath
+    UseEventLog            = $xmlExisting.Settings.Output.UseEventLog
+    EventLog               = $xmlExisting.Settings.Output.EventLog
+    HostURL                = $xmlExisting.Settings.Output.HostURL
 
-    EmailEnabled        = $xmlExisting.Settings.Email.Enabled
-    EmailHost           = $xmlExisting.Settings.Email.SMTPServer
-    EmailPort           = $xmlExisting.Settings.Email.Port
-    EmailUseSSL         = $xmlExisting.Settings.Email.UseSSL
-    EmailFrom           = $xmlExisting.Settings.Email.From
-    EmailUser           = $xmlExisting.Settings.Email.Username
-    EmailPassword       = $xmlExisting.Settings.Email.PasswordFile
-    EmailKey            = $xmlExisting.Settings.Email.AESKeyFile
+    EmailEnabled           = $xmlExisting.Settings.Email.Enabled
+    EmailHost              = $xmlExisting.Settings.Email.SMTPServer
+    EmailPort              = $xmlExisting.Settings.Email.Port
+    EmailUseSSL            = $xmlExisting.Settings.Email.UseSSL
+    EmailFrom              = $xmlExisting.Settings.Email.From
+    EmailUser              = $xmlExisting.Settings.Email.Username
+    EmailPassword          = $xmlExisting.Settings.Email.PasswordFile
+    EmailKey               = $xmlExisting.Settings.Email.AESKeyFile
 
-    MonitorAlertsTo     = [string[]]$xmlExisting.Settings.Monitor.alertsTo
-    MonitorEvtSource    = $xmlExisting.Settings.Monitor.EventSource
+    MonitorAlertsTo        = [string[]]$xmlExisting.Settings.Monitor.alertsTo
+    MonitorEvtSource       = $xmlExisting.Settings.Monitor.EventSource
 
-    WallReportName      = $xmlExisting.Settings.WallDashboard.Name
-    WallHTML            = $xmlExisting.Settings.WallDashboard.HTMLFilename
-    WallDashCards       = $xmlExisting.Settings.WallDashboard.DashCards
-    WallPageRefresh     = $xmlExisting.Settings.WallDashboard.Refresh
-    WallEventSource     = $xmlExisting.Settings.WallDashboard.EventSource
+    WallReportName         = $xmlExisting.Settings.WallDashboard.Name
+    WallHTML               = $xmlExisting.Settings.WallDashboard.HTMLFilename
+    WallDashCards          = $xmlExisting.Settings.WallDashboard.DashCards
+    WallPageRefresh        = $xmlExisting.Settings.WallDashboard.Refresh
+    WallEventSource        = $xmlExisting.Settings.WallDashboard.EventSource
 
-    DashboardName       = $xmlExisting.Settings.Dashboard.Name
-    DashboardHTML       = $xmlExisting.Settings.Dashboard.HTMLFilename
-    DashboardCards      = $xmlExisting.Settings.Dashboard.DashCards
-    DashboardRefresh    = $xmlExisting.Settings.Dashboard.Refresh
-    DashboardAlertsTo   = $xmlExisting.Settings.Dashboard.AlertsTo
-    DashboardEvtSource  = $xmlExisting.Settings.Dashboard.EventSource
-    DashboardLogo       = $xmlExisting.Settings.Dashboard.Logo
-    DashboardAddLink    = $xmlExisting.Settings.Dashboard.AddLink
-    DashboardHistory    = $xmlExisting.Settings.Dashboard.History
+    DashboardName          = $xmlExisting.Settings.Dashboard.Name
+    DashboardHTML          = $xmlExisting.Settings.Dashboard.HTMLFilename
+    DashboardCards         = $xmlExisting.Settings.Dashboard.DashCards
+    DashboardRefresh       = $xmlExisting.Settings.Dashboard.Refresh
+    DashboardAlertsTo      = $xmlExisting.Settings.Dashboard.AlertsTo
+    DashboardEvtSource     = $xmlExisting.Settings.Dashboard.EventSource
+    DashboardLogo          = $xmlExisting.Settings.Dashboard.Logo
+    DashboardAddLink       = $xmlExisting.Settings.Dashboard.AddLink
+    DashboardHistory       = $xmlExisting.Settings.Dashboard.History
 
-    UsageReportsPath    = $xmlExisting.Settings.UsageReports.Path
-    UsageEventSource    = $xmlExisting.Settings.UsageReports.EventSource
+    UsageReportsPath       = $xmlExisting.Settings.UsageReports.Path
+    UsageEventSource       = $xmlExisting.Settings.UsageReports.EventSource
 
-    DiagnosticsName     = $xmlExisting.Settings.Diagnostics.Name
-    DiagnosticsHTML     = $xmlExisting.Settings.Diagnostics.HTMLFilename
-    DiagnosticsNotes    = ($xmlExisting.Settings.Diagnostics.Notes).InnerXML
-    DiagnosticsWeb      = $xmlExisting.Settings.Diagnostics.Web
-    DiagnosticsPorts    = $xmlExisting.Settings.Diagnostics.Ports
-    DiagnosticsURLs     = $xmlExisting.Settings.Diagnostics.URLs
-    DiagnosticsVerbose  = $xmlExisting.Settings.Diagnostics.Verbose
-    DiagnosticsRefresh  = $xmlExisting.Settings.Diagnostics.Refresh
+    DiagnosticsName        = $xmlExisting.Settings.Diagnostics.Name
+    DiagnosticsEnabled     = $xmlExisting.Settings.Diagnostics.Enabled
+    DiagnosticsHTML        = $xmlExisting.Settings.Diagnostics.HTMLFilename
+    DiagnosticsNotes       = ($xmlExisting.Settings.Diagnostics.Notes).InnerXML
+    DiagnosticsURLs        = $xmlExisting.Settings.Diagnostics.URLs
+    DiagnosticsVerbose     = $xmlExisting.Settings.Diagnostics.Verbose
+    DiagnosticsRefresh     = $xmlExisting.Settings.Diagnostics.Refresh
 
-    RSS1Enabled         = $xmlExisting.Settings.RSSFeeds.F1.Enabled
-    RSS1Name            = $xmlExisting.Settings.RSSFeeds.F1.Name
-    RSS1Feed            = $xmlExisting.Settings.RSSFeeds.F1.Feed
-    RSS1URL             = $xmlExisting.Settings.RSSFeeds.F1.URL
-    RSS1Items           = $xmlExisting.Settings.RSSFeeds.F1.Items
+    MiscDiagnosticsEnabled = $xmlExisting.Settings.MiscDiagnostics.Enabled
+    MiscDiagsWeb           = $xmlExisting.Settings.MiscDiagnostics.Web
+    MiscDiagsPorts         = $xmlExisting.Settings.MiscDiagnostics.Ports
 
-    RSS2Enabled         = $xmlExisting.Settings.RSSFeeds.F2.Enabled
-    RSS2Name            = $xmlExisting.Settings.RSSFeeds.F2.Name
-    RSS2Feed            = $xmlExisting.Settings.RSSFeeds.F2.Feed
-    RSS2URL             = $xmlExisting.Settings.RSSFeeds.F2.URL
-    RSS2Items           = $xmlExisting.Settings.RSSFeeds.F2.Items
+    RSS1Enabled            = $xmlExisting.Settings.RSSFeeds.F1.Enabled
+    RSS1Name               = $xmlExisting.Settings.RSSFeeds.F1.Name
+    RSS1Feed               = $xmlExisting.Settings.RSSFeeds.F1.Feed
+    RSS1URL                = $xmlExisting.Settings.RSSFeeds.F1.URL
+    RSS1Items              = $xmlExisting.Settings.RSSFeeds.F1.Items
 
+    RSS2Enabled            = $xmlExisting.Settings.RSSFeeds.F2.Enabled
+    RSS2Name               = $xmlExisting.Settings.RSSFeeds.F2.Name
+    RSS2Feed               = $xmlExisting.Settings.RSSFeeds.F2.Feed
+    RSS2URL                = $xmlExisting.Settings.RSSFeeds.F2.URL
+    RSS2Items              = $xmlExisting.Settings.RSSFeeds.F2.Items
 
-    IPURLsPath          = $xmlExisting.Settings.IPURLs.Path
-    IPURLsAlertsTo      = $xmlExisting.Settings.IPURLs.AlertsTo
-    IPURLsNotesFilename = $xmlExisting.Settings.IPURLs.NotesFilename
-    CustomNotesFilename = $xmlExisting.Settings.IPURLs.CustomNotesFilename
-    IPURLHistory        = $xmlExisting.Settings.IPURLs.History
+    IPURLsPath             = $xmlExisting.Settings.IPURLs.Path
+    IPURLsAlertsTo         = $xmlExisting.Settings.IPURLs.AlertsTo
+    IPURLsNotesFilename    = $xmlExisting.Settings.IPURLs.NotesFilename
+    CustomNotesFilename    = $xmlExisting.Settings.IPURLs.CustomNotesFilename
+    IPURLHistory           = $xmlExisting.Settings.IPURLs.History
 
-    CnameEnabled        = $xmlExisting.Settings.CNAME.Enabled
-    CnameNotes          = ($xmlExisting.Settings.CNAME.Notes).InnerXML
-    CnameFilename       = $xmlExisting.Settings.CNAME.Filename
-    CnameAlertsTo       = $xmlExisting.Settings.CNAME.AlertsTo
-    CnameURLs           = $xmlExisting.Settings.CNAME.URLs
-    CnameResolvers      = [string[]]$xmlExisting.Settings.CNAME.Resolvers
-    CnameResolverDesc   = [string[]]$xmlExisting.Settings.CNAME.ResolverDesc
+    CnameEnabled           = $xmlExisting.Settings.CNAME.Enabled
+    CnameNotes             = ($xmlExisting.Settings.CNAME.Notes).InnerXML
+    CnameFilename          = $xmlExisting.Settings.CNAME.Filename
+    CnameAlertsTo          = $xmlExisting.Settings.CNAME.AlertsTo
+    CnameURLs              = $xmlExisting.Settings.CNAME.URLs
+    CnameResolvers         = [string[]]$xmlExisting.Settings.CNAME.Resolvers
+    CnameResolverDesc      = [string[]]$xmlExisting.Settings.CNAME.ResolverDesc
 
-    PACEnabled          = $xmlExisting.Settings.PACFile.Enabled
-    PACProxy            = $xmlExisting.Settings.PACFile.Proxy
-    PACType1Filename    = $xmlExisting.Settings.PACFile.Type1Filename
-    PACType2Filename    = $xmlExisting.Settings.PACFile.Type2Filename
+    PACEnabled             = $xmlExisting.Settings.PACFile.Enabled
+    PACProxy               = $xmlExisting.Settings.PACFile.Proxy
+    PACType1Filename       = $xmlExisting.Settings.PACFile.Type1Filename
+    PACType2Filename       = $xmlExisting.Settings.PACFile.Type2Filename
     
-    UseProxy            = $xmlExisting.Settings.Proxy.UseProxy
-    ProxyHost           = $xmlExisting.Settings.Proxy.ProxyHost
-    ProxyIgnoreSSL      = $xmlExisting.Settings.Proxy.IgnoreSSL
+    ProxyEnabled           = $xmlExisting.Settings.Proxy.ProxyEnabled
+    ProxyHost              = $xmlExisting.Settings.Proxy.ProxyHost
+    ProxyIgnoreSSL         = $xmlExisting.Settings.Proxy.IgnoreSSL
 
-    Blogs               = ($xmlExisting.Settings.Blogs).InnerXML
+    Blogs                  = ($xmlExisting.Settings.Blogs).InnerXML
   }
 
   #set output file
+
+  #Set Defaults
+  if ([string]::IsNullOrEmpty($appSettings.UseEventLog)) { $appSettings.UseEventLog = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.EmailEnabled)) { $appSettings.EmailEnabled = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.DiagnosticsEnabled)) { $appSettings.DiagnosticsEnabled = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.MiscDiagnosticsEnabled)) { $appSettings.MiscDiagnosticsEnabled = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.MiscDiagsWeb)) { $appSettings.MiscDiagnsWeb = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.MiscDiagsPorts)) { $appSettings.MiscDiagnsPorts = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.RSS1Enabled)) { $appSettings.RSS1Enabled = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.RSS2Enabled)) { $appSettings.RSS2Enabled = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.CnameEnabled)) { $appSettings.CnameEnabled = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.PACEnabled)) { $appSettings.PACEnabled = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.ProxyEnabled)) { $appSettings.ProxyEnabled = "false" }
+
   $xmlNewConfig = @"
 <?xml version="1.0"?>
+<!-- Build date $(Get-Date -f 'dd-MMM-yyyy HH:mm:ss') -->
 <Settings>
   <Tenant>
     <!-- Basic tenant information. Shortname is used in filenames to help identify tenants-->
@@ -153,7 +170,7 @@ if (Test-Path $configXML) {
     <!-- Short name is used in filenames to help identify files per tenant-->
     <ShortName>$($appSettings.TenantShortName)</ShortName>
     <!-- MS name is the name used to create the tenant (which may be used as shortname, above)-->
-	<MSName>$($appSettings.TenantMSName)</MSName>
+    <MSName>$($appSettings.TenantMSName)</MSName>
     <Description>$($appSettings.TenantDescription)</Description>
   </Tenant>
   <Azure>
@@ -170,6 +187,7 @@ if (Test-Path $configXML) {
     <!-- Where any working files should be saved-->
     <WorkingPath>$($appSettings.WorkingPath)</WorkingPath>
     <!-- If using the local event log on the machine that runs the scripts, define which custom event log to use-->
+    <!-- Uses True or False-->
     <UseEventLog>$($appSettings.UseEventLog)</UseEventLog>
     <EventLog>$($appSettings.EventLog)</EventLog>
     <HostURL>$($appSettings.HostURL)</HostURL>
@@ -178,6 +196,7 @@ if (Test-Path $configXML) {
     <!-- Email server connectivity settings. Can be office365 or other mail system-->
     <!-- SendReport function in the common module can be trimmed if there is no need for username/password (ie internal systems)-->
     <!-- Current settings are required to use exchange online. 'From' should be the authenticated user -->
+    <!-- Uses True or False-->
     <Enabled>$($appSettings.EmailEnabled)</Enabled>
     <SMTPServer>$($appSettings.EmailHost)</SMTPServer>
     <Port>$($appSettings.EmailPort)</Port>
@@ -228,13 +247,11 @@ if (Test-Path $configXML) {
   </UsageReports>
   <Diagnostics>
     <Name>$($appSettings.DiagnosticsName)</Name>
+    <!-- Uses True or False-->
+    <Enabled>$($appSettings.DiagnosticsEnabled)</Enabled>
     <HTMLFileName>$($appSettings.DiagnosticsHTML)</HTMLFileName>
     <!-- Text to add to Diagnostics tab. Will be converted to HTML so can include HTML tags-->
     <Notes>$($appSettings.DiagnosticsNotes)</Notes>
-    <!-- Run http/https tests for IP connections: true/false-->
-    <Web>$($appSettings.DiagnosticsWeb)</Web>
-    <!-- Run port connectivity tests: true/false-->
-    <Ports>$($appSettings.DiagnosticsPorts)</Ports>
     <!-- Run http/https connectivity tests to URLs: true/false-->
     <URLs>$($appSettings.DiagnosticsURLs)</URLs>
     <!-- Show detailed errors for pages: true/false-->
@@ -242,9 +259,19 @@ if (Test-Path $configXML) {
     <!-- Refresh interval in minutes-->
     <Refresh>$($appSettings.DiagnosticsRefresh)</Refresh>
   </Diagnostics>
+  <MiscDiagnostics>
+    <!-- Additional diagnostic checks that run after the dynamics Microsoft URLs-->
+    <!-- Uses True or False-->
+    <Enabled>$($appSettings.MiscDiagnosticsEnabled)</Enabled>
+    <!-- Run http/https tests for IP connections: true/false-->
+    <Web>$($appSettings.DiagnosticsWeb)</Web>
+    <!-- Run port connectivity tests: true/false-->
+    <Ports>$($appSettings.DiagnosticsPorts)</Ports>
+  </MiscDiagnostics>
   <RSSFeeds>
     <!-- Microsoft 365 RSS Feed settings-->
     <F1>
+      <!-- Uses True or False-->
       <Enabled>$($appSettings.RSS1Enabled)</Enabled>
       <Name>$($appSettings.RSS1Name)</Name>
       <Feed>$($appSettings.RSS1Feed)</Feed>
@@ -254,6 +281,7 @@ if (Test-Path $configXML) {
     </F1>
     <!-- Azure Updates RSS Feed settings-->
     <F2>
+      <!-- Uses True or False-->
       <Enabled>$($appSettings.RSS2Enabled)</Enabled>
       <Name>$($appSettings.RSS2Name)</Name>
       <Feed>$($appSettings.RSS2Feed)</Feed>
@@ -275,6 +303,7 @@ if (Test-Path $configXML) {
   </IPURLs>
   <CNAME>
     <!-- CNAME checking enabled -->
+    <!-- Uses True or False-->
     <Enabled>$($appSettings.CnameEnabled)</Enabled>
     <!-- Text to add to Information section. Will be converted to HTML so can include HTML tags-->
     <Notes>$($appSettings.CnameNotes)</Notes>
@@ -291,25 +320,26 @@ if (Test-Path $configXML) {
   </CNAME>
   <PACFile>
     <!-- Proxy .pac file generation required?-->
+    <!-- Uses True or False-->
     <Enabled>$($appSettings.PACEnabled)</Enabled>
     <!-- Client proxy server to specificy in .pac file-->
     <Proxy>$($appSettings.PACProxy)</Proxy>
     <!-- If using .pac extension remember to allow on web server as valid extension-->
-    <!-- If in doubt use .txt and rename-->
+    <!-- If in doubt use .txt and rename on download-->
     <Type1Filename>$($appSettings.PACType1Filename)</Type1Filename>
     <Type2Filename>$($appSettings.PACType2Filename)</Type2Filename>
   </PACFile>
   <Proxy>
     <!-- Proxy settings if required-->
     <!-- Use proxy values: true/false-->
-    <UseProxy>$($appSettings.UseProxy)</UseProxy>
+    <ProxyEnabled>$($appSettings.ProxyEnabled)</ProxyEnabled>
     <!-- Proxy server FQDN value http://proxyfqdn.domain.com:8080 -->
     <ProxyHost>$($appSettings.ProxyHost)</ProxyHost>
     <!-- Ignore SSL: true/false-->
     <IgnoreSSL>$($appSettings.ProxyIgnoreSSL)</IgnoreSSL>
   </Proxy>
-  <Blogs>
   <!-- Blogs is a simple HTML list of useful links -->
+  <Blogs>
 	$($appSettings.Blogs)
   </Blogs>
 </Settings>

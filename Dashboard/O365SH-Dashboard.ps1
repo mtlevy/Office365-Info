@@ -77,8 +77,8 @@ $config = LoadConfig $configXML
 
 #Configure local event log
 [string]$evtLogname = $config.EventLog
-#[string]$evtSource = $config.MonitorEvtSource
-[string]$evtSource = "Dashboard"
+[string]$evtSource = $config.MonitorEvtSource
+
 if ($config.UseEventlog -like 'true') {
     [boolean]$UseEventLog = $true
     #check source and log exists
@@ -166,6 +166,8 @@ $pathLogs = CheckDirectory $pathLogs
 $pathHTML = CheckDirectory $pathHTML
 $pathWorking = CheckDirectory $pathWorking
 $pathHTMLDocs = CheckDirectory "$($pathHTML)\Docs"
+$pathHTMLImg = CheckDirectory "$($pathHTML)\images"
+
 
 
 # setup the logfile
@@ -187,12 +189,12 @@ if ($UseEventLog) {
     $evtCheck = Get-EventLog -List -ErrorAction SilentlyContinue | Where-Object { $_.LogDisplayName -eq $evtLogname }
     if (!($evtCheck)) {
         New-EventLog -LogName $evtLogname -Source $evtSource
-        Write-EventLog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "Event log created." -EventId 1 -EntryType Information
     }
 }
 
 #Proxy Configuration
-if ($config.UseProxy -like 'true') {
+if ($config.ProxyEnabled -like 'true') {
     [boolean]$ProxyServer = $true
     $evtMessage = "Using proxy server $($proxyHost) for connectivity"
     Write-Log $evtMessage
@@ -206,9 +208,6 @@ else {
 
 #Connect to Azure app and grab the service status
 ConnectAzureAD
-
-
-# Create app of type Web app / API in Azure AD, generate a Client Secret, and update the client id and client secret here
 
 [string]$urlResource = "https://manage.office.com/.default"
 [uri]$authority = "https://login.microsoftonline.com/$($TenantID)/oauth2/v2.0/token"
@@ -233,7 +232,7 @@ $authHeader = @{
 
 if ($null -eq $bearerToken) {
     $evtMessage = "ERROR - No authentication result for Auzre AD App"
-    Write-EventLog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
     Write-Log $evtMessage
 }
 
@@ -561,7 +560,8 @@ foreach ($card in $dashCards) {
     }
     try { $cardClass = Get-StatusDisplay $($item.status) "Class" }
     catch { Write-Log "No status available for $card - $($item.workloaddisplayname)" }
-    $cardText = cardbuilder $($item.workloaddisplayname) $($Days) $($Hist.count) $advisories $cardClass
+    try {$cardText = cardbuilder $($item.workloaddisplayname) $($Days) $($Hist.count) $advisories $cardClass}
+    catch { Write-Log "Cant find $card in workload. Has name changed or workload replaced?" }
     $rptSectionOneOne += "$cardText`n"
 }
 $rptSectionOneOne += "</div></div>`n" #Close inner and outer divs
@@ -1218,11 +1218,13 @@ BuildHTML $rptTitle $divOne $divTwo $divThree $divFour $divFive $divLast $rptHTM
 if (!(Test-Path "$($pathHTML)\$($cssfile)")) {
     Write-Log "Copying O365Health.css to directory $($pathHTML)"
     Copy-Item "..\common\O365Health.css" -Destination "$($pathHTML)"
+    #No CSS file so probably no images
+    Copy-Item ".\images\*.jpg" -Destination "$($pathHTMLimg)"
 }
 
 $swScript.Stop()
 
-$evtMessage = "Tenant: $($rptProfile) - Script runtime $($swScript.Elapsed.Minutes)m:$($swScript.Elapsed.Seconds)s:$($swScript.Elapsed.Milliseconds)ms on $env:COMPUTERNAME"
+$evtMessage = "Tenant: $($rptProfile) - Script runtime $($swScript.Elapsed.Minutes)m:$($swScript.Elapsed.Seconds)s:$($swScript.Elapsed.Milliseconds)ms on $env:COMPUTERNAME`r`n"
 $evtMessage += "*** Processing finished ***`r`n"
 Write-Log $evtMessage
 #Re-instate default proxy

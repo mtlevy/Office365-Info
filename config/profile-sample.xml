@@ -1,4 +1,5 @@
 <?xml version="1.0"?>
+<!-- Build time 25-Jan-2020 14:58:32 -->
 <Settings>
   <Tenant>
     <!-- Basic tenant information. Shortname is used in filenames to help identify tenants-->
@@ -6,7 +7,7 @@
     <!-- Short name is used in filenames to help identify files per tenant-->
     <ShortName>Sample</ShortName>
     <!-- MS name is the name used to create the tenant (which may be used as shortname, above)-->
-	<MSName>MSTenant</MSName>
+    <MSName>MSTenant</MSName>
     <Description>Sample tenant description</Description>
   </Tenant>
   <Azure>
@@ -23,6 +24,7 @@
     <!-- Where any working files should be saved-->
     <WorkingPath>..\Working</WorkingPath>
     <!-- If using the local event log on the machine that runs the scripts, define which custom event log to use-->
+    <!-- Uses True or False-->
     <UseEventLog>True</UseEventLog>
     <EventLog>O365 Health</EventLog>
     <HostURL>https://myhost.internal.com</HostURL>
@@ -31,7 +33,8 @@
     <!-- Email server connectivity settings. Can be office365 or other mail system-->
     <!-- SendReport function in the common module can be trimmed if there is no need for username/password (ie internal systems)-->
     <!-- Current settings are required to use exchange online. 'From' should be the authenticated user -->
-    <Enabled></Enabled>
+    <!-- Uses True or False-->
+    <Enabled>false</Enabled>
     <SMTPServer>smtp.office365.com</SMTPServer>
     <Port>587</Port>
     <UseSSL>True</UseSSL>
@@ -81,6 +84,8 @@
   </UsageReports>
   <Diagnostics>
     <Name>Diagnostics</Name>
+    <!-- Uses True or False-->
+    <Enabled>false</Enabled>
     <HTMLFileName>O365Toolbox.html</HTMLFileName>
     <!-- Text to add to Diagnostics tab. Will be converted to HTML so can include HTML tags-->
     <Notes></Notes>
@@ -95,9 +100,15 @@
     <!-- Refresh interval in minutes-->
     <Refresh>5</Refresh>
   </Diagnostics>
+  <MiscDiagnostics>
+    <!-- Additional diagnostic checks that run after the dynamics Microsoft URLs-->
+    <!-- Uses True or False-->
+    <Enabled>false</Enabled>
+  </MiscDiagnostics>
   <RSSFeeds>
     <!-- Microsoft 365 RSS Feed settings-->
     <F1>
+      <!-- Uses True or False-->
       <Enabled>true</Enabled>
       <Name>Microsoft 365 Roadmap</Name>
       <Feed>https://www.microsoft.com/en-gb/microsoft-365/RoadmapFeatureRSS</Feed>
@@ -107,6 +118,7 @@
     </F1>
     <!-- Azure Updates RSS Feed settings-->
     <F2>
+      <!-- Uses True or False-->
       <Enabled>true</Enabled>
       <Name>Azure Updates</Name>
       <Feed>https://azurecomcdn.azureedge.net/en-gb/updates/feed/</Feed>
@@ -128,6 +140,7 @@
   </IPURLs>
   <CNAME>
     <!-- CNAME checking enabled -->
+    <!-- Uses True or False-->
     <Enabled>false</Enabled>
     <!-- Text to add to Information section. Will be converted to HTML so can include HTML tags-->
     <Notes></Notes>
@@ -144,18 +157,19 @@
   </CNAME>
   <PACFile>
     <!-- Proxy .pac file generation required?-->
+    <!-- Uses True or False-->
     <Enabled>true</Enabled>
     <!-- Client proxy server to specificy in .pac file-->
     <Proxy>192.168.10.10:8080</Proxy>
     <!-- If using .pac extension remember to allow on web server as valid extension-->
-    <!-- If in doubt use .txt and rename-->
+    <!-- If in doubt use .txt and rename on download-->
     <Type1Filename>pac-Optimize.txt</Type1Filename>
     <Type2Filename>pac-OptimizeAllow.txt</Type2Filename>
   </PACFile>
   <Proxy>
     <!-- Proxy settings if required-->
     <!-- Use proxy values: true/false-->
-    <UseProxy>false</UseProxy>
+    <ProxyEnabled>false</ProxyEnabled>
     <!-- Proxy server FQDN value http://proxyfqdn.domain.com:8080 -->
     <ProxyHost>http://proxyfqdn.domain.com</ProxyHost>
     <!-- Ignore SSL: true/false-->
@@ -163,6 +177,6 @@
   </Proxy>
   <Blogs>
   <!-- Blogs is a simple HTML list of useful links -->
-	<a href="https://techcommunity.microsoft.com/t5/Office-365-Blog/bg-p/Office365Blog">Office 365 Blog</a><br /><a href="https://status.azure.com/en-gb/status">Azure Status</a><br />
+	<!-- Blogs is a simple HTML list of useful links --><a href="https://techcommunity.microsoft.com/t5/Office-365-Blog/bg-p/Office365Blog">Office 365 Blog</a><br /><a href="https://status.azure.com/en-gb/status">Azure Status</a><br />
   </Blogs>
 </Settings>
