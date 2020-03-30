@@ -12,7 +12,7 @@
     Updated config.xml file and backup copy of origin
 
 .EXAMPLE
-    PS C:\> .\ProfileBuilder.ps1 -configXML .\configfile.xml
+    PS C:\> .\UpdateProfile.ps1 -configXML .\configfile.xml
 
 
 .NOTES
@@ -95,13 +95,15 @@ if (Test-Path $configXML) {
     UsageReportsPath       = $xmlExisting.Settings.UsageReports.Path
     UsageEventSource       = $xmlExisting.Settings.UsageReports.EventSource
 
-    DiagnosticsName        = $xmlExisting.Settings.Diagnostics.Name
+    ToolboxName        = $xmlExisting.Settings.Toolbox.Name
+    ToolboxHTML        = $xmlExisting.Settings.Toolbox.HTMLFilename
+    ToolboxNotes       = ($xmlExisting.Settings.Toolbox.Notes).InnerXML
+    ToolboxRefresh     = $xmlExisting.Settings.Toolbox.Refresh
+
+
     DiagnosticsEnabled     = $xmlExisting.Settings.Diagnostics.Enabled
-    DiagnosticsHTML        = $xmlExisting.Settings.Diagnostics.HTMLFilename
-    DiagnosticsNotes       = ($xmlExisting.Settings.Diagnostics.Notes).InnerXML
     DiagnosticsURLs        = $xmlExisting.Settings.Diagnostics.URLs
     DiagnosticsVerbose     = $xmlExisting.Settings.Diagnostics.Verbose
-    DiagnosticsRefresh     = $xmlExisting.Settings.Diagnostics.Refresh
 
     MiscDiagnosticsEnabled = $xmlExisting.Settings.MiscDiagnostics.Enabled
     MiscDiagsWeb           = $xmlExisting.Settings.MiscDiagnostics.Web
@@ -150,10 +152,12 @@ if (Test-Path $configXML) {
   #Set Defaults
   if ([string]::IsNullOrEmpty($appSettings.UseEventLog)) { $appSettings.UseEventLog = "false" }
   if ([string]::IsNullOrEmpty($appSettings.EmailEnabled)) { $appSettings.EmailEnabled = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.ToolboxHTML)) { $appSettings.ToolboxHTML = "O365Toolbox.HTML" }
+  if ([string]::IsNullOrEmpty($appSettings.ToolboxRefresh)) { $appSettings.ToolboxRefresh = "5"}
   if ([string]::IsNullOrEmpty($appSettings.DiagnosticsEnabled)) { $appSettings.DiagnosticsEnabled = "false" }
   if ([string]::IsNullOrEmpty($appSettings.MiscDiagnosticsEnabled)) { $appSettings.MiscDiagnosticsEnabled = "false" }
-  if ([string]::IsNullOrEmpty($appSettings.MiscDiagsWeb)) { $appSettings.MiscDiagnsWeb = "false" }
-  if ([string]::IsNullOrEmpty($appSettings.MiscDiagsPorts)) { $appSettings.MiscDiagnsPorts = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.MiscDiagsWeb)) { $appSettings.MiscDiagsWeb = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.MiscDiagsPorts)) { $appSettings.MiscDiagsPorts = "false" }
   if ([string]::IsNullOrEmpty($appSettings.RSS1Enabled)) { $appSettings.RSS1Enabled = "false" }
   if ([string]::IsNullOrEmpty($appSettings.RSS2Enabled)) { $appSettings.RSS2Enabled = "false" }
   if ([string]::IsNullOrEmpty($appSettings.CnameEnabled)) { $appSettings.CnameEnabled = "false" }
@@ -245,28 +249,30 @@ if (Test-Path $configXML) {
     <!-- Events source to use when logging to the event log-->
     <EventSource>$($appSettings.UsageEventSource)</EventSource>
   </UsageReports>
+  <Toolbox>
+    <Name>$($appSettings.ToolboxName)</Name>
+    <HTMLFileName>$($appSettings.ToolboxHTML)</HTMLFileName>
+    <!-- Text to add to Diagnostics tab. Will be converted to HTML so can include HTML tags-->
+    <Notes>$($appSettings.ToolboxNotes)</Notes>
+    <!-- Refresh interval in minutes-->
+    <Refresh>$($appSettings.ToolboxRefresh)</Refresh>
+  </Toolbox>
   <Diagnostics>
-    <Name>$($appSettings.DiagnosticsName)</Name>
     <!-- Uses True or False-->
     <Enabled>$($appSettings.DiagnosticsEnabled)</Enabled>
-    <HTMLFileName>$($appSettings.DiagnosticsHTML)</HTMLFileName>
-    <!-- Text to add to Diagnostics tab. Will be converted to HTML so can include HTML tags-->
-    <Notes>$($appSettings.DiagnosticsNotes)</Notes>
     <!-- Run http/https connectivity tests to URLs: true/false-->
     <URLs>$($appSettings.DiagnosticsURLs)</URLs>
     <!-- Show detailed errors for pages: true/false-->
     <Verbose>$($appSettings.DiagnosticsVerbose)</Verbose>
-    <!-- Refresh interval in minutes-->
-    <Refresh>$($appSettings.DiagnosticsRefresh)</Refresh>
   </Diagnostics>
   <MiscDiagnostics>
     <!-- Additional diagnostic checks that run after the dynamics Microsoft URLs-->
     <!-- Uses True or False-->
     <Enabled>$($appSettings.MiscDiagnosticsEnabled)</Enabled>
     <!-- Run http/https tests for IP connections: true/false-->
-    <Web>$($appSettings.DiagnosticsWeb)</Web>
+    <Web>$($appSettings.MiscDiagsWeb)</Web>
     <!-- Run port connectivity tests: true/false-->
-    <Ports>$($appSettings.DiagnosticsPorts)</Ports>
+    <Ports>$($appSettings.MiscDiagsPorts)</Ports>
   </MiscDiagnostics>
   <RSSFeeds>
     <!-- Microsoft 365 RSS Feed settings-->

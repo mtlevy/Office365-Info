@@ -100,9 +100,10 @@ else { [boolean]$UseEventLog = $false }
 [string]$SMTPPassword = $config.EmailPassword
 [string]$SMTPKey = $config.EmailKey
 
-[string]$HTMLFile = $config.DiagnosticsHTML
-[string]$rptName = $config.DiagnosticsName
-[int]$pageRefresh = $config.DiagnosticsRefresh
+[string]$HTMLFile = $config.ToolboxHTML
+[string]$rptName = $config.ToolboxName
+[int]$pageRefresh = $config.ToolboxRefresh
+[string]$toolboxNotes = $config.ToolboxNotes
 
 [string]$rptProfile = $config.TenantShortName
 [string]$rptTenantName = $config.TenantName
@@ -156,9 +157,6 @@ if ($config.MiscDiagsEnabled -like 'true') { [boolean]$miscDiagsEnabled = $true 
 if ($config.EmailEnabled -like 'true') { [boolean]$emailEnabled = $true } else { [boolean]$emailEnabled = $false }
 if ($config.PACEnabled -like 'true') { [boolean]$pacEnabled = $true } else { [boolean]$pacEnabled = $false }
 if ($config.CNAMEEnabled -like 'true') { [boolean]$cnameEnabled = $true } else { [boolean]$cnameEnabled = $false }
-
-[string]$diagNotes = $config.DiagnosticsNotes
-
 
 [boolean]$rptOutage = $false
 [boolean]$fileMissing = $false
@@ -621,7 +619,7 @@ $SkuNames = @{
     "ATA"                                         = "Advanced Threat Analytics"
     "ATP_ENTERPRISE"                              = "Exchange Online Advanced Threat Protection"
     "ATP_ENTERPRISE_FACULTY"                      = "Exchange Online Advanced Threat Protection"
-    "AX_ENTERPRISE_USER"                          = "AX Enterprise UUser"
+    "AX_ENTERPRISE_USER"                          = "AX Enterprise User"
     "AX_SANDBOX_INSTANCE_TIER2"                   = "AX SandBox Tier 2"
     "AX_SELF-SERVE_USER"                          = "AX Self-Serve User"
     "AX_TASK_USER"                                = "AX Task User"
@@ -893,7 +891,7 @@ $SkuNames = @{
     "STREAM_O365_E3"                              = "Microsoft Stream for Office 365 (Plan E3)"
     "STREAM_O365_E5"                              = "Microsoft Stream for Office 365 (Plan E5)"
     "SWAY"                                        = "Sway"
-    "TEAMS_COMMERCIAL_TRIAL"                      = "Microsoft Teams Commercial Clour (User Initiated)"
+    "TEAMS_COMMERCIAL_TRIAL"                      = "Microsoft Teams Commercial Cloud (User Initiated)"
     "TEAMS1"                                      = "Microsoft Teams"
     "THREAT_INTELLIGENCE"                         = "Office 365 Threat Intelligence"
     "VISIO_CLIENT_SUBSCRIPTION"                   = "Visio Pro for Office 365 Subscription"
@@ -913,6 +911,14 @@ $SkuNames = @{
     "YAMMER_EDU"                                  = "Yammer for Academic"
     "YAMMER_ENTERPRISE"                           = "Yammer Enterprise"
     "YAMMER_MIDSIZE"                              = "Yammer Midsize"
+    "COMMUNICATIONS_COMPLIANCE"                   = "Microsoft Communications Compliance"
+    "COMMUNICATIONS_DLP"                          = "Microsoft Communications DLP"
+    "CUSTOMER_KEY"                                = "Microsoft Customer Key"
+    "DATA_INVESTIGATIONS"                         = "Microsoft Data Investigations"
+    "INFO_GOVERNANCE"                             = "Microsoft Information Governance"
+    "INSIDER_RISK_MANAGEMENT"                     = "Microsoft Insider Risk Management"
+    "ML_CLASSIFICATION"                           = "Microsoft ML-based Classification"
+    "RECORDS_MANAGEMENT"                          = "Microsoft Records Management"
 }
 
 
@@ -1326,15 +1332,15 @@ function checkURL {
                 $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -UseBasicParsing -TimeoutSec 3
             }
             Switch ($Result.StatusCode) {
-                200 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Successfully contacted site $($url).</p><br/>" }
-                400 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Bad request.</p><br/>" }
-                401 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Unauthorized.</p><br/>" }
-                403 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Forbidden.</p><br/>" }
-                404 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Not found.</p><br/>" }
-                407 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Proxy authentication required.</p><br/>" }
-                502 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Bad gateway (likely proxy).</p><br/>" }
-                503 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Service unavailable (transient, try again).</p><br/>" }
-                504 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Gateway timeout (likely proxy).</p><br/>" }
+                200 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Successfully contacted site $($url).</p><br/>"; break}
+                400 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Bad request.</p><br/>"; break}
+                401 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Unauthorized.</p><br/>"; break}
+                403 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Forbidden.</p><br/>"; break}
+                404 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Not found.</p><br/>"; break}
+                407 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Proxy authentication required.</p><br/>"; break}
+                502 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Bad gateway (likely proxy).</p><br/>"; break}
+                503 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Service unavailable (transient, try again).</p><br/>"; break}
+                504 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Gateway timeout (likely proxy).</p><br/>"; break}
                 default {
                     $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to contact site  $($url).</p><br/>"
                 }
@@ -1344,11 +1350,20 @@ function checkURL {
         catch {
             if ($intAttempts -ge 3) { $stopLoop = $true }
             else {
-                $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Attempt $($intAttempts) - Exception: Unable to contact site $($url).</p><br/>"
-                if ($diagVerbose) {
-                    [string]$ErrorMessage = $_
-                    $errorMessage = $ErrorMessage.substring(0, [system.math]::Min(250, $ErrorMessage.length))
-                    $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>$($ErrorMessage).</p><br/>"
+                $fault=$error[0].exception
+                Switch -Wildcard ($fault) {
+    				"*(400)*" { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Connection to site $($url): Bad request [400].</p><br/>"; $stopLoop=$true; break}
+                    "*(401)*" { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Connection to site $($url): Unauthorised [401].</p><br/>"; $stopLoop=$true; break}
+                    "*(403)*" { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Connection to site $($url): No permissions [403].</p><br/>"; $stopLoop=$true; break}
+                    "*(404)*" { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Connection to site $($url): Not found [404].</p><br/>"; $stopLoop=$true; break}
+                    default {
+                        $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Attempt $($intAttempts) - Exception: Unable to contact site  $($url).</p><br/>"
+                        if ($diagVerbose) {
+                            [string]$ErrorMessage = $_
+                            $errorMessage = $ErrorMessage.substring(0, [system.math]::Min(250, $ErrorMessage.length))
+                            $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>$($ErrorMessage).</p><br/>"
+                        }
+                    }
                 }
             }
         }
@@ -1411,7 +1426,7 @@ if ($miscDiagsEnabled) { $rptWebTests = OnlineEndPoints $diagWeb $diagPorts $dia
 $rptSectionOneOne = "<div class='section'><div class='header'>Office 365 Message Data</div>`n"
 $rptSectionOneOne += "<div class='content'>`n"
 $rptSectionOneOne += "$($rptO365Info)"
-$rptSectionOneOne += "$($diagNotes)"
+$rptSectionOneOne += "$($toolboxNotes)"
 $rptSectionOneOne += "</div></div>`n"
 $divOne = $rptSectionOneOne
 

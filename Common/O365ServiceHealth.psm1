@@ -155,13 +155,14 @@ function LoadConfig {
         UsageReportsPath    = $configFile.Settings.UsageReports.Path
         UsageEventSource    = $configFile.Settings.UsageReports.EventSource
 
+        ToolboxName     = $configFile.Settings.Toolbox.Name
+        ToolboxHTML     = $configFile.Settings.Toolbox.HTMLFilename
+        ToolboxNotes    = ($configFile.Settings.Toolbox.Notes).InnerXML
+        ToolboxRefresh  = $configFile.Settings.Toolbox.Refresh
+
         DiagnosticsEnabled  = $configFile.Settings.Diagnostics.Enabled
-        DiagnosticsName     = $configFile.Settings.Diagnostics.Name
-        DiagnosticsHTML     = $configFile.Settings.Diagnostics.HTMLFilename
-        DiagnosticsNotes    = ($configFile.Settings.Diagnostics.Notes).InnerXML
         DiagnosticsURLs     = $configFile.Settings.Diagnostics.URLs
         DiagnosticsVerbose  = $configFile.Settings.Diagnostics.Verbose
-        DiagnosticsRefresh  = $configFile.Settings.Diagnostics.Refresh
 
         MiscDiagsEnabled    = $configFile.Settings.MiscDiagnostics.Enabled
         MiscDiagsWeb        = $configFile.Settings.MiscDiagnostics.Web
