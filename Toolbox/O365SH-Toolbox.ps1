@@ -892,6 +892,7 @@ $SkuNames = @{
     "STREAM_O365_E5"                              = "Microsoft Stream for Office 365 (Plan E5)"
     "SWAY"                                        = "Sway"
     "TEAMS_COMMERCIAL_TRIAL"                      = "Microsoft Teams Commercial Cloud (User Initiated)"
+    "TEAMS_EXPLORATORY"                      = "Microsoft Teams Exploratory"
     "TEAMS1"                                      = "Microsoft Teams"
     "THREAT_INTELLIGENCE"                         = "Office 365 Threat Intelligence"
     "VISIO_CLIENT_SUBSCRIPTION"                   = "Visio Pro for Office 365 Subscription"

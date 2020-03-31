@@ -123,7 +123,7 @@ $prefDashCards = $prefDashCards.Trim()
 [string]$emailDashAlertsTo = $config.DashboardAlertsTo
 
 [string]$htmlWall = $config.WallHTML
-[string]$htmlDiagnostics = $config.DiagnosticsHTML
+[string]$htmlDiagnostics = $config.ToolboxHTML
 
 [string]$proxyHost = $config.ProxyHost
 
