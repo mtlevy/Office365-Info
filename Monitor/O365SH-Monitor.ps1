@@ -211,6 +211,17 @@ if ($null -eq $bearerToken) {
 [array]$knownIssuesList = @()
 
 if (Test-Path "$($knownIssues)") { $knownIssuesList = Import-Csv "$($knownIssues)" }
+else {
+    $evtMessage = "ERROR - Known issues list does not exist. Ignore on first run."
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
+    Write-Log $evtMessage
+}
+
+if ($knownIssuesList -eq 0) {
+    $evtMessage = "ERROR - Known issues list is empty. Ignore on first run."
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 10 -EntryType Error
+    Write-Log $evtMessage
+}
 
 #	Returns the messages about the service over a certain time range.
 [uri]$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
@@ -264,14 +275,13 @@ if ($newIncidents.count -ge 1) {
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
             $evtMessage = $evtMessage.Replace("<b>", "")
             $evtMessage = $evtMessage.Replace("</b>", "")
-			$evtID=0
-			$evtErr=''
-            switch ($item.severity)
-			{
-				'SEV0' {$evtErr = 'Error'; $evtID=22}
-				'SEV1' {$evtErr = 'Error'; $evtID=21}
-				'SEV2' {$evtErr = 'Warning'; $evtID=20}
-			}
+            $evtID = 0
+            $evtErr = ''
+            switch ($item.severity) {
+                'SEV0' { $evtErr = 'Error'; $evtID = 22 }
+                'SEV1' { $evtErr = 'Error'; $evtID = 21 }
+                'SEV2' { $evtErr = 'Warning'; $evtID = 20 }
+            }
             Write-ELog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId $evtID -EntryType $evtErr
             Write-Log $evtMessage
         }
@@ -292,36 +302,40 @@ $reportClosed = $recentlyClosed | Where-Object { $_.id -in $recentIncidents.ID }
 $reportClosed += $currentIncidents | Where-Object { $_.id -notin $knownissueslist.ID -and $null -ne $_.endtime }
 
 Write-Log "Closed incidents detected: $($reportClosed.count)"
-foreach ($item in $reportClosed) {
-    Write-Log "Building and attempting to send closure email"
-    $mailMessage = "<b>Incident Closed</b>`t`t: <b>Closed</b><br/>"
-    $mailMessage += "<b>Tenant</b>`t`t: $($rptProfile)<br/>"
-    $mailMessage += "<b>ID</b>`t`t: $($item.ID)<br/>"
-    $mailMessage += "<b>Feature</b>`t`t: $($item.WorkloadDisplayName)<br/>"
-    $mailMessage += "<b>Status</b>`t`t: $($item.Status)<br/>"
-    $mailMessage += "<b>Severity</b>`t`t: $($item.Severity)<br/>"
-    $mailMessage += "<b>Start Time</b>`t: $(Get-Date $item.StartTime -f 'dd-MMM-yyyy HH:mm')<br/>"
-    $mailMessage += "<b>Last Updated</b>`t: $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')<br/>"
-    $mailMessage += "<b>End Time</b>`t: <b>$(Get-Date $item.EndTime -f 'dd-MMM-yyyy HH:mm')</b><br/>"
-    $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
-    $mailMessage += "$($item.ImpactDescription)<br/><br/>"
-    #Add the last action from microsoft to the email only - not to the event log entry (text can be too long)
-    $mailWithLastAction = $mailMessage + "<b>Final Update from Microsoft</b>`t:<br/>"
-    $lastMessage = Get-htmlMessage ($item.messages.messagetext | Where-Object { $_ -like '*This is the final update*' -or $_ -like '*Final status:*' })
-    $lastMessage = "<div style='background-color:$($emailClosedBgd)'>" + $lastMessage.replace("<br><br>", "<br/>") + "</div>"
-    $mailWithLastAction += "$($lastMessage)<br/><br/>"
-    $emailSubject = "Closed: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
-    Write-Log "Sending email to $($MonitorAlertsTo)"
-    if ($MonitorAlertsTo -and $emailEnabled) { SendEmail $mailWithLastAction $EmailCreds $config "Normal" $emailSubject $MonitorAlertsTo }
-    $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
-    $evtMessage = $evtMessage.Replace("<b>", "")
-    $evtMessage = $evtMessage.Replace("</b>", "")
-    Write-ELog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 30 -EntryType Information
-    Write-Log $evtMessage
+#Check that closed isnt greater than 10. If it is, its likely to be a new install or issue with corrupt file
+if ($knownIssuesList.count -ge 1 -and $reportClosed.count -le 10) {
+    foreach ($item in $reportClosed) {
+        Write-Log "Building and attempting to send closure email"
+        $mailMessage = "<b>Incident Closed</b>`t`t: <b>Closed</b><br/>"
+        $mailMessage += "<b>Tenant</b>`t`t: $($rptProfile)<br/>"
+        $mailMessage += "<b>ID</b>`t`t: $($item.ID)<br/>"
+        $mailMessage += "<b>Feature</b>`t`t: $($item.WorkloadDisplayName)<br/>"
+        $mailMessage += "<b>Status</b>`t`t: $($item.Status)<br/>"
+        $mailMessage += "<b>Severity</b>`t`t: $($item.Severity)<br/>"
+        $mailMessage += "<b>Start Time</b>`t: $(Get-Date $item.StartTime -f 'dd-MMM-yyyy HH:mm')<br/>"
+        $mailMessage += "<b>Last Updated</b>`t: $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')<br/>"
+        $mailMessage += "<b>End Time</b>`t: <b>$(Get-Date $item.EndTime -f 'dd-MMM-yyyy HH:mm')</b><br/>"
+        $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
+        $mailMessage += "$($item.ImpactDescription)<br/><br/>"
+        #Add the last action from microsoft to the email only - not to the event log entry (text can be too long)
+        $mailWithLastAction = $mailMessage + "<b>Final Update from Microsoft</b>`t:<br/>"
+        $lastMessage = Get-htmlMessage ($item.messages.messagetext | Where-Object { $_ -like '*This is the final update*' -or $_ -like '*Final status:*' })
+        $lastMessage = "<div style='background-color:$($emailClosedBgd)'>" + $lastMessage.replace("<br><br>", "<br/>") + "</div>"
+        $mailWithLastAction += "$($lastMessage)<br/><br/>"
+        $emailSubject = "Closed: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
+        Write-Log "Sending email to $($MonitorAlertsTo)"
+        if ($MonitorAlertsTo -and $emailEnabled) { SendEmail $mailWithLastAction $EmailCreds $config "Normal" $emailSubject $MonitorAlertsTo }
+        $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
+        $evtMessage = $evtMessage.Replace("<b>", "")
+        $evtMessage = $evtMessage.Replace("</b>", "")
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message $evtMessage -EventId 30 -EntryType Information
+        Write-Log $evtMessage
+    }
 }
 
 #Update the know lists if issues. they might not have increased, but end times may have been added.
-if ($allMessages.count -gt 0) {
+#If empty then skip to avoid overwriting
+if ($currentIncidents.count -gt 0) {
     $currentIncidents | Export-Csv "$($knownIssues)" -Encoding UTF8 -NoTypeInformation
 }
 

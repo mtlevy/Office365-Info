@@ -101,7 +101,7 @@ Get-PacFile.ps1 -ClientRequestId b10c5ed1-bad1-445f-b386-b919946339a7 -Instance 
 
 #Requires -Version 2
 
-[CmdletBinding(SupportsShouldProcess=$True)]
+[CmdletBinding(SupportsShouldProcess = $True)]
 Param (
     [Parameter(Mandatory = $false)]
     [ValidateSet('Worldwide', 'Germany', 'China', 'USGovDoD', 'USGovGCCHigh')]
@@ -152,8 +152,7 @@ $bl = "`r`n"
 ### Functions to create PAC files
 ##################################################################################################################
 
-function Get-PacClauses
-{
+function Get-PacClauses {
     param(
         [Parameter(Mandatory = $false)]
         [string[]] $Urls,
@@ -163,14 +162,13 @@ function Get-PacClauses
         [String] $ReturnVarName
     )
 
-    if (!$Urls)
-    {
+    if (!$Urls) {
         return ""
     }
 
-    $clauses =  (($Urls | ForEach-Object { "shExpMatch(host, `"$_`")" }) -Join "$bl        || ")
+    $clauses = (($Urls | ForEach-Object { "shExpMatch(host, `"$_`")" }) -Join "$bl        || ")
 
-@"
+    @"
     if($clauses)
     {
         return $ReturnVarName;
@@ -178,15 +176,14 @@ function Get-PacClauses
 "@
 }
 
-function Get-PacString
-{
+function Get-PacString {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
         [array[]] $MapVarUrls
     )
 
-@"
+    @"
 // This PAC file will provide proxy config to Microsoft 365 services
 //  using data from the public web service for all endpoints
 function FindProxyForURL(url, host)
@@ -200,15 +197,14 @@ $( ($MapVarUrls | ForEach-Object { Get-PACClauses -ReturnVarName $_.Item1 -Urls 
 
     return $defaultProxyVarName;
 }
-"@ -replace "($bl){3,}","$bl$bl" # Collapse more than one blank line in the PAC file so it looks better.
+"@ -replace "($bl){3,}", "$bl$bl" # Collapse more than one blank line in the PAC file so it looks better.
 }
 
 ##################################################################################################################
 ### Functions to get and filter endpoints
 ##################################################################################################################
 
-function Get-Regex
-{
+function Get-Regex {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -218,8 +214,7 @@ function Get-Regex
     return "^" + $Fqdn.Replace(".", "\.").Replace("*", ".*").Replace("?", ".") + "$"
 }
 
-function Match-RegexList
-{
+function Match-RegexList {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -229,29 +224,23 @@ function Match-RegexList
         [string[]] $MatchList
     )
 
-    if (!$MatchList)
-    {
+    if (!$MatchList) {
         return $false
     }
-    foreach ($regex in $MatchList)
-    {
-        if ($regex -ne $ToMatch -and $ToMatch -match (Get-Regex $regex))
-        {
+    foreach ($regex in $MatchList) {
+        if ($regex -ne $ToMatch -and $ToMatch -match (Get-Regex $regex)) {
             return $true
         }
     }
     return $false
 }
 
-function Get-Endpoints
-{
+function Get-Endpoints {
     $url = $baseServiceUrl
-    if ($TenantName)
-    {
+    if ($TenantName) {
         $url += "&TenantName=$TenantName"
     }
-    if ($ServiceAreas)
-    {
+    if ($ServiceAreas) {
         $url += "&ServiceAreas=" + ($ServiceAreas -Join ",")
     }
 
@@ -260,27 +249,24 @@ function Get-Endpoints
     }
     else {
         return Invoke-RestMethod -Uri $url
-}
+    }
 
 
 }
 
-function Get-Urls
-{
+function Get-Urls {
     param(
         [Parameter(Mandatory = $false)]
         [psobject[]] $Endpoints
     )
 
-    if ($Endpoints)
-    {
+    if ($Endpoints) {
         return $Endpoints | Where-Object { $_.urls } | ForEach-Object { $_.urls } | Sort-Object -Unique
     }
     return @()
 }
 
-function Get-UrlVarTuple
-{
+function Get-UrlVarTuple {
     param(
         [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
@@ -292,13 +278,11 @@ function Get-UrlVarTuple
     return New-Object 'Tuple[string,string[]]'($VarName, $Urls)
 }
 
-function Get-MapVarUrls
-{
+function Get-MapVarUrls {
     Write-Verbose "Retrieving all endpoints for instance $Instance from web service."
     $Endpoints = Get-Endpoints
 
-    if ($Type -eq 1)
-    {
+    if ($Type -eq 1) {
         $directUrls = Get-Urls ($Endpoints | Where-Object { $_.category -eq "Optimize" })
         $nonDirectPriorityUrls = Get-Urls ($Endpoints | Where-Object { $_.category -ne "Optimize" }) | Where-Object { Match-RegexList $_ $directUrls }
         return @(
@@ -306,9 +290,8 @@ function Get-MapVarUrls
             Get-UrlVarTuple -VarName $directProxyVarName -Urls $directUrls
         )
     }
-    elseif ($Type -eq 2)
-    {
-        $directUrls = Get-Urls ($Endpoints | Where-Object { $_.category -in @("Optimize", "Allow")})
+    elseif ($Type -eq 2) {
+        $directUrls = Get-Urls ($Endpoints | Where-Object { $_.category -in @("Optimize", "Allow") })
         $nonDirectPriorityUrls = Get-Urls ($Endpoints | Where-Object { $_.category -notin @("Optimize", "Allow") }) | Where-Object { Match-RegexList $_ $directUrls }
         return @(
             Get-UrlVarTuple -VarName $defaultProxyVarName -Urls $nonDirectPriorityUrls
@@ -323,11 +306,9 @@ function Get-MapVarUrls
 
 $content = Get-PacString (Get-MapVarUrls)
 
-if ($FilePath)
-{
+if ($FilePath) {
     $content | Out-File -FilePath $FilePath -Encoding ascii
 }
-else
-{
+else {
     $content
 }

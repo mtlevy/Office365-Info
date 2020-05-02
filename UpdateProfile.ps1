@@ -95,10 +95,10 @@ if (Test-Path $configXML) {
     UsageReportsPath       = $xmlExisting.Settings.UsageReports.Path
     UsageEventSource       = $xmlExisting.Settings.UsageReports.EventSource
 
-    ToolboxName        = $xmlExisting.Settings.Toolbox.Name
-    ToolboxHTML        = $xmlExisting.Settings.Toolbox.HTMLFilename
-    ToolboxNotes       = ($xmlExisting.Settings.Toolbox.Notes).InnerXML
-    ToolboxRefresh     = $xmlExisting.Settings.Toolbox.Refresh
+    ToolboxName            = $xmlExisting.Settings.Toolbox.Name
+    ToolboxHTML            = $xmlExisting.Settings.Toolbox.HTMLFilename
+    ToolboxNotes           = ($xmlExisting.Settings.Toolbox.Notes).InnerXML
+    ToolboxRefresh         = $xmlExisting.Settings.Toolbox.Refresh
 
 
     DiagnosticsEnabled     = $xmlExisting.Settings.Diagnostics.Enabled
@@ -153,7 +153,7 @@ if (Test-Path $configXML) {
   if ([string]::IsNullOrEmpty($appSettings.UseEventLog)) { $appSettings.UseEventLog = "false" }
   if ([string]::IsNullOrEmpty($appSettings.EmailEnabled)) { $appSettings.EmailEnabled = "false" }
   if ([string]::IsNullOrEmpty($appSettings.ToolboxHTML)) { $appSettings.ToolboxHTML = "O365Toolbox.HTML" }
-  if ([string]::IsNullOrEmpty($appSettings.ToolboxRefresh)) { $appSettings.ToolboxRefresh = "5"}
+  if ([string]::IsNullOrEmpty($appSettings.ToolboxRefresh)) { $appSettings.ToolboxRefresh = "5" }
   if ([string]::IsNullOrEmpty($appSettings.DiagnosticsEnabled)) { $appSettings.DiagnosticsEnabled = "false" }
   if ([string]::IsNullOrEmpty($appSettings.MiscDiagnosticsEnabled)) { $appSettings.MiscDiagnosticsEnabled = "false" }
   if ([string]::IsNullOrEmpty($appSettings.MiscDiagsWeb)) { $appSettings.MiscDiagsWeb = "false" }

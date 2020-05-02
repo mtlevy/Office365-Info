@@ -53,7 +53,7 @@ function CheckDirectory {
 
     #If path doesnt exist then create
     if (!(Test-Path $($folder))) {
-        $result=New-Item -ItemType Directory -Path $folder
+        $result = New-Item -ItemType Directory -Path $folder
     }
 
     #If path is not absolute, then find it.
@@ -65,15 +65,15 @@ function CheckDirectory {
 
 function Write-ELog {
     Param (
-        [parameter(Mandatory=$false)] [boolean]$useEventLog,
-     [parameter(Mandatory=$false)] [string]$LogName,
-     [parameter(Mandatory=$false)] [string]$Source,
-     [parameter(Mandatory=$false)] [string]$Message,
-     [parameter(Mandatory=$false)] [int]$EventId,
-     [parameter(Mandatory=$false)] [string]$EntryType
-	)
+        [parameter(Mandatory = $false)] [boolean]$useEventLog,
+        [parameter(Mandatory = $false)] [string]$LogName,
+        [parameter(Mandatory = $false)] [string]$Source,
+        [parameter(Mandatory = $false)] [string]$Message,
+        [parameter(Mandatory = $false)] [int]$EventId,
+        [parameter(Mandatory = $false)] [string]$EntryType
+    )
     if ($useEventLog) {
-    Write-ELog -LogName $LogName -Source $Source -Message $Message -EventId $EventId -EntryType $EntryType
+        Write-ELog -LogName $LogName -Source $Source -Message $Message -EventId $EventId -EntryType $EntryType
     }
 }
 
@@ -155,10 +155,10 @@ function LoadConfig {
         UsageReportsPath    = $configFile.Settings.UsageReports.Path
         UsageEventSource    = $configFile.Settings.UsageReports.EventSource
 
-        ToolboxName     = $configFile.Settings.Toolbox.Name
-        ToolboxHTML     = $configFile.Settings.Toolbox.HTMLFilename
-        ToolboxNotes    = ($configFile.Settings.Toolbox.Notes).InnerXML
-        ToolboxRefresh  = $configFile.Settings.Toolbox.Refresh
+        ToolboxName         = $configFile.Settings.Toolbox.Name
+        ToolboxHTML         = $configFile.Settings.Toolbox.HTMLFilename
+        ToolboxNotes        = ($configFile.Settings.Toolbox.Notes).InnerXML
+        ToolboxRefresh      = $configFile.Settings.Toolbox.Refresh
 
         DiagnosticsEnabled  = $configFile.Settings.Diagnostics.Enabled
         DiagnosticsURLs     = $configFile.Settings.Diagnostics.URLs
@@ -199,7 +199,7 @@ function LoadConfig {
         PACType1Filename    = $configFile.Settings.PACFile.Type1Filename
         PACType2Filename    = $configFile.Settings.PACFile.Type2Filename
 
-        ProxyEnabled            = $configFile.Settings.Proxy.ProxyEnabled
+        ProxyEnabled        = $configFile.Settings.Proxy.ProxyEnabled
         ProxyHost           = $configFile.Settings.Proxy.ProxyHost
         ProxyIgnoreSSL      = $configFile.Settings.Proxy.IgnoreSSL
 

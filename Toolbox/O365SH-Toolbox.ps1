@@ -161,6 +161,8 @@ if ($config.CNAMEEnabled -like 'true') { [boolean]$cnameEnabled = $true } else {
 [boolean]$rptOutage = $false
 [boolean]$fileMissing = $false
 
+[string]$emailAlert = $null
+
 [string]$cssfile = ".\O365Health.css"
 
 # Get Email credentials
@@ -701,7 +703,6 @@ $SkuNames = @{
     "EQUIVIO_ANALYTICS"                           = "Office 365 Advanced eDiscovery"
     "EQUIVIO_ANALYTICS_FACULTY"                   = "Office 365 Advanced Compliance for faculty"
     "ERP_TRIAL_INSTANCE"                          = "ERP Trial Instance"
-    "ESKLESSWOFFPACK_GOV"                         = "Office 365 (Plan K2) for Gov"
     "EXCHANGE_ANALYTICS"                          = "Microsoft MyAnalytics"
     "EXCHANGE_L_STANDARD"                         = "Exchange Online (Plan 1)"
     "EXCHANGE_S_ARCHIVE_ADDON"                    = "Exchange Online Archiving"
@@ -892,7 +893,7 @@ $SkuNames = @{
     "STREAM_O365_E5"                              = "Microsoft Stream for Office 365 (Plan E5)"
     "SWAY"                                        = "Sway"
     "TEAMS_COMMERCIAL_TRIAL"                      = "Microsoft Teams Commercial Cloud (User Initiated)"
-    "TEAMS_EXPLORATORY"                      = "Microsoft Teams Exploratory"
+    "TEAMS_EXPLORATORY"                           = "Microsoft Teams Exploratory"
     "TEAMS1"                                      = "Microsoft Teams"
     "THREAT_INTELLIGENCE"                         = "Office 365 Threat Intelligence"
     "VISIO_CLIENT_SUBSCRIPTION"                   = "Visio Pro for Office 365 Subscription"
@@ -994,13 +995,130 @@ $fileData = "O365_endpoints_data-$($rptProfile).txt"
 $pathData = $pathIPURLs + "\" + $fileData
 $currentData = $null
 
-if (Test-Path $pathdata) { $currentData = Get-Content $pathData } else { $fileMissing = $true }
-if (Test-Path $pathIPurl) { $flatUrls = Import-Csv $pathIPurl } else { $fileMissing = $true }
-if (Test-Path $pathIP4) { $flatIp4s = Import-Csv $pathIP4 } else { $fileMissing = $true }
-if (Test-Path $pathIP6) { $flatIp6s = Import-Csv $pathIP6 } else { $fileMissing = $true }
-if (Test-Path $pathIPChanges) { $flatChanges = Import-Csv $pathIPChanges } else { $fileMissing = $true }
-if (Test-Path $pathIPChangeIDX) { $flatChangesIDX = Import-Csv $pathIPChangeIDX } else { $fileMissing = $true }
-if (Test-Path $pathEndpointSetsIDX) { $EndPointSetsIDX = Import-Csv $pathEndpointSetsIDX } else { $fileMissing = $true }
+if (Test-Path $pathdata) {
+    $currentData = Get-Content $pathData
+    if ($currentdata.count -lt 1) {
+    $fileMissing = $true
+        $evtMessage = "Error importing local endpoint data. Possible corruption."
+        $emailAlert += $evtMessage + "`r`n"
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
+        Write-Log $evtMessage
+    }
+}
+else {
+    $fileMissing = $true
+    $evtMessage = "FILE MISSING: Local endpoint data. If first run, ignore."
+    $emailAlert += $evtMessage + "`r`n"
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
+    Write-Log $evtMessage
+}
+
+if (Test-Path $pathIPurl) {
+    $flatUrls = Import-Csv $pathIPurl
+    if ($flatUrls.count -lt 1) {
+    $fileMissing = $true
+        $evtMessage = "Error importing local URL data. Possible corruption."
+        $emailAlert += $evtMessage + "`r`n"
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
+        Write-Log $evtMessage
+    }
+}
+else {
+    $fileMissing = $true
+    $evtMessage = "FILE MISSING: Local URL data. If first run, ignore."
+    $emailAlert += $evtMessage + "`r`n"
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
+    Write-Log $evtMessage
+}
+
+if (Test-Path $pathIP4) {
+    $flatIp4s = Import-Csv $pathIP4
+    if ($flatIp4s.count -lt 1) {
+    $fileMissing = $true
+        $evtMessage = "Error importing local IPv4 data. Possible corruption."
+        $emailAlert += $evtMessage + "`r`n"
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
+        Write-Log $evtMessage
+    }
+}
+else {
+    $fileMissing = $true
+    $evtMessage = "FILE MISSING: Local IPv4 data. If first run, ignore."
+    $emailAlert += $evtMessage + "`r`n"
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
+    Write-Log $evtMessage
+}
+if (Test-Path $pathIP6) {
+    $flatIp6s = Import-Csv $pathIP6
+    if ($flatIp6s.count -lt 1) {
+    $fileMissing = $true
+        $evtMessage = "Error importing local IPv6 data. Possible corruption."
+        $emailAlert += $evtMessage + "`r`n"
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
+        Write-Log $evtMessage
+    }
+    }
+    else {
+        $fileMissing = $true
+        $evtMessage = "FILE MISSING: Local IPv6 data. If first run, ignore."
+        $emailAlert += $evtMessage + "`r`n"
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
+        Write-Log $evtMessage
+    
+}
+if (Test-Path $pathIPChanges) {
+    $flatChanges = Import-Csv $pathIPChanges
+    if ($flatChanges.count -lt 1) {
+    $fileMissing = $true
+        $evtMessage = "Error importing local change data. Possible corruption."
+        $emailAlert += $evtMessage + "`r`n"
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
+        Write-Log $evtMessage
+    }
+    }
+    else {
+        $fileMissing = $true
+        $evtMessage = "FILE MISSING: Local change data. If first run, ignore."
+        $emailAlert += $evtMessage + "`r`n"
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
+        Write-Log $evtMessage
+    
+}
+if (Test-Path $pathIPChangeIDX) {
+    $flatChangesIDX = Import-Csv $pathIPChangeIDX
+    if ($flatChangesIDX.count -lt 1) {
+    $fileMissing = $true
+        $evtMessage = "Error importing local change index data. Possible corruption."
+        $emailAlert += $evtMessage + "`r`n"
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
+        Write-Log $evtMessage
+    }}
+    else {
+        $fileMissing = $true
+        $evtMessage = "FILE MISSING: Local change index data. If first run, ignore."
+        $emailAlert += $evtMessage + "`r`n"
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
+        Write-Log $evtMessage
+    
+}
+if (Test-Path $pathEndpointSetsIDX) {
+    $EndPointSetsIDX = Import-Csv $pathEndpointSetsIDX
+    if ($EndPointSetsIDX.count -lt 1) {
+    $fileMissing = $true
+        $evtMessage = "Error importing local endpoint set index data. Possible corruption."
+        $emailAlert += $evtMessage + "`r`n"
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
+        Write-Log $evtMessage
+    }
+    }
+    else {
+        $fileMissing = $true
+        $evtMessage = "FILE MISSING: Local change index data. If first run, ignore."
+        $emailAlert += $evtMessage + "`r`n"
+        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
+        Write-Log $evtMessage
+     
+}
 if ($PACEnabled) {
     if (Test-Path $pacFile1) { } else { $fileMissing = $true }
     if (Test-Path $pacFile2) { } else { $fileMissing = $true }
@@ -1143,7 +1261,7 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
         }
         $urlCustomObjects
     }
-    $flatUrls | Export-Csv $pathIPurl -Encoding UTF8 -NoTypeInformation
+    $flatUrls | Select-Object -Unique | Export-Csv $pathIPurl -Encoding UTF8 -NoTypeInformation
 
     # IPv4 results
     $flatIp4s = $endpointSets | ForEach-Object {
@@ -1333,15 +1451,15 @@ function checkURL {
                 $Result = Invoke-WebRequest -Uri $url -ea stop -wa silentlycontinue -UseBasicParsing -TimeoutSec 3
             }
             Switch ($Result.StatusCode) {
-                200 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Successfully contacted site $($url).</p><br/>"; break}
-                400 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Bad request.</p><br/>"; break}
-                401 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Unauthorized.</p><br/>"; break}
-                403 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Forbidden.</p><br/>"; break}
-                404 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Not found.</p><br/>"; break}
-                407 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Proxy authentication required.</p><br/>"; break}
-                502 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Bad gateway (likely proxy).</p><br/>"; break}
-                503 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Service unavailable (transient, try again).</p><br/>"; break}
-                504 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Gateway timeout (likely proxy).</p><br/>"; break}
+                200 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>Successfully contacted site $($url).</p><br/>"; break }
+                400 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Bad request.</p><br/>"; break }
+                401 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Unauthorized.</p><br/>"; break }
+                403 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Forbidden.</p><br/>"; break }
+                404 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Failed to contact site $($url): Not found.</p><br/>"; break }
+                407 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Proxy authentication required.</p><br/>"; break }
+                502 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Bad gateway (likely proxy).</p><br/>"; break }
+                503 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Service unavailable (transient, try again).</p><br/>"; break }
+                504 { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Failed to contact site $($url): Gateway timeout (likely proxy).</p><br/>"; break }
                 default {
                     $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to contact site  $($url).</p><br/>"
                 }
@@ -1351,12 +1469,12 @@ function checkURL {
         catch {
             if ($intAttempts -ge 3) { $stopLoop = $true }
             else {
-                $fault=$error[0].exception
+                $fault = $error[0].exception
                 Switch -Wildcard ($fault) {
-    				"*(400)*" { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Connection to site $($url): Bad request [400].</p><br/>"; $stopLoop=$true; break}
-                    "*(401)*" { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Connection to site $($url): Unauthorised [401].</p><br/>"; $stopLoop=$true; break}
-                    "*(403)*" { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Connection to site $($url): No permissions [403].</p><br/>"; $stopLoop=$true; break}
-                    "*(404)*" { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Connection to site $($url): Not found [404].</p><br/>"; $stopLoop=$true; break}
+                    "*(400)*" { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Connection to site $($url): Bad request [400].</p><br/>"; $stopLoop = $true; break }
+                    "*(401)*" { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Connection to site $($url): Unauthorised [401].</p><br/>"; $stopLoop = $true; break }
+                    "*(403)*" { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Connection to site $($url): No permissions [403].</p><br/>"; $stopLoop = $true; break }
+                    "*(404)*" { $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Connection to site $($url): Not found [404].</p><br/>"; $stopLoop = $true; break }
                     default {
                         $resultURL += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Attempt $($intAttempts) - Exception: Unable to contact site  $($url).</p><br/>"
                         if ($diagVerbose) {
@@ -1467,9 +1585,9 @@ foreach ($sku in $allLicences) {
     [string]$NicePartNumber = $null
     $NicePartNumber = ($skunames.GetEnumerator() | Where-Object { $_.name -like "$($sku.skupartnumber)" }).Value
     if ($NicePartNumber -eq "") { $NicePartNumber = $($sku.SkuPartNumber) }
-    $NicePartNumber += "<br/><span class=tooltiptext'> $($sku.consumedUnits) / $(($sku.prepaidunits).enabled +($sku.prepaidunits).warning) assigned"
-    if (($sku.prepaidunits).warning -gt 0) { $NicePartNumber += "<br/>$(($sku.prepaidunits).warning) in warning state" }
-    if (($sku.prepaidunits).suspended -gt 0) { $NicePartNumber += "<br/>$(($sku.prepaidunits).suspended) in suspended state" }
+    $NicePartNumber += "<br/><span class=tooltiptext'> $($sku.consumedUnits.ToString('N0')) / $(($sku.prepaidunits.enabled + $sku.prepaidunits.warning).ToString('N0')) assigned"
+    if (($sku.prepaidunits).warning -gt 0) { $NicePartNumber += "<br/>$($sku.prepaidunits.warning.ToString('N0')) in warning state" }
+    if (($sku.prepaidunits).suspended -gt 0) { $NicePartNumber += "<br/>$($sku.prepaidunits.suspended.ToString('N0')) in suspended state" }
     $NicePartNumber += "</span>"
     [int]$intPlanCount = 0
     $sps = $sku.ServicePlans | Sort-Object servicePlanName
@@ -1706,12 +1824,12 @@ if ($cnameenabled) {
 
     #Import the DNS results being output by the monitor script
     foreach ($dns in $cnameresolvers) {
-        try {$dnsResults = Import-Csv "$($pathWorking)\$cnameFilename-$($DNS)-$($rptProfile).csv"}
+        try { $dnsResults = Import-Csv "$($pathWorking)\$cnameFilename-$($DNS)-$($rptProfile).csv" }
         catch {
-        $evtMessage = "[CNAMES] Cannot import DNS results file $($pathWorking)\$cnameFilename-$($DNS)-$($rptProfile).csv`r`n Check file has been created by monitoring script."
-        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 601 -EntryType Error
-        Write-Log $evtMessage
-}
+            $evtMessage = "[CNAMES] Cannot import DNS results file $($pathWorking)\$cnameFilename-$($DNS)-$($rptProfile).csv`r`n Check file has been created by monitoring script."
+            Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 601 -EntryType Error
+            Write-Log $evtMessage
+        }
         $CNAMEResults += $dnsResults
     }
 
@@ -1804,7 +1922,15 @@ if (!(Test-Path "$($pathHTML)\$($cssfile)")) {
 }
 
 $swScript.Stop()
-
+if ($emailAlert -and $emaiLEnabled) {
+    $evtMessage = "Sending email with error information."
+    $emailAlert += $evtMessage + "`r`n"
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 102 -EntryType Warning
+    Write-Log $evtMessage
+    $emailSubject = "Toolbox Errors detected"
+    $emailMessage = $emailAlert
+    SendEmail $emailMessage $EmailCreds $config "High" $emailSubject $MonitorAlertsTo
+}
 $evtMessage = "Tenant: $($rptProfile) - Script runtime $($swScript.Elapsed.Minutes)m:$($swScript.Elapsed.Seconds)s:$($swScript.Elapsed.Milliseconds)ms on $env:COMPUTERNAME`r`n"
 $evtMessage += "*** Processing finished ***`r`n"
 Write-Log $evtMessage

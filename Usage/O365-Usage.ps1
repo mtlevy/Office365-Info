@@ -169,20 +169,21 @@ ConnectAzureAD
 [uri]$urlResource = "https://graph.microsoft.com/.default"
 [uri]$authority = "https://login.microsoftonline.com/$($TenantID)/oauth2/V2.0/token"
 $reqTokenBody = @{
-	Grant_Type="client_credentials"
-	Scope=$urlResource
-	Client_ID=$appID
-	Client_Secret=$clientSecret
+    Grant_Type    = "client_credentials"
+    Scope         = $urlResource
+    Client_ID     = $appID
+    Client_Secret = $clientSecret
 }
 
 if ($proxyServer) {
-	$bearerToken= invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody -Proxy $proxyHost -ProxyUseDefaultCredentials
-} else {
-	$bearerToken= invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody
+    $bearerToken = invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody -Proxy $proxyHost -ProxyUseDefaultCredentials
+}
+else {
+    $bearerToken = invoke-RestMethod -uri $authority -Method Post -Body $reqTokenBody
 }
 
-$authHeader=@{
-	Authorization = "$($bearerToken.token_type) $($bearerToken.access_token)"
+$authHeader = @{
+    Authorization = "$($bearerToken.token_type) $($bearerToken.access_token)"
 }
 
 if ($null -eq $bearerToken) {

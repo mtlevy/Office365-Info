@@ -560,7 +560,7 @@ foreach ($card in $dashCards) {
     }
     try { $cardClass = Get-StatusDisplay $($item.status) "Class" }
     catch { Write-Log "No status available for $card - $($item.workloaddisplayname)" }
-    try {$cardText = cardbuilder $($item.workloaddisplayname) $($Days) $($Hist.count) $advisories $cardClass}
+    try { $cardText = cardbuilder $($item.workloaddisplayname) $($Days) $($Hist.count) $advisories $cardClass }
     catch { Write-Log "Cant find $card in workload. Has name changed or workload replaced?" }
     $rptSectionOneOne += "$cardText`n"
 }
@@ -769,8 +769,8 @@ if ($CurrentMessagesOpen.count -ge 1) {
         else { $ID = "$($item.ID) - $($item.ImpactDescription)" }
         $rptIncidentTable += "<div class='tableInc-row'>`n`t"
         $rptIncidentTable += "<div class='tableInc-cell-l'>$($item.WorkloadDisplayname -join '<br>')</div>`n`t"
-		$rptIncidentTable += "<div class='tableInc-cell-r' $($actionStyle)>$($item.classification) - $($Severity)</div>`n`t"
-		$rptIncidentTable += "<div class='tableInc-cell-l'>$($item.Status)</div>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-r' $($actionStyle)>$($item.classification) - $($Severity)</div>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-l'>$($item.Status)</div>`n`t"
         $rptIncidentTable += "<div class='tableInc-cell-l'>$($ID)</div>`n`t"
         $rptIncidentTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($StartTime)</div>`n`t"
         $rptIncidentTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($LastUpdated)</div>`n"
@@ -820,7 +820,7 @@ if ($HistoryIncidents.count -ge 1) {
         else { $ID = "$($item.ID) - $($item.ImpactDescription)" }
         $rptIncidentTable += "<div class='tableInc-row'>`n`t"
         $rptIncidentTable += "<div class='tableInc-cell-l'>$($item.WorkloadDisplayname -join '<br>')</div>`n`t"
-		$rptIncidentTable += "<div class='tableInc-cell-r' $($actionStyle)>$($item.classification) - $($Severity)</div>`n`t"
+        $rptIncidentTable += "<div class='tableInc-cell-r' $($actionStyle)>$($item.classification) - $($Severity)</div>`n`t"
         $rptIncidentTable += "<div class='tableInc-cell-l'>$($item.Status)</div>`n`t"
         $rptIncidentTable += "<div class='tableInc-cell-l'>$($ID)</div>`n`t"
         $rptIncidentTable += "<div class='tableInc-cell-dt' $($tdStyle2)>$($StartTime)</div>`n`t"

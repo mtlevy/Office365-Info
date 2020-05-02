@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Build time 25-Jan-2020 14:58:32 -->
+<!-- Build date 02-May-2020 19:31:55 -->
 <Settings>
   <Tenant>
     <!-- Basic tenant information. Shortname is used in filenames to help identify tenants-->
@@ -82,28 +82,30 @@
     <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Usage Reports</EventSource>
   </UsageReports>
-  <Diagnostics>
-    <Name>Diagnostics</Name>
-    <!-- Uses True or False-->
-    <Enabled>false</Enabled>
-    <HTMLFileName>O365Toolbox.html</HTMLFileName>
+  <Toolbox>
+    <Name></Name>
+    <HTMLFileName>O365Toolbox.HTML</HTMLFileName>
     <!-- Text to add to Diagnostics tab. Will be converted to HTML so can include HTML tags-->
     <Notes></Notes>
-    <!-- Run http/https tests for IP connections: true/false-->
-    <Web>true</Web>
-    <!-- Run port connectivity tests: true/false-->
-    <Ports>true</Ports>
+    <!-- Refresh interval in minutes-->
+    <Refresh>5</Refresh>
+  </Toolbox>
+  <Diagnostics>
+    <!-- Uses True or False-->
+    <Enabled>false</Enabled>
     <!-- Run http/https connectivity tests to URLs: true/false-->
     <URLs>true</URLs>
     <!-- Show detailed errors for pages: true/false-->
     <Verbose>false</Verbose>
-    <!-- Refresh interval in minutes-->
-    <Refresh>5</Refresh>
   </Diagnostics>
   <MiscDiagnostics>
     <!-- Additional diagnostic checks that run after the dynamics Microsoft URLs-->
     <!-- Uses True or False-->
     <Enabled>false</Enabled>
+    <!-- Run http/https tests for IP connections: true/false-->
+    <Web>false</Web>
+    <!-- Run port connectivity tests: true/false-->
+    <Ports>false</Ports>
   </MiscDiagnostics>
   <RSSFeeds>
     <!-- Microsoft 365 RSS Feed settings-->
@@ -176,7 +178,6 @@
     <IgnoreSSL>true</IgnoreSSL>
   </Proxy>
   <Blogs>
-  <!-- Blogs is a simple HTML list of useful links -->
-	<!-- Blogs is a simple HTML list of useful links --><a href="https://techcommunity.microsoft.com/t5/Office-365-Blog/bg-p/Office365Blog">Office 365 Blog</a><br /><a href="https://status.azure.com/en-gb/status">Azure Status</a><br />
+	<a href="https://techcommunity.microsoft.com/t5/Office-365-Blog/bg-p/Office365Blog">Office 365 Blog</a><br /><a href="https://status.azure.com/en-gb/status">Azure Status</a><br />
   </Blogs>
 </Settings>
