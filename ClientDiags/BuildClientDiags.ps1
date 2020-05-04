@@ -8,7 +8,7 @@ param (
 $swScript = [system.diagnostics.stopwatch]::StartNew()
 Write-Verbose "Changing Directory to $PSScriptRoot"
 Set-Location $PSScriptRoot
-Import-Module ".\common\O365ServiceHealth.psm1"
+Import-Module "..\common\O365ServiceHealth.psm1"
 
 
 if ([system.IO.path]::IsPathRooted($configXML) -eq $false) {
@@ -28,7 +28,7 @@ $pathIPurl = $pathIPURLs + "\O365_endpoints_urls-$($rptProfile).csv"
 $flatUrls = Import-Csv $pathIPurl
 $diagConnect = $null
 
-$urls = @($flatUrls | Where-Object { $_.category -like 'optimize' -and $_.tcpports -like '*80*' -and $_.url -notmatch '\*'})
+$urls = @($flatUrls | Where-Object { $_.category -like 'optimize' -and $_.tcpports -like '*80*' -and $_.url -notmatch '\*' })
 $diagConnect = @"
 
     `$output += "``r``nOptimize category : Direct Connections (HTTP): ``r``n"`r`n
@@ -40,7 +40,7 @@ foreach ($url in $urls) {
 "@
 }
 
-$urls = @($flatUrls | Where-Object { $_.category -like 'optimize' -and $_.tcpports -like '*443*' -and $_.url -notmatch '\*'})
+$urls = @($flatUrls | Where-Object { $_.category -like 'optimize' -and $_.tcpports -like '*443*' -and $_.url -notmatch '\*' })
 $diagConnect += @"
 
     `$output += "``r``nOptimize Category : Direct Connections (HTTPs): ``r``n"`r`n
@@ -60,7 +60,7 @@ $diagConnect += @"
 
 "@
 
-$urls = @($flatUrls | Where-Object { $_.category -like 'optimize' -and $_.tcpports -like '*80*' -and $_.url -notmatch '\*'})
+$urls = @($flatUrls | Where-Object { $_.category -like 'optimize' -and $_.tcpports -like '*80*' -and $_.url -notmatch '\*' })
 $diagConnect += @"
 
     `$output += "``r``nOptimize category : Using Proxy Connection (HTTP): ``r``n"`r`n
@@ -72,7 +72,7 @@ foreach ($url in $urls) {
 "@
 }
 
-$urls = @($flatUrls | Where-Object { $_.category -like 'optimize' -and $_.tcpports -like '*443*' -and $_.url -notmatch '\*'})
+$urls = @($flatUrls | Where-Object { $_.category -like 'optimize' -and $_.tcpports -like '*443*' -and $_.url -notmatch '\*' })
 $diagConnect += @"
     
     `$output += "``r``nOptimize Category : Using Proxy Connection (HTTPS): ``r``n"`r`n
@@ -84,32 +84,32 @@ foreach ($url in $urls) {
 "@
 }
 
-$urls = @($flatUrls | Where-Object { $_.category -like 'allow' -and $_.tcpports -like '*80*' -and $_.url -notmatch '\*'})
-$diagConnect+=@"
+$urls = @($flatUrls | Where-Object { $_.category -like 'allow' -and $_.tcpports -like '*80*' -and $_.url -notmatch '\*' })
+$diagConnect += @"
     
     `$output += "``r``nAllow category : Using Proxy Connection (HTTP): ``r``n"`r`n
 "@
 foreach ($url in $urls) {
-    $diagConnect+=@"
+    $diagConnect += @"
     `$testURL = "http://$($url.url)"
     `$Output += TestConnection `$testURL`r`n
 "@
 }
 
-$urls = @($flatUrls | Where-Object { $_.category -like 'allow' -and $_.tcpports -like '*443*' -and $_.url -notmatch '\*'})
-$diagConnect+=@"
+$urls = @($flatUrls | Where-Object { $_.category -like 'allow' -and $_.tcpports -like '*443*' -and $_.url -notmatch '\*' })
+$diagConnect += @"
 
     `$output += "``r``nAllow Category : Using Proxy Connection (HTTPS): ``r``n"`r`n
 "@
 foreach ($url in $urls) {
-    $diagConnect+=@"
+    $diagConnect += @"
     `$testURL = "https://$($url.url)"
     `$Output += TestConnection `$testURL`r`n
 "@
 }
 
 
-$diagsStart=@"
+$diagsStart = @"
 `$Output = "Welcome to the diagnostics tool``r``n"
 `$tmpOutput = "This tool was run on `$(`$env:computername) at `$(get-date -f 'HH:mm dd-MMM-yyyy')"
 `$output += `$tmpOutput + "``r``n``r``n"

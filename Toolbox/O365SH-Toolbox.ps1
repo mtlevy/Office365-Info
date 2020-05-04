@@ -48,7 +48,8 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)] [String]$configXML = "..\config\profile-bhitprod.xml",
-    [Parameter(Mandatory = $false)] [Switch]$RebuildDocs = $false
+    [Parameter(Mandatory = $false)] [Switch]$RebuildDocs = $false,
+    [Parameter(Mandatory = $false)] [Switch]$RebuildClientDiags = $false
 )
 
 $swScript = [system.diagnostics.stopwatch]::StartNew()
@@ -998,7 +999,7 @@ $currentData = $null
 if (Test-Path $pathdata) {
     $currentData = Get-Content $pathData
     if ($currentdata.count -lt 1) {
-    $fileMissing = $true
+        $fileMissing = $true
         $evtMessage = "Error importing local endpoint data. Possible corruption."
         $emailAlert += $evtMessage + "`r`n"
         Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
@@ -1016,7 +1017,7 @@ else {
 if (Test-Path $pathIPurl) {
     $flatUrls = Import-Csv $pathIPurl
     if ($flatUrls.count -lt 1) {
-    $fileMissing = $true
+        $fileMissing = $true
         $evtMessage = "Error importing local URL data. Possible corruption."
         $emailAlert += $evtMessage + "`r`n"
         Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
@@ -1034,7 +1035,7 @@ else {
 if (Test-Path $pathIP4) {
     $flatIp4s = Import-Csv $pathIP4
     if ($flatIp4s.count -lt 1) {
-    $fileMissing = $true
+        $fileMissing = $true
         $evtMessage = "Error importing local IPv4 data. Possible corruption."
         $emailAlert += $evtMessage + "`r`n"
         Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
@@ -1051,72 +1052,73 @@ else {
 if (Test-Path $pathIP6) {
     $flatIp6s = Import-Csv $pathIP6
     if ($flatIp6s.count -lt 1) {
-    $fileMissing = $true
+        $fileMissing = $true
         $evtMessage = "Error importing local IPv6 data. Possible corruption."
         $emailAlert += $evtMessage + "`r`n"
         Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
         Write-Log $evtMessage
     }
-    }
-    else {
-        $fileMissing = $true
-        $evtMessage = "FILE MISSING: Local IPv6 data. If first run, ignore."
-        $emailAlert += $evtMessage + "`r`n"
-        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
-        Write-Log $evtMessage
+}
+else {
+    $fileMissing = $true
+    $evtMessage = "FILE MISSING: Local IPv6 data. If first run, ignore."
+    $emailAlert += $evtMessage + "`r`n"
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
+    Write-Log $evtMessage
     
 }
 if (Test-Path $pathIPChanges) {
     $flatChanges = Import-Csv $pathIPChanges
     if ($flatChanges.count -lt 1) {
-    $fileMissing = $true
+        $fileMissing = $true
         $evtMessage = "Error importing local change data. Possible corruption."
         $emailAlert += $evtMessage + "`r`n"
         Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
         Write-Log $evtMessage
     }
-    }
-    else {
-        $fileMissing = $true
-        $evtMessage = "FILE MISSING: Local change data. If first run, ignore."
-        $emailAlert += $evtMessage + "`r`n"
-        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
-        Write-Log $evtMessage
+}
+else {
+    $fileMissing = $true
+    $evtMessage = "FILE MISSING: Local change data. If first run, ignore."
+    $emailAlert += $evtMessage + "`r`n"
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
+    Write-Log $evtMessage
     
 }
 if (Test-Path $pathIPChangeIDX) {
     $flatChangesIDX = Import-Csv $pathIPChangeIDX
     if ($flatChangesIDX.count -lt 1) {
-    $fileMissing = $true
+        $fileMissing = $true
         $evtMessage = "Error importing local change index data. Possible corruption."
         $emailAlert += $evtMessage + "`r`n"
         Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
         Write-Log $evtMessage
-    }}
-    else {
-        $fileMissing = $true
-        $evtMessage = "FILE MISSING: Local change index data. If first run, ignore."
-        $emailAlert += $evtMessage + "`r`n"
-        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
-        Write-Log $evtMessage
+    }
+}
+else {
+    $fileMissing = $true
+    $evtMessage = "FILE MISSING: Local change index data. If first run, ignore."
+    $emailAlert += $evtMessage + "`r`n"
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
+    Write-Log $evtMessage
     
 }
 if (Test-Path $pathEndpointSetsIDX) {
     $EndPointSetsIDX = Import-Csv $pathEndpointSetsIDX
     if ($EndPointSetsIDX.count -lt 1) {
-    $fileMissing = $true
+        $fileMissing = $true
         $evtMessage = "Error importing local endpoint set index data. Possible corruption."
         $emailAlert += $evtMessage + "`r`n"
         Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 705 -EntryType Error
         Write-Log $evtMessage
     }
-    }
-    else {
-        $fileMissing = $true
-        $evtMessage = "FILE MISSING: Local change index data. If first run, ignore."
-        $emailAlert += $evtMessage + "`r`n"
-        Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
-        Write-Log $evtMessage
+}
+else {
+    $fileMissing = $true
+    $evtMessage = "FILE MISSING: Local change index data. If first run, ignore."
+    $emailAlert += $evtMessage + "`r`n"
+    Write-ELog -LogName $evtLogname -Source $evtSource -Message "$($rptProfile) : $evtMessage" -EventId 704 -EntryType Warning
+    Write-Log $evtMessage
      
 }
 if ($PACEnabled) {
@@ -1261,7 +1263,7 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
         }
         $urlCustomObjects
     }
-    $flatUrls | Select-Object -Unique | Export-Csv $pathIPurl -Encoding UTF8 -NoTypeInformation
+    $flatUrls | Export-Csv $pathIPurl -Encoding UTF8 -NoTypeInformation
 
     # IPv4 results
     $flatIp4s = $endpointSets | ForEach-Object {
@@ -1273,10 +1275,16 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
         if ($endpointSet.category -in ("Allow", "Optimize")) {
             $ip4CustomObjects = $ip4s | ForEach-Object {
                 [PSCustomObject]@{
-                    category = $endpointSet.category;
-                    ip       = $_;
-                    tcpPorts = $endpointSet.tcpPorts;
-                    udpPorts = $endpointSet.udpPorts;
+                    id                     = $endpointSet.id;
+                    serviceArea            = $endpointSet.ServiceArea;
+                    serviceAreaDisplayName = $endpointSet.serviceAreaDisplayName;
+                    category               = $endpointSet.category;
+                    ip                     = $_;
+                    tcpPorts               = $endpointSet.tcpPorts;
+                    udpPorts               = $endpointSet.udpPorts;
+                    notes                  = $endpointSet.notes;
+                    expressRoute           = $endpointSet.expressRoute;
+                    required               = $endpointSet.required;
                 }
             }
         }
@@ -1305,6 +1313,8 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
     $flatIp6s | Export-Csv $pathIP6 -Encoding UTF8 -NoTypeInformation
     $endpointSets | Select-Object id, servicearea, serviceareadisplayname, category, required | Export-Csv $pathEndpointSetsIDX -Encoding UTF8 -NoTypeInformation
     $EndPointSetsIDX = $endpointSets | Select-Object id, servicearea, serviceareadisplayname, category, required
+
+    $RebuildClientDiags = $true
 }
 else {
     $ipurlSummary += "Office 365 worldwide commercial service instance endpoints are up-to-date. <br />`r`n"
@@ -1919,6 +1929,11 @@ BuildHTML $rptTitle $divOne $divTwo $divThree $divFour $divFive $divLast $swScri
 if (!(Test-Path "$($pathHTML)\$($cssfile)")) {
     Write-Log "Copying O365Health.css to directory $($pathHTML)"
     Copy-Item ".\O365Health.css" -Destination "$($pathHTML)"
+}
+
+if ($RebuildClientDiags) {
+    #Rebuild client diagnostics
+    invoke-Expression -Command "..\ClientDiags\BuildClientDiags.ps1 -configXML $($configXML)"
 }
 
 $swScript.Stop()

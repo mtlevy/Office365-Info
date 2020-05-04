@@ -251,11 +251,15 @@ $newIncidents = @($currentIncidents | Where-Object { ($_.id -notin $knownIssuesL
 #Get events and check event log
 #If not logged, create an entry and send an email
 
+$evtFind=$null
+
 if ($newIncidents.count -ge 1) {
     Write-Log "New incidents detected: $($newIncidents.count)"
     foreach ($item in $newIncidents) {
-        #Check event log. If no entry (ID) then write entry
-        $evtFind = Get-EventLog -LogName $evtLogname -Source $evtSource -Message "*: $($item.ID)*: $($rptProfile)*" -ErrorAction SilentlyContinue
+        if ($useEventLog) {
+            #Check event log. If no entry (ID) then write entry
+            $evtFind = Get-EventLog -LogName $evtLogname -Source $evtSource -Message "*: $($item.ID)*: $($rptProfile)*" -ErrorAction SilentlyContinue
+        }
         #Check known issues list
         if ($null -eq $evtFind) {
             $emailPriority = ""
