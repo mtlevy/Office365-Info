@@ -532,7 +532,7 @@ if ($emailEnabled -and $uriError) {
 $rptO365Info += "<br/>"
 $rptO365Info += "Information wall can be found here: <a href=$($htmlWall) target=_blank>Information Wall</a><br />"
 $rptO365Info += "Diagnostics can be found here: <a href=$($htmlDiagnostics) target=_blank>Diagnostics page</a><br />"
-if (test-path $htmlClientDiagnostics) {
+if (test-path "$($pathHTML)\$($htmlClientDiagnostics)") {
     $rptO365Info += "Client Diagnostics can be download from here: <a href=$($htmlClientDiagnostics) target=_blank>Rename from .txt to .ps1</a><br />"
 }
 
