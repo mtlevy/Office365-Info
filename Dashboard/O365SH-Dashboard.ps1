@@ -392,7 +392,8 @@ document.getElementById("defaultOpen").click();
 #	Returns the historical status of the service, by day, over a certain time range.
 [uri]$uriHistoricalStatus = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/HistoricalStatus"
 #	Returns the messages about the service over a certain time range.
-[uri]$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages"
+# Range was 30 days but has been shorted to 7 days by default. Filters no longer seem to work
+[uri]$uriMessages = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Messages?$filater=StartTime ge $(Get-Date).AddDays(-30)"
 
 #Fetch the information from Office 365 Service Health API
 #Get Services: Get the list of subscribed services
