@@ -163,6 +163,7 @@ if (Test-Path $configXML) {
   if ([string]::IsNullOrEmpty($appSettings.CnameEnabled)) { $appSettings.CnameEnabled = "false" }
   if ([string]::IsNullOrEmpty($appSettings.PACEnabled)) { $appSettings.PACEnabled = "false" }
   if ([string]::IsNullOrEmpty($appSettings.ProxyEnabled)) { $appSettings.ProxyEnabled = "false" }
+  if ([string]::IsNullOrEmpty($appSettings.Blogs)) { $appSettings.Blogs = "	<a href=""https://techcommunity.microsoft.com/t5/Office-365-Blog/bg-p/Office365Blog"">Office 365 Blog</a><br /><a href=""https://status.azure.com/en-gb/status"">Azure Status</a><br />" }
 
   $xmlNewConfig = @"
 <?xml version="1.0"?>
