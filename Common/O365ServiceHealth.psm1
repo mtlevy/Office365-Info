@@ -531,7 +531,7 @@ function SendEmail {
 
     #Build and send email (with attachment)
 
-    $strSubject = "Office 365 [$($config.tenantshortname)]"
+    $strSubject = "M365 [$($config.tenantshortname)]"
     if ($subject) { $strSubject += ": $($subject)" }
     else { $strSubject += ": Alert [$(Get-Date -f 'dd-MMM-yyy HH:mm:ss')]" }
     $css = Get-Content ..\common\O365email.css
@@ -722,4 +722,46 @@ function Get-AdvisoryInHTML {
     }
     #Return a link to the file
     return $url
+}
+
+function GetSchedEmailTo {
+    Param (
+     [Parameter(Mandatory=$true)] $nameScript
+	)
+    [string]$dow=(get-date).DayOfWeek.ToString().Substring(0,3)
+    [datetime]$dtmNow=Get-Date
+
+    Write-Log "Checking scheduled recipients for $nameScript script."
+    $filenameSched = ".\schedule.csv"
+    $pathSched = resolve-path $filenameSched
+
+    #Check if schedule file exists
+    if (Test-Path $($pathSched)) {
+        $schedule = import-csv $filenameSched
+        write-log "Importing schedule from $pathSched"
+    } else {
+     write-log "No schedule file found to import at $pathSched"
+	}
+    $schedule = import-csv $filenameSched
+    write-log "Importing schedule from $pathSched"
+
+    [boolean]$chkScript=$false
+    [boolean]$chkDay=$false
+    [boolean]$chkTime=$false
+
+    $strEmail=@()
+    foreach ($entry in $schedule) {
+        if (($entry.script -like '*') -or ($entry.script -like $nameScript)) {$chkScript=$true} else {$chkScript=$false}
+        if (($entry.day -like '`*') -or ($entry.day -match $dow)) {$chkDay=$true} else {$chkDay=$false}
+        if ($entry.starttime -like '`*') {$timeStart="00:00:00"} else {$timeStart=Get-Date $entry.startTime -Format 'HH:mm:ss'}
+        if ($entry.endtime -like '`*') {$timeEnd="23:59:59"} else {$timeEnd=Get-Date $entry.endTime -Format 'HH:mm:ss'}
+        if ($dtmnow -ge $timeStart -and $dtmNow -le $timeEnd) {$chkTime=$true} else {$chkTime=$false}
+        If ($chkScript -and $chkDay -and $chkTime) {$strEmail+=$entry.email}
+    }
+
+Write-Log "It is $($dow) at $(Get-Date $dtmnow -Format HH:mm:ss)"
+[string]$strEmail2 = '"{0}"' -f ($strEmail -join '","')
+Write-Log "The following will be emailed: $($strEmail2)"
+
+return $strEmail
 }

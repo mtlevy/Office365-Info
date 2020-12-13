@@ -268,13 +268,13 @@ if ($newIncidents.count -ge 1) {
             $mailMessage += "<b>Tenant</b>`t`t: $($rptProfile)<br/>"
             $mailMessage += "<b>Feature</b>`t`t: $($item.WorkloadDisplayName)<br/>"
             $mailMessage += "<b>Status</b>`t`t: $($item.Status)<br/>"
-            $mailMessage += "<b>Severity</b>`t`t: $($item.Severity)<br/>"
+            $mailMessage += "<b>Classification/Severity</b>`t`t: $($item.Classification) / $($item.Severity)<br/>"
             $mailMessage += "<b>Start Date</b>`t: $(Get-Date $item.StartTime -f 'dd-MMM-yyyy HH:mm')<br/>"
             $mailMessage += "<b>Last Updated</b>`t: $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm')<br/>"
             $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
             $mailMessage += "$($item.ImpactDescription)<br/><br/>"
             $emailPriority = Get-Severity "email" $item.severity
-            $emailSubject = "New $($item.Severity) issue: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
+            $emailSubject = "New $($item.Severity) $($item.Classification): $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
             if ($MonitorAlertsTo -and $emailEnabled) { SendEmail $mailMessage $EmailCreds $config $emailPriority $emailSubject $MonitorAlertsTo }
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
             $evtMessage = $evtMessage.Replace("<b>", "")
