@@ -928,10 +928,12 @@ $SkuNames = @{
     "EXCEL_PREMIUM"                               = "Excel Advanced Analytics"
     "PHONESYSTEM_VIRTUALUSER"                     = "Microsoft 365 Phone System - Virtual User"
     "MCOEV_VIRTUALUSER"                           = "Enterprise Voice - Virtual User"
-    "CDS_O365_P1"                                 = "Common Data Service (Plan 1)"
-    "CDS_O365_P2"                                 = "Common Data Service (Plan 3)"
-    "POWER_VIRTUAL_AGENTS_O365_P1"                = "Power Virtual Agents (Plan 1)"
-    "POWER_VIRTUAL_AGENTS_O365_P2"                = "Power Virtual Agents (Plan 3)"
+    "CDS_O365_P1"                                 = "Common Data Service (Plan E1)"
+    "CDS_O365_P2"                                 = "Common Data Service (Plan E3)"
+    "CDS_O365_P3"                                 = "Common Data Service (Plan E5)"
+    "POWER_VIRTUAL_AGENTS_O365_P1"                = "Power Virtual Agents (Plan E1)"
+    "POWER_VIRTUAL_AGENTS_O365_P2"                = "Power Virtual Agents (Plan E3)"
+    "POWER_VIRTUAL_AGENTS_O365_P3"                = "Power Virtual Agents (Plan E5)"
     "INSIDER_RISK"                                = "Microsoft Insider"
     "MICROSOFTENDPOINTDLP"                        = "Microsoft Endpoint DLP"
     "PROJECT_O365_F3"                             = "Project for Office (Plan F3)"
@@ -941,6 +943,10 @@ $SkuNames = @{
     "D365_PROJECTOPERATIONS"                      = "Dynamics 365 Project Operations"
     "D365_PROJECTOPERATIONSCDS"                   = "Dynamics 365 Project Operations CDS"
     "PROJECT_FOR_PROJECT_OPERATIONS"              = "Dynamics 365 Project for Operations"
+    "Content_Explorer"                            = "Content Explorer"
+    "GRAPH_CONNECTORS_SEARCH_INDEX"               = "Graph Connectors Search with Index"
+    "MICROSOFT_COMMUNICATION_COMPLIANCE"          = "M365 Communication Compliance"
+
 }
 
 
