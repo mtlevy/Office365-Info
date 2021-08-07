@@ -135,6 +135,8 @@ function LoadConfig {
 
         MonitorAlertsTo     = [string[]]$configFile.Settings.Monitor.alertsTo
         MonitorEvtSource    = $configFile.Settings.Monitor.EventSource
+        MonitorIgnoreSvc    = [string[]]$configFile.Settings.Monitor.IgnoreSvc
+        MonitorIgnoreInc    = [string[]]$configFile.Settings.Monitor.IgnoreInc
   
         WallReportName      = $configFile.Settings.WallDashboard.Name
         WallHTML            = $configFile.Settings.WallDashboard.HTMLFilename
@@ -151,6 +153,7 @@ function LoadConfig {
         DashboardLogo       = $configFile.Settings.Dashboard.Logo
         DashboardAddLink    = $configFile.Settings.Dashboard.AddLink
         DashboardHistory    = $configFile.Settings.Dashboard.History
+        DashboardRecMsgs    = $configFile.Settings.Dashboard.RecentMsgs
 
         UsageReportsPath    = $configFile.Settings.UsageReports.Path
         UsageEventSource    = $configFile.Settings.UsageReports.EventSource
@@ -234,6 +237,7 @@ function Get-StatusDisplay {
                 "PIRPublished" { $StatusDisplay = $icon3 }
                 "InformationUnavailable " { $StatusDisplay = $icon1 }
                 "ServiceOperational" { $StatusDisplay = $icon3 }
+                "PostIncidentReviewPublished" { $StatusDisplay = $icon3 }
                 #Set default error icon if the status is not listed
                 default { $StatusDisplay = $icon1 }
             }
@@ -250,6 +254,7 @@ function Get-StatusDisplay {
                 "PIRPublished" { $StatusDisplay = "ok" }
                 "InformationUnavailable" { $StatusDisplay = "err" }
                 "ServiceOperational" { $StatusDisplay = "ok" }
+                "PostIncidentReviewPublished" { $StatusDisplay = "ok" }
                 #Set default error colour if the status is not listed
                 default { $StatusDisplay = "defcon" }
             }
@@ -726,10 +731,10 @@ function Get-AdvisoryInHTML {
 
 function GetSchedEmailTo {
     Param (
-     [Parameter(Mandatory=$true)] $nameScript
-	)
-    [string]$dow=(get-date).DayOfWeek.ToString().Substring(0,3)
-    [datetime]$dtmNow=Get-Date
+        [Parameter(Mandatory = $true)] $nameScript
+    )
+    [string]$dow = (get-date).DayOfWeek.ToString().Substring(0, 3)
+    [datetime]$dtmNow = Get-Date
 
     Write-Log "Checking scheduled recipients for $nameScript script."
     $filenameSched = ".\schedule.csv"
@@ -739,29 +744,30 @@ function GetSchedEmailTo {
     if (Test-Path $($pathSched)) {
         $schedule = import-csv $filenameSched
         write-log "Importing schedule from $pathSched"
-    } else {
-     write-log "No schedule file found to import at $pathSched"
-	}
+    }
+    else {
+        write-log "No schedule file found to import at $pathSched"
+    }
     $schedule = import-csv $filenameSched
     write-log "Importing schedule from $pathSched"
 
-    [boolean]$chkScript=$false
-    [boolean]$chkDay=$false
-    [boolean]$chkTime=$false
+    [boolean]$chkScript = $false
+    [boolean]$chkDay = $false
+    [boolean]$chkTime = $false
 
-    $strEmail=@()
+    $strEmail = @()
     foreach ($entry in $schedule) {
-        if (($entry.script -like '*') -or ($entry.script -like $nameScript)) {$chkScript=$true} else {$chkScript=$false}
-        if (($entry.day -like '`*') -or ($entry.day -match $dow)) {$chkDay=$true} else {$chkDay=$false}
-        if ($entry.starttime -like '`*') {$timeStart="00:00:00"} else {$timeStart=Get-Date $entry.startTime -Format 'HH:mm:ss'}
-        if ($entry.endtime -like '`*') {$timeEnd="23:59:59"} else {$timeEnd=Get-Date $entry.endTime -Format 'HH:mm:ss'}
-        if ($dtmnow -ge $timeStart -and $dtmNow -le $timeEnd) {$chkTime=$true} else {$chkTime=$false}
-        If ($chkScript -and $chkDay -and $chkTime) {$strEmail+=$entry.email}
+        if (($entry.script -like '*') -or ($entry.script -like $nameScript)) { $chkScript = $true } else { $chkScript = $false }
+        if (($entry.day -like '`*') -or ($entry.day -match $dow)) { $chkDay = $true } else { $chkDay = $false }
+        if ($entry.starttime -like '`*') { $timeStart = "00:00:00" } else { $timeStart = Get-Date $entry.startTime -Format 'HH:mm:ss' }
+        if ($entry.endtime -like '`*') { $timeEnd = "23:59:59" } else { $timeEnd = Get-Date $entry.endTime -Format 'HH:mm:ss' }
+        if ($dtmnow -ge $timeStart -and $dtmNow -le $timeEnd) { $chkTime = $true } else { $chkTime = $false }
+        If ($chkScript -and $chkDay -and $chkTime) { $strEmail += $entry.email }
     }
 
-Write-Log "It is $($dow) at $(Get-Date $dtmnow -Format HH:mm:ss)"
-[string]$strEmail2 = '"{0}"' -f ($strEmail -join '","')
-Write-Log "The following will be emailed: $($strEmail2)"
+    Write-Log "It is $($dow) at $(Get-Date $dtmnow -Format HH:mm:ss)"
+    [string]$strEmail2 = '"{0}"' -f ($strEmail -join '","')
+    Write-Log "The following will be emailed: $($strEmail2)"
 
-return $strEmail
+    return $strEmail
 }

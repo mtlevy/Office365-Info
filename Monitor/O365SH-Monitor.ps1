@@ -81,6 +81,7 @@ $config = LoadConfig $configXML
 [string]$SMTPKey = $config.EmailKey
 [string]$pathLogs = $config.LogPath
 [string]$evtLogname = $config.EventLog
+[string]$hostURL = $config.HostURL
 #[string]$evtSource = $config.MonitorEvtSource
 [string]$evtSource = "Monitor"
 [boolean]$checklog = $false
@@ -88,6 +89,19 @@ $config = LoadConfig $configXML
 [string[]]$MonitorAlertsTo = $config.MonitorAlertsTo
 [string]$emailClosedBgd = "WhiteSmoke"
 [string]$pathWorking = $config.WorkingPath
+
+#Ignore the Services and Incidents
+[array]$ignStatus = $config.MonitorIgnoreSvc
+if ($ignStatus -ne "") {
+    $ignStatus = $ignStatus.replace('"', '')
+    $ignStatus = $ignStatus.split(",")
+}
+
+[array]$ignIncidents = $config.MonitorIgnoreInc
+if ($ignIncidents -ne "") {
+    $ignIncidents = $ignIncidents.replace('"', '')
+    $ignIncidents = $ignIncidents.split(",")
+}
 
 [string[]]$cnameAlertsTo = $config.CNAMEAlertsTo
 [string]$cnameFilename = $config.CNAMEFilename
@@ -240,6 +254,7 @@ if (($null -eq $allMessages) -or ($allMessages.Count -eq 0)) {
 
 }
 else {
+    $allmessages = $allMessages | ? { $_.WorkloadDisplayName -notin $ignIncidents }
     $evtMessage = "$($allMessages.count) messages returned."
     Write-Log $evtMessage
 }
@@ -251,7 +266,7 @@ $newIncidents = @($currentIncidents | Where-Object { ($_.id -notin $knownIssuesL
 #Get events and check event log
 #If not logged, create an entry and send an email
 
-$evtFind=$null
+$evtFind = $null
 
 if ($newIncidents.count -ge 1) {
     Write-Log "New incidents detected: $($newIncidents.count)"
@@ -274,6 +289,7 @@ if ($newIncidents.count -ge 1) {
             $mailMessage += "<b>Incident Title</b>`t: $($item.title)<br/>"
             $mailMessage += "$($item.ImpactDescription)<br/><br/>"
             $emailPriority = Get-Severity "email" $item.severity
+            if ($hostURL -ne '') { $mailMessage += "<a href=$($hostURL)/docs/$($item.id).html target=_blank>Full details will be logged here</a>" }
             $emailSubject = "New $($item.Severity) $($item.Classification): $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
             if ($MonitorAlertsTo -and $emailEnabled) { SendEmail $mailMessage $EmailCreds $config $emailPriority $emailSubject $MonitorAlertsTo }
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
@@ -326,6 +342,7 @@ if ($knownIssuesList.count -ge 1 -and $reportClosed.count -le 10) {
         $lastMessage = Get-htmlMessage ($item.messages.messagetext | Where-Object { $_ -like '*This is the final update*' -or $_ -like '*Final status:*' })
         $lastMessage = "<div style='background-color:$($emailClosedBgd)'>" + $lastMessage.replace("<br><br>", "<br/>") + "</div>"
         $mailWithLastAction += "$($lastMessage)<br/><br/>"
+        if ($hostURL -ne '') { $mailMessage += "<a href=$($hostURL)/docs/$($item.id).html target=_blank>Full details will be logged here</a>" }
         $emailSubject = "Closed: $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
         Write-Log "Sending email to $($MonitorAlertsTo)"
         if ($MonitorAlertsTo -and $emailEnabled) { SendEmail $mailWithLastAction $EmailCreds $config "Normal" $emailSubject $MonitorAlertsTo }

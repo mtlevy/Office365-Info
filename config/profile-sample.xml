@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Build date 02-May-2020 19:31:55 -->
+<!-- Build date 24-Feb-2021 21:19:09 -->
 <Settings>
   <Tenant>
     <!-- Basic tenant information. Shortname is used in filenames to help identify tenants-->
@@ -49,6 +49,10 @@
     <alertsTo>monitor@domain.com</alertsTo>
     <!-- Events source to use when logging to the event log-->
     <EventSource>O365 Email Monitor</EventSource>
+    <!-- Ignore the following Services (from Workload list, feature list) Comma separated quoted list -->
+    <IgnoreSvc></IgnoreSvc>
+    <!-- Ignore the following Workload Incidents (from Incidents list, monitor alerts) Comma separated quoted list  -->
+    <IgnoreInc></IgnoreInc>
   </Monitor>
   <WallDashboard>
     <Name>Office 365 Workload Wall</Name>
@@ -75,6 +79,8 @@
     <AddLink></AddLink>
     <!-- Duration to show incidents recently closed (in days)-->
     <History>3</History>
+    <!-- Show Messages from the past x days (0 to hide)-->
+    <RecentMsgs>7</RecentMsgs>
   </Dashboard>
   <UsageReports>
     <!-- Where to store the Office 365 Usage Reports (CSV)-->
@@ -177,6 +183,7 @@
     <!-- Ignore SSL: true/false-->
     <IgnoreSSL>true</IgnoreSSL>
   </Proxy>
+  <!-- Blogs is a simple HTML list of useful links -->
   <Blogs>
 	<a href="https://techcommunity.microsoft.com/t5/Office-365-Blog/bg-p/Office365Blog">Office 365 Blog</a><br /><a href="https://status.azure.com/en-gb/status">Azure Status</a><br />
   </Blogs>

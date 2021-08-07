@@ -103,6 +103,8 @@ else { [boolean]$UseEventLog = $false }
 [string]$rptName = $config.DashboardName
 [int]$pageRefresh = $config.DashboardRefresh
 [int]$IncidentDays = $config.DashboardHistory
+[int]$intRecentMess = $config.DashboardRecMsgs
+
 #Dashboard cards
 [string[]]$dashCards = $config.DashboardCards.split(",")
 $dashCards = $dashCards.Replace('"', '')
@@ -112,6 +114,20 @@ $dashCards = $dashCards.Trim()
 [string[]]$prefDashCards = $config.WallDashCards.split(",")
 $prefDashCards = $prefDashCards.Replace('"', '')
 $prefDashCards = $prefDashCards.Trim()
+
+#Ignore the Services and Incidents
+[array]$ignStatus = $config.MonitorIgnoreSvc
+if ($ignStatus -ne "") {
+    $ignStatus = $ignStatus.replace('"', '')
+    $ignStatus = $ignStatus.Trim()
+    $ignStatus = $ignStatus.split(",")
+}
+
+[array]$ignIncidents = $config.MonitorIgnoreInc
+if ($ignIncidents -ne "") {
+    $ignIncidents = $ignIncidents.replace('"', '')
+    $ignIncidents = $ignIncidents.split(",")
+}
 
 [string]$rptProfile = $config.TenantShortName
 [string]$rptTenantName = $config.TenantName
@@ -168,7 +184,6 @@ $pathHTML = CheckDirectory $pathHTML
 $pathWorking = CheckDirectory $pathWorking
 $pathHTMLDocs = CheckDirectory "$($pathHTML)\Docs"
 $pathHTMLImg = CheckDirectory "$($pathHTML)\images"
-
 
 
 # setup the logfile
@@ -385,7 +400,7 @@ document.getElementById("defaultOpen").click();
 #https://docs.microsoft.com/en-gb/azure/active-directory/users-groups-roles/licensing-service-plan-reference
 
 #Datefilter needs some work......
-$dateFilter=(Get-Date).AddDays(-15)
+$dateFilter = (Get-Date).AddDays(-15)
 
 #	Returns the list of subscribed services
 [uri]$uriServices = "https://manage.office.com/api/v1.0/$tenantID/ServiceComms/Services"
@@ -433,6 +448,7 @@ try {
         $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Cannot retrieve the current status of services - verify proxy and network connectivity</p><br/>"
     }
     else {
+        $allCurrentStatusMessages = $allCurrentStatusMessages | Where-Object { $_.WorkloadDisplayName -notin $ignStatus }
         $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allCurrentStatusMessages.count) services and status returned.</p><br/>"
     }
 }
@@ -475,6 +491,7 @@ try {
         $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>No message center messages retrieved - verify proxy and network connectivity</p><br/>"
     }
     else {
+        $allmessages = $allMessages | Where-Object { $_.WorkloadDisplayName -notin $ignIncidents }
         $rptO365Info += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>$($allMessages.count) message center messages retrieved.</p><br/>"
     }
 }
@@ -727,57 +744,59 @@ $rptSectionOneTwo += "</div></div>`r`n" #Close content and section
 $divOne += $rptSectionOneTwo
 
 #Get new messages in past X days (ie for change board to triage/discuss)
-$intRecentMess=7
-$rptSectionOneThree = "<div class='section'><div class='header'>Updated messages in the past $($intRecentMess) days</div>`n"
-$rptSectionOneThree += "<div class='content'>`n"
-$dtmRecentMess=(get-date).AddDays(-$intRecentMess)
-#Messages
-[array]$MsgRecent = @()
-[array]$rptMsgRecentTable = @()
-$MsgRecent = $allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and (get-date $_.StartTime) -ge (get-date $dtmRecentMess)) } | Sort-Object LastUpdatedTime -Descending
-if ($MsgRecent.count -ge 1) {
-    $rptMsgRecentTable += "<div class='tableInc'>`n"
-    $rptMsgRecentTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-dt'>Feature</div>`n`t<div class='tableInc-header-dt'>Severity</div>`n`t<div class='tableInc-header-dt'>Category</div>`n`t<div class='tableInc-header-dt'>ID</div>`n`t<div class='tableInc-header-l'>Title</div>`n`t<div class='tableInc-header-dt'>Updated</div>`n`t<div class='tableInc-header-dt'>Milestone</div>`n`t<div class='tableInc-header-dt'>Action Rqd By</div>`n</div>`n"
-    foreach ($item in $MsgRecent) {
-        if ($item.LastUpdatedTime) { $LastUpdated = $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') }
-        if ($item.MilestoneDate) { $MilestoneDate = $(Get-Date $item.MilestoneDate -f 'dd-MMM-yyyy HH:mm') }
-        $Workloads = @()
-        $Workloads = $item | Select-Object -ExpandProperty AffectedWorkloadDisplaynames
-        if (!($Workloads)) { $Workloads = "General" }
-        $workloads = $workloads -join "</br>"
-        $rptMsgRecentTable += "<div class='tableInc-row'>`n`t"
-        $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($Workloads)</div>`n`t"
-        $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($item.Severity)</div>`n`t"
-        $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($item.Category)</div>`n`t"
-        #Build advisory and get link
-        $link = Get-AdvisoryInHTML $item $RebuildDocs $pathHTMLDocs
-        $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($item.ID)</div>`n`t"
-        if ($link) { $rptMsgRecentTable += "<div class='tableInc-cell-l'><a href='$($link)' target='_blank'>$($item.title)</a></div>`n`t" }
-        else { $rptMsgRecentTable += "<div class='tableInc-cell-l'>$($item.title)</div>`n`t" }
-        $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($LastUpdated)</div>`n`t"
-        $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($MilestoneDate)</div>`n`t"
-        if ($item.ActionRequiredByDate) {
-            $ActionRequiredByDate = $(Get-Date $item.ActionRequiredByDate -f 'dd-MMM-yyyy HH:mm')
-            $action = (New-TimeSpan -Start $(Get-Date) -End (Get-Date $item.ActionRequiredByDate)).TotalDays
-            switch ($action) {
-                { $_ -ge 0 -and $_ -lt 7 } { $actionStyle = "style=border:none;font-weight:bold;color:red" }
-                { $_ -ge 7 -and $_ -lt 14 } { $actionStyle = "style=border:none;color:red" }
-                { $_ -ge 14 -and $_ -lt 21 } { $actionStyle = "style=border:none;color:blue" }
-                default { $actionStyle = "style=border:none;" }
+
+if ($intRecentMess -ge 1) {
+    $rptSectionOneThree = "<div class='section'><div class='header'>Updated messages in the past $($intRecentMess) days</div>`n"
+    $rptSectionOneThree += "<div class='content'>`n"
+    $dtmRecentMess = (get-date).AddDays(-$intRecentMess)
+    #Messages
+    [array]$MsgRecent = @()
+    [array]$rptMsgRecentTable = @()
+    $MsgRecent = $allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and (get-date $_.StartTime) -ge (get-date $dtmRecentMess)) } | Sort-Object LastUpdatedTime -Descending
+    if ($MsgRecent.count -ge 1) {
+        $rptMsgRecentTable += "<div class='tableInc'>`n"
+        $rptMsgRecentTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-dt'>Feature</div>`n`t<div class='tableInc-header-dt'>Severity</div>`n`t<div class='tableInc-header-dt'>Category</div>`n`t<div class='tableInc-header-dt'>ID</div>`n`t<div class='tableInc-header-l'>Title</div>`n`t<div class='tableInc-header-dt'>Updated</div>`n`t<div class='tableInc-header-dt'>Milestone</div>`n`t<div class='tableInc-header-dt'>Action Rqd By</div>`n</div>`n"
+        foreach ($item in $MsgRecent) {
+            if ($item.LastUpdatedTime) { $LastUpdated = $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') }
+            if ($item.MilestoneDate) { $MilestoneDate = $(Get-Date $item.MilestoneDate -f 'dd-MMM-yyyy HH:mm') }
+            $Workloads = @()
+            $Workloads = $item | Select-Object -ExpandProperty AffectedWorkloadDisplaynames
+            if (!($Workloads)) { $Workloads = "General" }
+            $workloads = $workloads -join "</br>"
+            $rptMsgRecentTable += "<div class='tableInc-row'>`n`t"
+            $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($Workloads)</div>`n`t"
+            $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($item.Severity)</div>`n`t"
+            $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($item.Category)</div>`n`t"
+            #Build advisory and get link
+            $link = Get-AdvisoryInHTML $item $RebuildDocs $pathHTMLDocs
+            $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($item.ID)</div>`n`t"
+            if ($link) { $rptMsgRecentTable += "<div class='tableInc-cell-l'><a href='$($link)' target='_blank'>$($item.title)</a></div>`n`t" }
+            else { $rptMsgRecentTable += "<div class='tableInc-cell-l'>$($item.title)</div>`n`t" }
+            $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($LastUpdated)</div>`n`t"
+            $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($MilestoneDate)</div>`n`t"
+            if ($item.ActionRequiredByDate) {
+                $ActionRequiredByDate = $(Get-Date $item.ActionRequiredByDate -f 'dd-MMM-yyyy HH:mm')
+                $action = (New-TimeSpan -Start $(Get-Date) -End (Get-Date $item.ActionRequiredByDate)).TotalDays
+                switch ($action) {
+                    { $_ -ge 0 -and $_ -lt 7 } { $actionStyle = "style=border:none;font-weight:bold;color:red" }
+                    { $_ -ge 7 -and $_ -lt 14 } { $actionStyle = "style=border:none;color:red" }
+                    { $_ -ge 14 -and $_ -lt 21 } { $actionStyle = "style=border:none;color:blue" }
+                    default { $actionStyle = "style=border:none;" }
+                }
             }
+            $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($ActionRequiredByDate)</div>`n"
+            $rptMsgRecentTable += "</div>`n"
         }
-        $rptMsgRecentTable += "<div class='tableInc-cell-dt'>$($ActionRequiredByDate)</div>`n"
-        $rptMsgRecentTable += "</div>`n"
     }
+    else {
+        $rptMsgRecentTable = "<div class='tableInc'>`n"
+        $rptMsgRecentTable += "<div class='tableInc-title'>No 'Prevent/Fix Issues' Messages</div>`n"
+    }
+    $rptMsgRecentTable += "</div>`n"
+    $rptSectionOneThree += $rptMsgRecentTable
+    $rptSectionOneThree += "</div></div>`n"
+    $divOne += $rptSectionOneThree
 }
-else {
-    $rptMsgRecentTable = "<div class='tableInc'>`n"
-    $rptMsgRecentTable += "<div class='tableInc-title'>No 'Prevent/Fix Issues' Messages</div>`n"
-}
-$rptMsgRecentTable += "</div>`n"
-$rptSectionOneThree += $rptMsgRecentTable
-$rptSectionOneThree += "</div></div>`n"
-$divOne += $rptSectionOneThree
 
 #Get All workload status
 [array]$rptWorkloadStatusTable = @()
@@ -964,12 +983,14 @@ $rptSectionFourOne += "<div class='content'>`n"
 #Prevent or fix issues
 [array]$MessagesFix = @()
 [array]$rptMessagesFixTable = @()
-$MessagesFix = $allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and $_.category -like 'Prevent or Fix Issues') } | Sort-Object MilestoneDate -Descending
+$MessagesFix = $allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and $_.category -like 'Prevent or Fix Issues') } | Sort-Object LastUpdatedTime -Descending
 if ($MessagesFix.count -ge 1) {
     $rptMessagesFixTable += "<div class='tableInc'>`n"
     #    $rptMessagesFixTable += "<div class='tableInc-title'>Closed Incidents</div>`n"
     $rptMessagesFixTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-dt'>Feature</div>`n`t<div class='tableInc-header-dt'>Severity</div>`n`t<div class='tableInc-header-dt'>Action</div>`n`t<div class='tableInc-header-dt'>ID</div>`n`t<div class='tableInc-header-l'>Title</div>`n`t<div class='tableInc-header-dt'>Milestone</div>`n<div class='tableInc-header-dt'>Action Rqd By</div>`n</div>`n"
     foreach ($item in $MessagesFix) {
+        $LastUpdated = $null
+        $MilestoneDate = $null
         if ($item.LastUpdatedTime) { $LastUpdated = $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') }
         if ($item.MilestoneDate) { $MilestoneDate = $(Get-Date $item.MilestoneDate -f 'dd-MMM-yyyy HH:mm') }
         $Workloads = @()
@@ -1021,7 +1042,7 @@ $rptSectionFourTwo += "<div class='content'>`n"
 #Some PFC articles have no milestone.
 $rptMessagesPFCTable = "<div class='tableInc'>`n"
 
-$MessagesPFC = $allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and $_.category -like 'Plan for Change') }
+$MessagesPFC = $allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and $_.category -like 'Plan for Change') } | Sort-Object LastUpdatedTime -Descending
 foreach ($item in $MessagesPFC) {
     if (!($item.properties.name -contains 'MileStoneDate')) { $MilestoneDate = $item.EndTime }
 }
@@ -1078,11 +1099,13 @@ $rptSectionFourThree += "<div class='content'>`n"
 #Remaining message center messages
 [array]$HistoryMessages = @()
 [array]$rptMessagesTable = @()
-$HistoryMessages = $allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and $_.category -notlike 'Plan for Change' -and $_.category -notlike 'Prevent or Fix Issues') } | Sort-Object MilestoneDate -Descending
+$HistoryMessages = $allMessages | Where-Object { ($_.messagetype -like 'MessageCenter' -and $_.category -notlike 'Plan for Change' -and $_.category -notlike 'Prevent or Fix Issues') } | Sort-Object LastUpdatedTime -Descending
 $rptMessagesTable = "<div class='tableInc'>`n"
 if ($HistoryMessages.count -ge 1) {
-    $rptMessagesTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-dt'>Feature</div>`n`t<div class='tableInc-header-dt'>Category</div>`n`t<div class='tableInc-header-dt'>Severity</div>`n`t<div class='tableInc-header-dt'>ID</div>`n`t<div class='tableInc-header-l'>Title</div>`n`t<div class='tableInc-header-dt'>Milestone</div>`n</div>`n"
+    $rptMessagesTable += "<div class='tableInc-header'>`n`t<div class='tableInc-header-dt'>Feature</div>`n`t<div class='tableInc-header-dt'>Category</div>`n`t<div class='tableInc-header-dt'>Severity</div>`n`t<div class='tableInc-header-dt'>ID</div>`n`t<div class='tableInc-header-l'>Title</div>`n`t<div class='tableInc-header-dt'>Updated</div>`n</div>`n"
     foreach ($item in $HistoryMessages) {
+        $MilestoneDate = $null
+        $LastUpdated = $null
         if ($item.LastUpdatedTime) { $LastUpdated = $(Get-Date $item.LastUpdatedTime -f 'dd-MMM-yyyy HH:mm') }
         if ($item.MilestoneDate) { $MilestoneDate = $(Get-Date $item.MilestoneDate -f 'dd-MMM-yyyy HH:mm') }
         $Workloads = @()
@@ -1097,7 +1120,7 @@ if ($HistoryMessages.count -ge 1) {
         $rptMessagesTable += "<div class='tableInc-cell-dt'>$($item.ID)</div>`n`t"
         if ($link) { $rptMessagesTable += "<div class='tableInc-cell-l'><a href='$($link)' target='_blank'>$($item.title)</a></div>`n`t" }
         else { $rptMessagesTable += "<div class='tableInc-cell-l'>$($item.title)</div>`n`t" }
-        $rptMessagesTable += "<div class='tableInc-cell-dt'>$($MilestoneDate)</div>`n"
+        $rptMessagesTable += "<div class='tableInc-cell-dt'>$($LastUpdated)</div>`n"
         $rptMessagesTable += "</div>`n"
     }
 }

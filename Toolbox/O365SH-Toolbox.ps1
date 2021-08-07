@@ -404,209 +404,6 @@ $($scriptRuntime)
     $htmlReport | Out-File "$($pathHTML)\$($HTMLOutput)"
 }
 
-#Diagnostics
-#Get the CRL endpoints and check they are valid
-#shout out to Aaron at undocumentedfeatures.com for his AAD Connect test tool
-# Test Online Networking Only
-#For testing there are options: Full tests, include client script (download and run from client)
-function OnlineEndPoints {
-    Param(
-        [Parameter(Mandatory = $true)] [boolean]$diagWeb,
-        [Parameter(Mandatory = $true)] [boolean]$diagPorts,
-        [Parameter(Mandatory = $true)] [boolean]$diagURLs
-
-    )
-    $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting Online Endpoints tests.</p><br/>"
-    #See https://support.office.com/en-us/article/office-365-urls-and-ip-address-ranges-8548a211-3fe7-47cb-abb1-355ea5aa88a2
-    $CRL = @(
-        "http://ocsp.msocsp.com",
-        "http://crl.microsoft.com/pki/crl/products/microsoftrootcert.crl",
-        "http://mscrl.microsoft.com/pki/mscorp/crl/msitwww2.crl",
-        "http://ocsp.verisign.com",
-        "http://ocsp.entrust.net"
-    )
-    $RequiredResources = @(
-        "adminwebservice.microsoftonline.com",
-        "adminwebservice-s1-co2.microsoftonline.com",
-        "login.microsoftonline.com",
-        "provisioningapi.microsoftonline.com",
-        "login.windows.net",
-        "secure.aadcdn.microsoftonline-p.com",
-        "management.core.windows.net",
-        "bba800-anchor.microsoftonline.com",
-        "graph.windows.net",
-        "aadcdn.msauth.net",
-        "aadcdn.msftauth.net",
-        "ccscdn.msauth.net",
-        "ccscdn.msftauth.net"
-    )
-    $RequiredResourcesEndpoints = @(
-        "https://adminwebservice.microsoftonline.com/provisioningservice.svc",
-        "https://adminwebservice-s1-co2.microsoftonline.com/provisioningservice.svc",
-        "https://login.microsoftonline.com",
-        "https://provisioningapi.microsoftonline.com/provisioningwebservice.svc",
-        "https://login.windows.net",
-        "https://secure.aadcdn.microsoftonline-p.com/ests/2.1.5975.9/content/cdnbundles/jquery.1.11.min.js"
-    )
-    $OptionalResources = @(
-        "management.azure.com",
-        "policykeyservice.dc.ad.msft.net",
-        "s1.adhybridhealth.azure.com",
-        "autoupdate.msappproxy.net",
-        "adds.aadconnecthealth.azure.com",
-        "enterpriseregistration.windows.net" # device registration
-    )
-    $OptionalResourcesEndpoints = @(
-        "https://policykeyservice.dc.ad.msft.net/clientregistrationmanager.svc",
-        "https://device.login.microsoftonline.com" # Hybrid device registration
-    )
-    $SeamlessSSOEndpoints = @(
-        "autologon.microsoftazuread-sso.com",
-        "aadg.windows.net.nsatc.net",
-        "0.register.msappproxy.net",
-        "0.registration.msappproxy.net",
-        "proxy.cloudwebappproxy.net"
-    )
-    # Use the AdditionalResources array to specify items that need a port test on a port other
-    # than 80 or 443.
-    $AdditionalResources = @(
-        "watchdog.servicebus.windows.net:5671")
-
-    if ($diagWeb) {
-        # CRL Endpoint tests
-        $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Starting CRL Endpoint Tests (Invoke-WebRequest)</p><br/>"
-        foreach ($url in $CRL) {
-            $rptTests += checkURL $url $diagVerbose $proxyServer $proxyHost $false
-        } # End Foreach CRL
-
-        # Required Resources Endpoints tests
-        $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Required Resources Endpoints (Invoke-WebRequest).</p><br/>"
-        foreach ($url in $RequiredResourcesEndpoints) {
-            $rptTests += checkURL $url $diagVerbose $proxyServer $proxyHost $false
-        } # End Foreach RequiredResourcesEndpoints
-	
-        # Optional Resources Endpoints tests
-        $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Optional Resources Endpoints (Invoke-WebRequest).</p><br/>"
-        foreach ($url in $OptionalResourcesEndpoints) {
-            $rptTests += checkURL $url $diagVerbose $proxyServer $proxyHost $false
-        } # End Foreach RequiredResourcesEndpoints
-    } #End web tests
-
-    # Required Resource tests
-    if ($diagPorts) {
-        $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Required Resources (TCP:443) DNS Resolution may fail from clients.</p><br/>"
-        foreach ($url in $RequiredResources) {
-            try { [array]$ResourceAddresses = (Resolve-DnsName $url -ErrorAction stop -QuickTimeout).IP4Address }
-            catch { $ErrorMessage = $_; $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to resolve host URL $($url).</p><br/>"; Continue }
-            foreach ($ip4 in $ResourceAddresses) {
-                try {
-                    $Result = Test-NetConnection $ip4 -Port 443 -ea stop -wa silentlycontinue -InformationLevel Quiet
-                    switch ($Result) {
-                        true { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>TCP connection to $($url) [$($ip4)]:443 success.</p><br/>" }
-                        false { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>TCP connection to $($url) [$($ip4)]:443 failed.</p><br/>" }
-                    }
-                }
-                catch {
-                    $ErrorMessage = $_
-                    $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Error resolving or connecting to $($url) [$($ip4)]:443</p><br/>"
-                    $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>$($ErrorMessage)</p><br/>"
-                }
-            } 
-        } # End Foreach Resources
-
-        # Option Resources tests
-        $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Optional Resources (TCP:443) DNS Resolution may fail from clients.</p><br/>"
-        foreach ($url in $OptionalResources) {
-            try { [array]$ResourceAddresses = (Resolve-DnsName $url -ErrorAction stop -QuickTimeout).IP4Address }
-            catch { $ErrorMessage = $_; $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Unable to resolve host URL $($url).</p><br/>"; Continue }
-		
-            foreach ($ip4 in $ResourceAddresses) {
-                try {
-                    $Result = Test-NetConnection $ip4 -Port 443 -ea stop -wa silentlycontinue -InformationLevel Quiet
-                    switch ($Result) {
-                        true { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>TCP connection to $($url) [$($ip4)]:443 success.</p><br/>" }
-                        false {
-                            $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>TCP connection to $($url) [$($ip4)]:443 failed.</p><br/>"
-                        }
-                    }
-                }
-                catch {
-                    $ErrorMessage = $_
-                    $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Error resolving or connecting to $($url) [$($ip4)]:443</p><br/>"
-                    $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>$($ErrorMessage)</p><br/>"
-                }
-            }
-        } # End Foreach OptionalResources
-
-
-        # Seamless SSO Endpoints
-        $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Seamless SSO Endpoints (TCP:443) DNS Resolution may fail from clients.</p><br/>"
-        foreach ($url in $SeamlessSSOEndpoints) {
-            try { [array]$ResourceAddresses = (Resolve-DnsName $url -ErrorAction stop -QuickTimeout).IP4Address }
-            catch { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Unable to resolve host URL $($url).</p><br/>"; Continue }
-		
-            foreach ($ip4 in $ResourceAddresses) {
-                try {
-                    $Result = Test-NetConnection $ip4 -Port 443 -ea stop -wa silentlycontinue -InformationLevel Quiet
-                    switch ($Result) {
-                        true { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>TCP connection to $($url) [$($ip4)]:443 success.</p><br/>" }
-                        false { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>TCP connection to $($url) [$($ip4)]:443 failed.</p><br/>" }
-                    }
-                }
-                catch {
-                    $ErrorMessage = $_
-                    $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>Error resolving or connecting to $($url) [$($ip4)]:443</p><br/>"
-                    $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='error'>$($ErrorMessage)</p><br/>"
-				
-                }
-            }
-        } # End Foreach Resources
-
-        # Additional Resources tests
-        $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Testing Additional Resources Endpoints (Resolve-DNS; Test-NetConnection).</p><br/>"
-        If ($AdditionalResources) {
-            foreach ($url in $AdditionalResources) {
-                if ($url -match "\:") {
-                    $Name = $url.Split(":")[0]
-                    try { [array]$Resources = (Resolve-DnsName $Name -ErrorAction stop -QuickTimeout).IP4Address }
-                    catch { $ErrorMessage = $_; $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Unable to resolve host $($Name).</p><br/>"; Continue }
-				
-                    #[array]$Resources = (Resolve-DnsName $Name).Ip4Address
-                    $ResourcesPort = $url.Split(":")[1]
-                }
-                Else {
-                    $Name = $url
-                    try { [array]$Resources = (Resolve-DnsName $Name -ErrorAction stop -QuickTimeout).IP4Address }
-                    catch { $ErrorMessage = $_; $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Unable to resolve host URL $($url).</p><br/>"; Continue }
-				
-                    #[array]$Resources = (Resolve-DnsName $Name).IP4Address
-                    $ResourcesPort = "443"
-                }
-                foreach ($ip4 in $Resources) {
-                    try {
-                        $Result = Test-NetConnection $ip4 -Port $ResourcesPort -ea stop -wa silentlycontinue -InformationLevel Quiet
-                        switch ($Result) {
-                            true { $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='info'>TCP connection to $($Name) [$($ip4)]:$($ResourcesPort) success.</p><br/>" }
-                            false {
-                                $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>TCP connection to $($Name) [$($ip4)]:$($ResourcesPort) failed.</p><br>"
-							
-                                If ($DebugLogging) { }
-                            }
-                        }
-                    }
-                    catch {
-                        $ErrorMessage = $_
-                        $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>Error resolving or connecting to $($Name) [$($ip4)]:$($ResourcesPort)</p><br/>"
-                        $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='warning'>$($ErrorMessage)</p><br/>"
-                    }
-                } # End ForEach ip4
-            } # End ForEach AdditionalResources
-        } # End IF AdditionalResources
-    }
-    $rptTests += "[$(Get-Date -f 'dd-MMM-yy HH:mm:ss')] <p class='section'>Finished Online Endpoints tests.</p><br/>"
-    return $rptTests
-} # End Function OnlineEndPoints
-
 #https://docs.microsoft.com/en-gb/azure/active-directory/users-groups-roles/licensing-service-plan-reference
 
 $SkuNames = @{
@@ -946,7 +743,9 @@ $SkuNames = @{
     "Content_Explorer"                            = "Content Explorer"
     "GRAPH_CONNECTORS_SEARCH_INDEX"               = "Graph Connectors Search with Index"
     "MICROSOFT_COMMUNICATION_COMPLIANCE"          = "M365 Communication Compliance"
-
+    "MIP_S_Exchange"                              = "Information Protection for Office 365 - Standard"
+    "MCOCAP"                                      = "Common Area Phone"
+    "MEETING_ROOM"                                = "Microsoft Teams Rooms Standard"
 }
 
 
@@ -1211,6 +1010,7 @@ if (($version.latest -gt $lastVersion) -or ($null -like $currentData) -or $fileM
         $change | Add-Member -MemberType NoteProperty -Name remove -Value $_.remove
         $allChanges += $change
     }
+    $changes=$changes | sort-object ID
     #Index of changes
     $flatChangesIDX = $changes | ForEach-Object {
         $changeSet = $_
@@ -1574,8 +1374,7 @@ if ($diagURLs -and $diagEnabled) {
 
 #Start Building the Pages
 #Build Div1
-if ($miscDiagsEnabled) { $rptWebTests = OnlineEndPoints $diagWeb $diagPorts $diagURLs }
-#$rptWebTests = ""
+$rptWebTests = ""
 
 $rptSectionOneOne = "<div class='section'><div class='header'>Office 365 Message Data</div>`n"
 $rptSectionOneOne += "<div class='content'>`n"
@@ -1598,17 +1397,6 @@ $rptSectionOneTwo += "</div></div>`n"
 
 $divOne += $rptSectionOneTwo
 
-$rptSectionOneThree = "<div class='section'><div class='header'>Diagnostics - Misc URL/Ports</div>`n"
-$rptSectionOneThree += "<div class='content'>`n"
-if ($miscDiagsEnabled) {
-    $rptSectionOneThree += "$($rptWebTests)" 
-}
-else { 
-    $rptSectionOneThree += "Diagnostics disabled. To show, enable in the configuration file $($configXML): MiscDiagnostics.Enabled = true" 
-}
-$rptSectionOneThree += "</div></div>`n"
-
-$divOne += $rptSectionOneThree
 
 #Build Div2
 $rptSectionTwoOne = "<div class='section'><div class='header'>Licences</div>`n"
@@ -1953,7 +1741,7 @@ BuildHTML $rptTitle $divOne $divTwo $divThree $divFour $divFive $divLast $swScri
 #Check if .css file exists in HTML file destination
 if (!(Test-Path "$($pathHTML)\$($cssfile)")) {
     Write-Log "Copying O365Health.css to directory $($pathHTML)"
-    Copy-Item ".\O365Health.css" -Destination "$($pathHTML)"
+    Copy-Item "..\common\O365Health.css" -Destination "$($pathHTML)"
 }
 
 if ($RebuildClientDiags) {
