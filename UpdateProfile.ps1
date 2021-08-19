@@ -20,7 +20,7 @@
     Email:   jonathan.christie (at) boilerhouseit.com
     Date:    02 Feb 2019
     PSVer:   2.0/3.0/4.0/5.0
-    Version: 1.0.6
+    Version: 1.0.8
     Updated:
     UpdNote:
 
@@ -75,6 +75,8 @@ if (Test-Path $configXML) {
 
     MonitorAlertsTo        = [string[]]$xmlExisting.Settings.Monitor.alertsTo
     MonitorEvtSource       = $xmlExisting.Settings.Monitor.EventSource
+    MonitorIgnoreSvc       = [string[]]$xmlExisting.Settings.Monitor.IgnoreSvc
+    MonitorIgnoreInc       = [string[]]$xmlExisting.Settings.Monitor.IgnoreInc
 
     WallReportName         = $xmlExisting.Settings.WallDashboard.Name
     WallHTML               = $xmlExisting.Settings.WallDashboard.HTMLFilename
@@ -91,6 +93,7 @@ if (Test-Path $configXML) {
     DashboardLogo          = $xmlExisting.Settings.Dashboard.Logo
     DashboardAddLink       = $xmlExisting.Settings.Dashboard.AddLink
     DashboardHistory       = $xmlExisting.Settings.Dashboard.History
+    DashboardRecMsgs       = $xmlExisting.Settings.Dashboard.RecentMsgs
 
     UsageReportsPath       = $xmlExisting.Settings.UsageReports.Path
     UsageEventSource       = $xmlExisting.Settings.UsageReports.EventSource
@@ -150,6 +153,7 @@ if (Test-Path $configXML) {
   #set output file
 
   #Set Defaults
+  if ([string]::IsNullOrEmpty($appSettings.DashboardRecMsgs)) { $appSettings.DashboardRecMsgs = "7" }
   if ([string]::IsNullOrEmpty($appSettings.UseEventLog)) { $appSettings.UseEventLog = "false" }
   if ([string]::IsNullOrEmpty($appSettings.EmailEnabled)) { $appSettings.EmailEnabled = "false" }
   if ([string]::IsNullOrEmpty($appSettings.ToolboxHTML)) { $appSettings.ToolboxHTML = "O365Toolbox.HTML" }
@@ -217,6 +221,10 @@ if (Test-Path $configXML) {
     <alertsTo>$($appSettings.MonitorAlertsTo)</alertsTo>
     <!-- Events source to use when logging to the event log-->
     <EventSource>$($appSettings.MonitorEvtSource)</EventSource>
+    <!-- Ignore the following Services (from Workload list, feature list) Comma separated quoted list -->
+    <IgnoreSvc>$($appSettings.MonitorIgnoreSvc)</IgnoreSvc>
+    <!-- Ignore the following Workload Incidents (from Incidents list, monitor alerts) Comma separated quoted list  -->
+    <IgnoreInc>$($appSettings.MonitorIgnoreInc)</IgnoreInc>
   </Monitor>
   <WallDashboard>
     <Name>$($appSettings.WallReportName)</Name>
@@ -243,6 +251,7 @@ if (Test-Path $configXML) {
     <AddLink>$($appSettings.DashboardAddLink)</AddLink>
     <!-- Duration to show incidents recently closed (in days)-->
     <History>$($appSettings.DashboardHistory)</History>
+    <RecentMsgs>$($appSettings.DashboardRecMsgs)</RecentMsgs>
   </Dashboard>
   <UsageReports>
     <!-- Where to store the Office 365 Usage Reports (CSV)-->

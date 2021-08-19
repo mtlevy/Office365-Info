@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- Build date 24-Feb-2021 21:19:09 -->
+<!-- Build date 19-Aug-2021 22:10:23 -->
 <Settings>
   <Tenant>
     <!-- Basic tenant information. Shortname is used in filenames to help identify tenants-->
@@ -79,7 +79,6 @@
     <AddLink></AddLink>
     <!-- Duration to show incidents recently closed (in days)-->
     <History>3</History>
-    <!-- Show Messages from the past x days (0 to hide)-->
     <RecentMsgs>7</RecentMsgs>
   </Dashboard>
   <UsageReports>
