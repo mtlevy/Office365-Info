@@ -89,6 +89,7 @@ $config = LoadConfig $configXML
 [string[]]$MonitorAlertsTo = $config.MonitorAlertsTo
 [string]$emailClosedBgd = "WhiteSmoke"
 [string]$pathWorking = $config.WorkingPath
+[string]$teamsenabled = $config.TeamsEnabled
 
 #Ignore the Services and Incidents
 [array]$ignStatus = $config.MonitorIgnoreSvc
@@ -254,7 +255,7 @@ if (($null -eq $allMessages) -or ($allMessages.Count -eq 0)) {
 
 }
 else {
-    $allmessages = $allMessages | ? { $_.WorkloadDisplayName -notin $ignIncidents }
+    $allmessages = $allMessages | Where-Object { $_.WorkloadDisplayName -notin $ignIncidents }
     $evtMessage = "$($allMessages.count) messages returned."
     Write-Log $evtMessage
 }
@@ -292,6 +293,7 @@ if ($newIncidents.count -ge 1) {
             if ($hostURL -ne '') { $mailMessage += "<a href=$($hostURL)/docs/$($item.id).html target=_blank>Full details will be logged here</a>" }
             $emailSubject = "New $($item.Severity) $($item.Classification): $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
             if ($MonitorAlertsTo -and $emailEnabled) { SendEmail $mailMessage $EmailCreds $config $emailPriority $emailSubject $MonitorAlertsTo }
+            if ($TeamsEnabled) { TeamsPost $config $item }            
             $evtMessage = $mailMessage.Replace("<br/>", "`r`n")
             $evtMessage = $evtMessage.Replace("<b>", "")
             $evtMessage = $evtMessage.Replace("</b>", "")

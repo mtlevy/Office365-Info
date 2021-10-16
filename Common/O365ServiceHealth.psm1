@@ -207,6 +207,15 @@ function LoadConfig {
         ProxyIgnoreSSL      = $configFile.Settings.Proxy.IgnoreSSL
 
         Blogs               = ($configFile.Settings.Blogs).InnerXML
+        TeamsEnabled        = $configFile.Settings.Teams.TeamsEnabled
+        TeamsURI            = $configFile.Settings.Teams.TeamsURI
+
+        OohEnabled          = $ConfigFile.Settings.OutOfHours.OohEnabled
+        OohAlertsTo         = $ConfigFile.Settings.OutOfHours.OohAlertsTo
+        OohMorningStart     = $ConfigFile.Settings.OutOfHours.OohMorningStart
+        OohMorningEnd       = $ConfigFile.Settings.OutOfHours.OohMorningEnd
+        OohEveningStart     = $ConfigFile.Settings.OutOfHours.OohEveningStart
+        OohEveningEnd       = $ConfigFile.Settings.OutOfHours.OohEveningEnd
 
     }
     return $appSettings
@@ -554,6 +563,28 @@ function SendEmail {
     [array]$strTo = $emailTo.Split(",")
     $strTo = $strTo.replace('"', '')
     if ($null -eq $config.EmailFrom) { break; }
+
+    # Add OUt of hours contact if enabled
+    if ($config.OohEnabled =eq $true)
+    {
+        $day = (get-date).DayOfWeek
+        $time = get-date
+
+        #If ($day -eq 'Saturday' -or $day -eq 'Sunday' -or $day -eq 'Monday') #Bank Holiday
+        If ($day -eq 'Saturday' -or $day -eq 'Sunday')
+        {
+            $strTo += $Config.OohEmailTo
+        }
+        elseif ($time.timeofday -ge $Config.OohMorningStart -and $time.timeofday -le $Config.OohMorningEnd)
+        {
+            $strTo += $Config.OohEmailTo
+        }
+        elseif ($time.timeofday -ge $Config.OohEveningStart -and $time.timeofday -le $Config.OohEveningEnd)
+        {
+            $strTo += $Config.OohEmailTo
+        }
+    }
+
     #Splat the parameters
     $params = @{ }
     $params += @{to = $strTo; subject = $strSubject; body = $strHTMLBody; BodyAsHTML = $true; priority = $strPriority; from = $config.emailfrom; smtpServer = $config.EmailHost; port = $config.emailport }
@@ -770,4 +801,78 @@ function GetSchedEmailTo {
     Write-Log "The following will be emailed: $($strEmail2)"
 
     return $strEmail
+}
+
+function TeamsPost {
+    param (
+		[Parameter(Mandatory = $true)] $config,
+        [Parameter(Mandatory = $true)] [array]$item
+      )
+
+# Target URI for the Teams channel (Messaging Operations\O365 Alerts)
+$uri = $config.TeamsURI
+$DashboardURL = $config.hosturl + "/" + $config.DashboardHTML
+# create the JSON file with your message
+$body = ConvertTo-Json -Depth 4 @{
+    title = "Office 365 [$($config.tenantshortname)]: New $($item.Severity) $($item.Classification): $($item.WorkloadDisplayName) - $($item.Status) [$($item.ID)]"
+    text = "Alert [$(Get-Date -f 'dd-MMM-yyy HH:mm:ss')]"
+    themecolor = "FF0000" 
+    sections = @(
+         @{
+            title = 'Incident Details'
+            facts = @(
+                @{
+                name = 'ID:'
+                value = $item.id
+                },
+                @{
+                name = 'Tenant:'
+                value = $config.tenantshortname
+                },
+                @{
+                name = 'Feature:'
+                value = $item.WorkloadDisplayName
+                },
+                @{
+                name = 'Status:'
+                value = $item.status
+                },
+                @{
+                name = 'Severity:'
+                value = $item.severity
+                },
+                @{
+                name = 'Classification:'
+                value = $item.classification
+                },
+                @{
+                name = 'Start Time:'
+                value = $(Get-Date $item.StartTime -f 'dd-MMM-yyyy HH:mm')
+                },
+                @{
+                name = 'Last Updated:'
+                value = $item.LastUpdatedTime
+                },
+                @{
+                name = 'End Time:'
+                value = $item.EndTime
+                },
+                @{
+                name = 'Incident Title:'
+                value = $item.title
+                }
+     
+            )
+        }
+    )
+    potentialAction = @(@{
+        '@context' = 'http://schema.org'
+        '@type' = 'ViewAction'
+        name = 'Office 365 Incident Dashboard'
+        target = @("$dashboardurl")
+    })
+
+}
+# send message to Teams channel
+Invoke-RestMethod -uri $uri -Method Post -body $body -ContentType 'application/json' #-Proxy 'http://appproxy.rbsgrp.net:8080' #-ProxyCredential $creds
 }

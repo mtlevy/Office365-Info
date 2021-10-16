@@ -48,6 +48,7 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)] [String]$configXML = "..\config\profile-bhitprod.xml",
+    #[Parameter(Mandatory = $false)] [Switch]$RebuildDocs = $false
     [Parameter(Mandatory = $false)] [Switch]$RebuildDocs = $false
 )
 

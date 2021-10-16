@@ -186,4 +186,23 @@
   <Blogs>
 	<a href="https://techcommunity.microsoft.com/t5/Office-365-Blog/bg-p/Office365Blog">Office 365 Blog</a><br /><a href="https://status.azure.com/en-gb/status">Azure Status</a><br />
   </Blogs>
+  <Teams>
+    <!-- Teams settings if required-->
+    <!-- Use Teams values: true/false-->
+    <TeamsEnabled>false</TeamsEnabled>   
+    <!-- URI for Teams channel to post to -->
+    <TeamsURI></TeamsURI>
+  </Teams>
+  <OutOfHours>
+    <!-- Out Of Hours settings if required (eg Systems Operations Centre) -->
+    <!-- Use: true or false -->
+    <OohEnabled>false</OohEnabled>
+    <!-- Out of hours email -->
+    <OohAlertsTo>OutOfHours@domain.com</OohAlertsTo>
+    <!-- Out of hours times -->
+    <OohMorningStart>00:00</OohMorningStart>
+    <OohMorningEnd>07:59</OohMorningEnd>
+    <OohEveningStart>18:00</OohEveningStart>
+    <OohEveningEnd>23:59</OohEveningEnd>
+  </OutOfHours>
 </Settings>
